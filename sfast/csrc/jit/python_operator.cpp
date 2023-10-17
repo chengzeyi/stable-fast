@@ -86,9 +86,10 @@ void RegisterCustomPythonOperator(const std::string &schema,
         for (size_t i = 0; i < num_inputs; ++i) {
           if (inputs[i].isInt() && arguments[i].name() == "memory_format" &&
               arguments[i].type()->kind() == c10::TypeKind::IntType) {
-            auto memory_format = torch::utils::getTHPMemoryFormat(
-                static_cast<c10::MemoryFormat>(inputs[i].toInt()));
-            py_inputs[i] = py::handle(memory_format);
+            // auto memory_format = torch::utils::getTHPMemoryFormat(
+            //     static_cast<c10::MemoryFormat>(inputs[i].toInt()));
+            // py_inputs[i] = py::handle(memory_format);
+            py_inputs[i] = py::cast(static_cast<c10::MemoryFormat>(inputs[i].toInt()));
           } else {
             py_inputs[i] = toPyObject(inputs[i]);
           }
