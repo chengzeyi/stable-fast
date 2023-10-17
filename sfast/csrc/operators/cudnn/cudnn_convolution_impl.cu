@@ -1369,14 +1369,25 @@ public:
         act_backward, input, weight,
         bias.defined() ? bias.sizes() : c10::optional<IntArrayRef>(), stride,
         padding, dilation, transposed, output_padding, groups,
+#if 0
         std::array<bool, 3>({ctx->needs_input_grad(0), ctx->needs_input_grad(1),
-                             ctx->needs_input_grad(2)}));
+                             ctx->needs_input_grad(2)})
+#else
+        std::array<bool, 3>({true, true, true})
+#endif
+                             );
     auto grad_input = std::get<0>(conv_grads);
     auto grad_weight = std::get<1>(conv_grads);
     auto grad_bias = std::get<2>(conv_grads);
 
     Tensor grad_z;
-    if (!z_shape.empty() && ctx->needs_input_grad(3)) {
+    if (!z_shape.empty() &&
+#if 0
+      ctx->needs_input_grad(3)
+#else
+      true
+#endif
+    ) {
       float _alpha = alpha.has_value() ? alpha.value().to<float>() : 1.0f;
       if (_alpha == 0.0f) {
         grad_z = at::zeros(z_shape, act_backward.options());
