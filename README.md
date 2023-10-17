@@ -100,7 +100,7 @@ compiled_model = compile(model, config)
 
 kwarg_inputs = dict(
     prompt=
-    '(masterpiece:1,2), best quality, masterpiece,best detail face, lineart, monochrome, a sexy girl',
+    '(masterpiece:1,2), best quality, masterpiece, best detail face, lineart, monochrome, a beautiful girl',
     height=512,
     width=512,
     num_inference_steps=50,
