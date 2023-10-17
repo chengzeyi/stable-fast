@@ -109,7 +109,7 @@ model = load_model()
 
 config = CompilationConfig.Default()
 # xformers and triton are suggested for achieving best performance.
-# It might be slow for triton to generate, generate and fine-tune kernels.
+# It might be slow for triton to generate, compile and fine-tune kernels.
 try:
     import xformers
     config.enable_xformers = True
