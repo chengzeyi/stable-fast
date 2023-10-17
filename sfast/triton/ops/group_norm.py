@@ -1,5 +1,8 @@
 import torch
-from torch._prims_common import suggest_memory_format
+try:
+    from torch._prims_common import suggest_memory_format
+except ImportError:
+    from sfast.utils.memory_format import suggest_memory_format
 import triton
 import triton.language as tl
 from sfast.utils.copy_func import copy_func

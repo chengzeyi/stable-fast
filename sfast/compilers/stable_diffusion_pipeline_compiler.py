@@ -144,6 +144,7 @@ def compile(m, config):
 
                 m.controlnet.forward = controlnet_forward_wrapper
 
+            '''
             scheduler_scale_model_input = lazy_trace_(
                 to_module(m.scheduler.scale_model_input))
 
@@ -170,6 +171,7 @@ def compile(m, config):
                                             **kwargs)
 
             m.scheduler.step = scheduler_step_wrapper
+            '''
 
         return m
 

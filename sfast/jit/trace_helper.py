@@ -94,10 +94,8 @@ def hash_arg(arg):
     if isinstance(arg, (tuple, list)):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
-        return tuple(sorted((k, hash_arg(v)) for k, v in arg.items()))
-    else:
-        return None
-    return arg
+        return tuple(map(hash_arg, sorted((k, hash_arg(v)) for k, v in arg.items())))
+    return None
 
 
 class DictToDataClassConverter:

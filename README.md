@@ -16,12 +16,12 @@ __NOTE: `stable-fast` is only in beta stage and is prone to be buggy, feel free 
 - __CUDA Graph__: `stable-fast` can capture the UNet structure into CUDA Graph format, which can reduce the CPU overhead when the batch size is small.
 - __Fused Multihead Attention__: `stable-fast` just uses xformers and make it compatible with __TorchScript__.
 
-### Differences with other acceleration libraries?
+### Differences with other acceleration libraries
 
-- __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It acheives the best performance over all libries.
-- __Minimal__: `stable-fast` works as a plugin framework for `PyTorch`. it utilizes existing `PyTorch` functionalites and infrastructures and is compatible with other acceleration techniques, as well as popular fine-tuning techniques and deployment solutions.
+- __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves the best performance over all libraries.
+- __Minimal__: `stable-fast` works as a plugin framework for `PyTorch`. it utilizes existing `PyTorch` functionality and infrastructures and is compatible with other acceleration techniques, as well as popular fine-tuning techniques and deployment solutions.
 
-### Performance Comparation
+### Performance Comparison
 
 #### A100 SXM 80GB (SD v1.5, 512x512, fp16)
 
@@ -32,6 +32,16 @@ __NOTE: `stable-fast` is only in beta stage and is prone to be buggy, feel free 
 | TensorRT                                 | 52 it/s     |
 | OneFlow                                  | 55 it/s     |
 | __Stable Fast (with xformers & triton)__ | __60 it/s__ |
+
+#### RTX 3090 Ti (SD v1.5, 512x512, fp16)
+
+| Framework                                | Performance |
+| ---------------------------------------- | ----------- |
+| Vanilla PyTorch                          | 16 it/s     |
+| AITemplate                               | 38 it/s     |
+| TensorRT                                 | 38 it/s     |
+| OneFlow                                  | 42 it/s     |
+| __Stable Fast (with xformers & triton)__ | 36 it/s__ |
 
 ## Usage
 
@@ -98,7 +108,8 @@ def load_model():
 model = load_model()
 
 config = CompilationConfig.Default()
-# xformers and triton are suggested for achieving best performance
+# xformers and triton are suggested for achieving best performance.
+# It might be slow for triton to generate, generate and fine-tune kernels.
 try:
     import xformers
     config.enable_xformers = True
@@ -124,7 +135,7 @@ kwarg_inputs = dict(
     num_images_per_prompt=1,
 )
 
-# Warm it up! the first call will trigger compilation and might be slow!
+# Warm it up! the first call will trigger compilation and might be very slow!
 # After the first call, it should be very fast!
 output_image = compiled_model(**kwarg_inputs).images[0]
 
