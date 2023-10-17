@@ -16,7 +16,7 @@ __NOTE: `stable-fast` is only in beta stage and is prone to be buggy, feel free 
 - __CUDA Graph__: `stable-fast` can capture the UNet structure into CUDA Graph format, which can reduce the CPU overhead when the batch size is small.
 - __Fused Multihead Attention__: `stable-fast` just uses xformers and make it compatible with __TorchScript__.
 
-### Differences with other acceleration libraries
+### Differences With Other Acceleration Libraries
 
 - __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves the best performance over all libraries.
 - __Minimal__: `stable-fast` works as a plugin framework for `PyTorch`. it utilizes existing `PyTorch` functionality and infrastructures and is compatible with other acceleration techniques, as well as popular fine-tuning techniques and deployment solutions.
@@ -89,14 +89,11 @@ if packaging.version.parse(torch.__version__) >= packaging.version.parse('1.12.0
 ### Optimize StableDiffusionPipeline
 
 ```python
-import logging
 import torch
 from diffusers import StableDiffusionPipeline
 from sfast.compilers.stable_diffusion_pipeline_compiler import (compile,
                                                                 CompilationConfig
                                                                 )
-
-logger = logging.getLogger()
 
 def load_model():
     model = StableDiffusionPipeline.from_pretrained(
@@ -114,12 +111,12 @@ try:
     import xformers
     config.enable_xformers = True
 except ImportError:
-    logger.warning('xformers not installed, skip')
+    print('xformers not installed, skip')
 try:
     import triton
     config.enable_triton = True
 except ImportError:
-    logger.warning('triton not installed, skip')
+    print('triton not installed, skip')
 # CUDA Graph is suggested for small batch sizes.
 # After capturing, the model only accepts one fixed image size.
 # If you want the model to be dynamic, don't enable it.
