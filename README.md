@@ -135,8 +135,9 @@ kwarg_inputs = dict(
     num_images_per_prompt=1,
 )
 
-# Warm it up! the first call will trigger compilation and might be very slow!
-# After the first call, it should be very fast!
+# NOTE: Warm it up.
+# The first call will trigger compilation and might be very slow.
+# After the first call, it should be very fast.
 output_image = compiled_model(**kwarg_inputs).images[0]
 
 # Let's see the second call!
