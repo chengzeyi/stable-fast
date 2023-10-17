@@ -41,7 +41,7 @@ __NOTE: `stable-fast` is only in beta stage and is prone to be buggy, feel free 
 | AITemplate                               | 38 it/s     |
 | TensorRT                                 | 38 it/s     |
 | OneFlow                                  | 42 it/s     |
-| __Stable Fast (with xformers & triton)__ | 36 it/s__ |
+| __Stable Fast (with xformers & triton)__ | 38 it/s__ |
 
 ## Usage
 
