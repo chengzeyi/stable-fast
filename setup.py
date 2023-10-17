@@ -110,7 +110,7 @@ setup(
     name="stable-fast",
     version=get_version(),
     author="Cheng Zeyi",
-    url="https://github.com/chengzeyi/sfast",
+    url="https://github.com/chengzeyi/stable-fast",
     description="Stable Fast is an ultra lightweight performance optimization framework"
     " for Hugging Fase diffuser pipelines.",
     packages=find_packages(exclude=("configs", "tests*")),
