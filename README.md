@@ -57,7 +57,7 @@ __NOTE: `stable-fast` is currently only tested on Linux. You need to install PyT
 # https://developer.nvidia.com/cublas
 
 # Install PyTorch with CUDA and other packages at first
-pip install torch diffusers xformers triton
+pip install torch diffusers xformers 'triton>=2.1.0'
 
 # (Optional) Makes the build much faster
 pip install ninja
