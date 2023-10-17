@@ -38,9 +38,9 @@ __NOTE: `stable-fast` is only in beta stage and is prone to be buggy, feel free 
 | Framework                                | Performance |
 | ---------------------------------------- | ----------- |
 | Vanilla PyTorch                          | 16 it/s     |
-| AITemplate                               | 38 it/s     |
-| TensorRT                                 | 38 it/s     |
-| OneFlow                                  | 42 it/s     |
+| AITemplate                               | 31 it/s     |
+| TensorRT                                 | 33 it/s     |
+| OneFlow                                  | 39 it/s     |
 | __Stable Fast (with xformers & triton)__ | __38 it/s__ |
 
 ## Usage
