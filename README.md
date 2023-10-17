@@ -33,7 +33,7 @@
 __NOTE: `stable-fast` is currently only tested on Linux. You need to install PyTorch with CUDA support at first (version 1.12 - 2.1 is suggested).__
 
 ```bash
-# Install PyTorch with CUDA first
+# Install PyTorch with CUDA at first
 # pip3 install torch==x.x.x+cuxxx
 
 # Clone this repository.
