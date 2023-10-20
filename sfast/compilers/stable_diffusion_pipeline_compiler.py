@@ -39,13 +39,32 @@ def compile(m, config):
         scheduler.set_timesteps = set_timesteps.__get__(scheduler)
 
         if config.enable_xformers:
-            m.enable_xformers_memory_efficient_attention()
-
             if config.enable_jit:
                 from sfast.utils.xformers_attention import xformers_memory_efficient_attention
                 from xformers import ops
 
                 ops.memory_efficient_attention = xformers_memory_efficient_attention
+
+            m.enable_xformers_memory_efficient_attention()
+
+        '''
+        if config.enable_triton:
+            import sfast.triton.modules.patch as tm_patch
+            modules_to_patch = [
+                m.unet,
+                m.vae,
+                m.text_encoder,
+            ]
+            if hasattr(m, 'controlnet'):
+                modules_to_patch.append(m.controlnet)
+            for module in modules_to_patch:
+                tm_patch.patch_lora_compatible_conv(module)
+                tm_patch.patch_lora_compatible_linear(module)
+                # tm_patch.patch_conv2d(module)
+                # tm_patch.patch_linear(module)
+                # tm_patch.patch_group_norm_silu(module)
+                # tm_patch.patch_group_norm(module)
+        '''
 
         if config.memory_format == torch.channels_last:
             m.unet.to(memory_format=torch.channels_last)
@@ -79,11 +98,11 @@ def compile(m, config):
                 if enable_cuda_graph:
                     cuda_graphed_m = m
 
-                    def cuda_graphify(*args):
+                    def cuda_graphify(*args, **kwargs):
                         nonlocal cuda_graphed_m
 
                         logger.info('CUDA graphing...')
-                        cuda_graphed_m = simple_make_graphed_callable(m, args)
+                        cuda_graphed_m = simple_make_graphed_callable(m, args, kwargs)
 
                     call_helper(cuda_graphify)(*inputs, **kwarg_inputs)
                     m = cuda_graphed_m
@@ -144,35 +163,6 @@ def compile(m, config):
 
                 m.controlnet.forward = controlnet_forward_wrapper
 
-            '''
-            scheduler_scale_model_input = lazy_trace_(
-                to_module(m.scheduler.scale_model_input))
-
-            @functools.wraps(scheduler_scale_model_input)
-            def scheduler_scale_model_input_wrapper(sample, timestep):
-                # Make hash in lazy_trace work
-                timestep = timestep.item()
-                return scheduler_scale_model_input(sample, timestep)
-
-            m.scheduler.scale_model_input = scheduler_scale_model_input_wrapper
-
-            scheduler_step = m.scheduler.step
-            traced_scheduler_step = lazy_trace_(to_module(scheduler_step))
-
-            @functools.wraps(scheduler_step)
-            def scheduler_step_wrapper(model_output, timestep, *args,
-                                        **kwargs):
-                if kwargs.get('generator') is not None:
-                    return scheduler_step(model_output, timestep, *args,
-                                            **kwargs)
-                # Make hash in lazy_trace work
-                timestep = timestep.item()
-                return traced_scheduler_step(model_output, timestep, *args,
-                                            **kwargs)
-
-            m.scheduler.step = scheduler_step_wrapper
-            '''
-
         return m
 
 
@@ -186,14 +176,6 @@ def _modify_model(m,
 
     torch._C._jit_pass_inline(m.graph)
 
-    torch._C._jit_pass_custom_pattern_based_rewrite_graph(
-        '''
-graph(%1, %2, %3):
-    %x : Tensor = aten::dropout(%1, %2, %3)
-    return (%x)''', '''
-graph(%1, %2, %3):
-    return (%1)''', m.graph)
-
     passes.jit_pass_remove_contiguous(m.graph)
     passes.jit_pass_replace_view_with_reshape(m.graph)
     if enable_triton:
@@ -203,9 +185,6 @@ graph(%1, %2, %3):
 
         triton_passes.jit_pass_fuse_group_norm_silu(m.graph)
         triton_passes.jit_pass_optimize_group_norm(m.graph)
-    else:
-        passes.jit_pass_fuse_group_norm_silu(m.graph)
-        passes.jit_pass_prefer_mfp_group_norm(m.graph)
 
     passes.jit_pass_optimize_linear(m.graph)
 

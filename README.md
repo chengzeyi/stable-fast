@@ -18,30 +18,50 @@ __NOTE: `stable-fast` is only in beta stage and is prone to be buggy, feel free 
 
 ### Differences with other acceleration libraries
 
-- __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves the best performance over all libraries.
+- __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves a high performance across many libraries.
 - __Minimal__: `stable-fast` works as a plugin framework for `PyTorch`. it utilizes existing `PyTorch` functionality and infrastructures and is compatible with other acceleration techniques, as well as popular fine-tuning techniques and deployment solutions.
 
 ### Performance Comparison
 
-#### A100 SXM 80GB (SD v1.5, 512x512, fp16)
+Performance varies very greatly across different hardware/software/platform/driver configurations.
+It is very hard to benchmark accurately. And preparing the environment for benchmarking is also a hard job.
+I have tested on some platforms before but the results may still be inaccurate.
 
-| Framework                                | Performance |
-| ---------------------------------------- | ----------- |
-| Vanilla PyTorch                          | 23 it/s     |
-| AITemplate                               | 44 it/s     |
-| TensorRT                                 | 52 it/s     |
-| OneFlow                                  | 55 it/s     |
-| __Stable Fast (with xformers & triton)__ | __60 it/s__ |
+#### RTX 4090 (SD v1.5, 512x512, batch size 1, fp16, tcmalloc enabled)
 
-#### RTX 3090 Ti (SD v1.5, 512x512, fp16)
+| Framework                                | Performance   |
+| ---------------------------------------- | ------------- |
+| Vanilla PyTorch (2.1.0+cu118)            | 38.3 it/s     |
+| torch.compile (2.1.0+cu118, NHWC UNet)   | 48.9 it/s     |
+| AITemplate                               | 59.8 it/s     |
+| OneFlow                                  | 60.1 it/s     |
+| TensorRT                                 | coming soon   |
+| __Stable Fast (with xformers & triton)__ | __61.8 it/s__ |
 
-| Framework                                | Performance |
-| ---------------------------------------- | ----------- |
-| Vanilla PyTorch                          | 16 it/s     |
-| AITemplate                               | 31 it/s     |
-| TensorRT                                 | 33 it/s     |
-| OneFlow                                  | 39 it/s     |
-| __Stable Fast (with xformers & triton)__ | __38 it/s__ |
+#### RTX 3090 (SD v1.5, 512x512, batch size 1, fp16, tcmalloc enabled)
+
+| Framework                                | Performance   |
+| ---------------------------------------- | ------------- |
+| Vanilla PyTorch (2.1.0+cu118)            | 22.5 it/s     |
+| torch.compile (2.1.0+cu118, NHWC UNet)   | 25.3 it/s     |
+| AITemplate                               | 34.6 it/s     |
+| OneFlow                                  | 38.8 it/s     |
+| TensorRT                                 | coming soon   |
+| __Stable Fast (with xformers & triton)__ | __31.5 it/s__ |
+
+#### A100
+
+Sorry, currently A100 is hard and expensive to rent from cloud server providers in my region.
+
+Benchmark results will be available when I have the access to A100 again.
+
+### Compatibility
+
+| Model                                | Supported |
+| ------------------------------------ | --------- |
+| Hugging Face Diffusers (1.5/2.1)     | Yes       |
+| With ControlNet                      | Yes       |
+| With LoRA                            | Yes       |
 
 ## Usage
 
@@ -57,13 +77,13 @@ __NOTE: `stable-fast` is currently only tested on Linux. You need to install PyT
 # https://developer.nvidia.com/cublas
 
 # Install PyTorch with CUDA and other packages at first
-pip install torch diffusers xformers triton
+pip3 install torch diffusers xformers triton
 
 # (Optional) Makes the build much faster
-pip install ninja
+pip3 install ninja
 
 # Set TORCH_CUDA_ARCH_LIST if running and building on different GPU types
-pip install -v -U git+https://github.com/chengzeyi/stable-fast.git@main#egg=stable-fast
+pip3 install -v -U git+https://github.com/chengzeyi/stable-fast.git@main#egg=stable-fast
 # (this can take dozens of minutes)
 ```
 
@@ -91,7 +111,7 @@ if packaging.version.parse(torch.__version__) >= packaging.version.parse('1.12.0
 ```python
 import logging
 import torch
-from diffusers import StableDiffusionPipeline
+from diffusers import (StableDiffusionPipeline, EulerAncestralDiscreteScheduler)
 from sfast.compilers.stable_diffusion_pipeline_compiler import (compile,
                                                                 CompilationConfig
                                                                 )
@@ -101,6 +121,8 @@ logger = logging.getLogger()
 def load_model():
     model = StableDiffusionPipeline.from_pretrained(
         'runwayml/stable-diffusion-v1-5', torch_dtype=torch.float16)
+    model.scheduler = EulerAncestralDiscreteScheduler.from_config(
+        model.scheduler.config)
     model.safety_checker = None
     model.to(torch.device('cuda'))
     return model
@@ -108,6 +130,7 @@ def load_model():
 model = load_model()
 
 config = CompilationConfig.Default()
+
 # xformers and triton are suggested for achieving best performance.
 # It might be slow for triton to generate, generate and fine-tune kernels.
 try:
@@ -124,6 +147,7 @@ except ImportError:
 # After capturing, the model only accepts one fixed image size.
 # If you want the model to be dynamic, don't enable it.
 config.enable_cuda_graph = True
+
 compiled_model = compile(model, config)
 
 kwarg_inputs = dict(
@@ -131,7 +155,7 @@ kwarg_inputs = dict(
     '(masterpiece:1,2), best quality, masterpiece, best detail face, lineart, monochrome, a beautiful girl',
     height=512,
     width=512,
-    num_inference_steps=50,
+    num_inference_steps=30,
     num_images_per_prompt=1,
 )
 

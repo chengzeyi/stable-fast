@@ -31,7 +31,7 @@ def test_benchmark_sd15_model(sd15_model_path):
         sd15_model_path,
         kwarg_inputs=lambda: dict(
             prompt=
-            '(masterpiece:1,2), best quality, masterpiece, best detail face, realistic, unreal engine, a sexy girl',
+            '(masterpiece:1,2), best quality, masterpiece, best detail face, realistic, unreal engine, a beautiful girl',
             height=512,
             width=512,
             num_inference_steps=30,
@@ -64,7 +64,7 @@ def test_benchmark_sd15_model_with_controlnet(sd15_model_path,
         sd15_model_path,
         kwarg_inputs=lambda: dict(
             prompt=
-            '(masterpiece:1,2), best quality, masterpiece, best detail face, Van Gogh style, a beautiful girl',
+            '(masterpiece:1,2), best quality, masterpiece, best detail face, Van Gogh style, a sexy girl',
             height=512,
             width=512,
             num_inference_steps=30,
@@ -132,6 +132,20 @@ def benchmark_sd_model(model_path,
 
         output_image = profiler.with_cProfile(call_original_model)()
         display_image(output_image)
+
+        if hasattr(torch, 'compile'):
+            logger.info('Benchmarking StableDiffusionPipeline with torch.compile')
+            model.unet.to(memory_format=torch.channels_last)
+            model.unet = torch.compile(model.unet)
+
+            def call_torch_compiled_model():
+                return call_model_(model)
+            
+            for _ in range(3):
+                call_torch_compiled_model()
+
+            output_image = profiler.with_cProfile(call_torch_compiled_model)()
+            display_image(output_image)
 
         del model
 
