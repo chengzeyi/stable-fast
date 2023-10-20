@@ -133,6 +133,23 @@ def benchmark_sd_model(model_path,
         output_image = profiler.with_cProfile(call_original_model)()
         display_image(output_image)
 
+        if hasattr(torch, 'compile'):
+            logger.info('Benchmarking StableDiffusionPipeline with torch.compile')
+            model.unet.to(memory_format=torch.channels_last)
+            model.unet = torch.compile(model.unet)
+            if hasattr(model, 'controlnet'):
+                model.controlnet.to(memory_format=torch.channels_last)
+                model.controlnet = torch.compile(model.controlnet)
+
+            def call_torch_compiled_model():
+                return call_model_(model)
+            
+            for _ in range(3):
+                call_torch_compiled_model()
+
+            output_image = profiler.with_cProfile(call_torch_compiled_model)()
+            display_image(output_image)
+
         del model
 
         logger.info('Benchmarking compiled StableDiffusionPipeline')

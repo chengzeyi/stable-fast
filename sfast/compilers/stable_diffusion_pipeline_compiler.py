@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Union
 import functools
 import torch
+import sfast
 from sfast.jit import passes
 from sfast.jit.trace_helper import (lazy_trace, to_module)
 from sfast.jit import utils as jit_utils
@@ -188,11 +189,11 @@ def _modify_model(m,
 
     passes.jit_pass_optimize_linear(m.graph)
 
-    # if memory_format is not None:
-    #     sfast._C._jit_pass_convert_op_input_tensors(m.graph,
-    #                                               'aten::_convolution',
-    #                                               indices=[0],
-    #                                               memory_format=memory_format)
+    if memory_format is not None:
+        sfast._C._jit_pass_convert_op_input_tensors(m.graph,
+                                                    'aten::_convolution',
+                                                    indices=[0],
+                                                    memory_format=memory_format)
 
     if enable_cnn_optimization:
         passes.jit_pass_optimize_cnn(m.graph)

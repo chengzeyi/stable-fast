@@ -72,4 +72,15 @@ def sd_controlnet_canny_model_path():
 
 @pytest.fixture
 def sd21_model_path():
-    return 'runwayml/stable-diffusion-v2-1'
+    return 'stabilityai/stable-diffusion-2-1'
+
+
+@pytest.fixture
+def diffusers_dog_example_path():
+    from huggingface_hub import snapshot_download
+
+    return snapshot_download(
+        'diffusers/dog-example',
+        repo_type='dataset',
+        ignore_patterns=['*.gitignore', '*.gitattributes', '*.DS_Store'],
+    )
