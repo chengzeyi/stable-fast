@@ -16,7 +16,7 @@ __NOTE: `stable-fast` is only in beta stage and is prone to be buggy, feel free 
 - __CUDA Graph__: `stable-fast` can capture the UNet structure into CUDA Graph format, which can reduce the CPU overhead when the batch size is small.
 - __Fused Multihead Attention__: `stable-fast` just uses xformers and make it compatible with __TorchScript__.
 
-### Differences with other acceleration libraries
+### Differences With Other Acceleration Libraries
 
 - __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves a high performance across many libraries.
 - __Minimal__: `stable-fast` works as a plugin framework for `PyTorch`. it utilizes existing `PyTorch` functionality and infrastructures and is compatible with other acceleration techniques, as well as popular fine-tuning techniques and deployment solutions.
@@ -77,7 +77,7 @@ __NOTE: `stable-fast` is currently only tested on Linux. You need to install PyT
 # https://developer.nvidia.com/cublas
 
 # Install PyTorch with CUDA and other packages at first
-pip3 install torch diffusers xformers triton
+pip3 install 'torch>=1.12.0' 'diffusers>=0.19.3' 'xformers>=0.0.20' 'triton>=2.1.0'
 
 # (Optional) Makes the build much faster
 pip3 install ninja
@@ -109,14 +109,11 @@ if packaging.version.parse(torch.__version__) >= packaging.version.parse('1.12.0
 ### Optimize StableDiffusionPipeline
 
 ```python
-import logging
 import torch
 from diffusers import (StableDiffusionPipeline, EulerAncestralDiscreteScheduler)
 from sfast.compilers.stable_diffusion_pipeline_compiler import (compile,
                                                                 CompilationConfig
                                                                 )
-
-logger = logging.getLogger()
 
 def load_model():
     model = StableDiffusionPipeline.from_pretrained(
@@ -132,17 +129,17 @@ model = load_model()
 config = CompilationConfig.Default()
 
 # xformers and triton are suggested for achieving best performance.
-# It might be slow for triton to generate, generate and fine-tune kernels.
+# It might be slow for triton to generate, compile and fine-tune kernels.
 try:
     import xformers
     config.enable_xformers = True
 except ImportError:
-    logger.warning('xformers not installed, skip')
+    print('xformers not installed, skip')
 try:
     import triton
     config.enable_triton = True
 except ImportError:
-    logger.warning('triton not installed, skip')
+    print('triton not installed, skip')
 # CUDA Graph is suggested for small batch sizes.
 # After capturing, the model only accepts one fixed image size.
 # If you want the model to be dynamic, don't enable it.
@@ -159,8 +156,9 @@ kwarg_inputs = dict(
     num_images_per_prompt=1,
 )
 
-# Warm it up! the first call will trigger compilation and might be very slow!
-# After the first call, it should be very fast!
+# NOTE: Warm it up.
+# The first call will trigger compilation and might be very slow.
+# After the first call, it should be very fast.
 output_image = compiled_model(**kwarg_inputs).images[0]
 
 # Let's see the second call!
