@@ -97,6 +97,21 @@ I have tested on some platforms before but the results may still be inaccurate.
 | TensorRT                                 | untested      | untested       | untested          |
 | __Stable Fast (with xformers & triton)__ | __61.8 it/s__ | __61.6 it/s__  | __42.3 it/s__     |
 
+(??): OneFlow seems to be not working well with SD 2.1
+
+#### RTX 3080 Ti (512x512, batch size 1, fp16, tcmalloc enabled)
+
+| Framework                                | SD 1.5        | SD 2.1         | SD 1.5 ControlNet |
+| ---------------------------------------- | ------------- | -------------- | ----------------- |
+| Vanilla PyTorch (2.1.0+cu118)            | 19.3 it/s     | 20.4 it/s      | 13.8 it/s         |
+| torch.compile (2.1.0+cu118, NHWC UNet)   | 24.4 it/s     | 26.9 it/s      | 17.7 it/s         |
+| AITemplate                               | untested      | untested       | untested          |
+| OneFlow                                  | 32.8 it/s     | 8.82 it/s (??) | untested          |
+| TensorRT                                 | untested      | untested       | untested          |
+| __Stable Fast (with xformers & triton)__ | __28.1 it/s__ | __30.2 it/s__  | __20.0 it/s__     |
+
+(??): OneFlow seems to be not working well with SD 2.1
+
 #### RTX 3090 (512x512, batch size 1, fp16, tcmalloc enabled)
 
 | Framework                                | SD 1.5        |
