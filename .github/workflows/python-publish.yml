@@ -29,7 +29,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build setuptools torch==2.1.0
+        pip install build wheel setuptools torch==2.1.0
     - name: Build package
       run: python -m build --sdist -n
     - name: Publish package
