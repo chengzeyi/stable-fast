@@ -1,10 +1,8 @@
 # Stable Fast
 
-
-
 ## Introduction
 
-__NOTE: `stable-fast` is only in beta stage and is prone to be buggy, feel free to try it out and give suggestions!__
+__NOTE__: `stable-fast` is currently only in beta stage and is prone to be buggy, feel free to try it out and give suggestions!
 
 ### What is this?
 
@@ -159,7 +157,7 @@ output_image = compiled_model(**kwarg_inputs).images[0]
 
 ### Installation
 
-__NOTE: `stable-fast` is currently only tested on Linux. You need to install PyTorch with CUDA support at first (versions from 1.12 to 2.1 are suggested).__
+__NOTE__: `stable-fast` is currently only tested on `Linux` and `WSL2 in Windows`. You need to install PyTorch with CUDA support at first (versions from 1.12 to 2.1 are suggested).
 
 #### Install From Source
 
@@ -179,8 +177,8 @@ pip3 install -v -U git+https://github.com/chengzeyi/stable-fast.git@main#egg=sta
 # (this can take dozens of minutes)
 ```
 
-__NOTE: Any usage outside `sfast.compilers` is not guaranteed to be backward compatible.__
-__NOTE: To get the best performance, `xformers` and OpenAI's `triton>=2.1.0` need to be installed and enabled. You might need to build `xformers` from source to make it compatible with your `PyTorch`.__
+__NOTE__: Any usage outside `sfast.compilers` is not guaranteed to be backward compatible.
+__NOTE__: To get the best performance, `xformers` and OpenAI's `triton>=2.1.0` need to be installed and enabled. You might need to build `xformers` from source to make it compatible with your `PyTorch`.
 
 ### Some Common Methods To Speed Up PyTorch
 
