@@ -178,6 +178,7 @@ pip3 install -v -U git+https://github.com/chengzeyi/stable-fast.git@main#egg=sta
 ```
 
 __NOTE__: Any usage outside `sfast.compilers` is not guaranteed to be backward compatible.
+
 __NOTE__: To get the best performance, `xformers` and OpenAI's `triton>=2.1.0` need to be installed and enabled. You might need to build `xformers` from source to make it compatible with your `PyTorch`.
 
 ### Some Common Methods To Speed Up PyTorch
