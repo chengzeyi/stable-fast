@@ -104,7 +104,7 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
     kernel = copy_func(kernel, globals={
         **globals(),
         **{
-            'act': activation.silu
+            'act': act
         }
     }, name=f'{kernel.__name__}_{act.__name__}')
     kernel = triton.autotune(configs=[

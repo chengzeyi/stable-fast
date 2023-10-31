@@ -7,9 +7,8 @@ import glob
 import cv2
 import PIL
 import torch
-from sfast.compilers.stable_diffusion_pipeline_compiler import (compile,
-                                                                CompilationConfig
-                                                                )
+from sfast.compilers.stable_diffusion_pipeline_compiler import (
+    compile, CompilationConfig)
 from sfast.profile.auto_profiler import AutoProfiler
 from sfast.utils.term_image import display_image
 from sfast.utils.compute_precision import low_compute_precision
@@ -134,7 +133,8 @@ def benchmark_sd_model(model_path,
         display_image(output_image)
 
         if hasattr(torch, 'compile'):
-            logger.info('Benchmarking StableDiffusionPipeline with torch.compile')
+            logger.info(
+                'Benchmarking StableDiffusionPipeline with torch.compile')
             model.unet.to(memory_format=torch.channels_last)
             model.unet = torch.compile(model.unet)
             if hasattr(model, 'controlnet'):
@@ -143,7 +143,7 @@ def benchmark_sd_model(model_path,
 
             def call_torch_compiled_model():
                 return call_model_(model)
-            
+
             for _ in range(3):
                 call_torch_compiled_model()
 
