@@ -1,4 +1,5 @@
 import sys
+import functools
 import triton.language as tl
 from triton.runtime.jit import JITFunction
 from triton.runtime.autotuner import Autotuner
@@ -7,10 +8,8 @@ import torch
 if not hasattr(tl, 'reduce'):
     tl.reduce = tl.reduction
 
-old_make_launcher = JITFunction._make_launcher
 
-
-def new_make_launcher(self, *args, **kwargs):
+def warp_scalar_tensor_arg(func):
     '''
 E               pid = tl.program_id(axis=0)
 E
@@ -18,40 +17,44 @@ E               num_pid_m = tl.cdiv(M, BLOCK_M)  # number of program ids along t
 E                                      ^
 E           IncompatibleTypeErrorImpl('invalid operands of type pointer<int64> and triton.language.int32')
     '''
-    launcher = old_make_launcher(self, *args, **kwargs)
 
-    def new_launcher(*args, **kwargs):
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
         args = (arg.item() if isinstance(arg, torch.Tensor) and arg.ndim == 0
                 and arg.device.type == 'cpu' and not arg.is_floating_point()
                 else arg for arg in args)
         kwargs = {
-            k: v.item() if isinstance(v, torch.Tensor) and v.ndim == 0
+            k:
+            v.item() if isinstance(v, torch.Tensor) and v.ndim == 0
             and v.device.type == 'cpu' and not v.is_floating_point() else v
             for k, v in kwargs.items()
         }
-        return launcher(*args, **kwargs)
+        return func(*args, **kwargs)
 
-    return new_launcher
-
-
-JITFunction._make_launcher = new_make_launcher
-
-old_autotuner_run = Autotuner.run
+    return new_func
 
 
-def new_autotuner_run(self, *args, **kwargs):
-    args = (arg.item() if isinstance(arg, torch.Tensor) and arg.ndim == 0
-            and arg.device.type == 'cpu' and not arg.is_floating_point() else
-            arg for arg in args)
-    kwargs = {
-        k: v.item() if isinstance(v, torch.Tensor) and v.ndim == 0
-        and v.device.type == 'cpu' and not v.is_floating_point() else v
-        for k, v in kwargs.items()
-    }
-    return old_autotuner_run(self, *args, **kwargs)
+if hasattr(JITFunction, '_make_launcher'):
+    # version <= 2.1.0
+    old_make_launcher = JITFunction._make_launcher
 
+    def new_make_launcher(self, *args, **kwargs):
+        launcher = old_make_launcher(self, *args, **kwargs)
+        return warp_scalar_tensor_arg(launcher)
 
-Autotuner.run = new_autotuner_run
+    JITFunction._make_launcher = new_make_launcher
+elif hasattr(JITFunction, 'run'):
+    # version > 2.1.0
+    JITFunction.run = warp_scalar_tensor_arg(JITFunction.run)
+else:
+    # maybe future version
+    pass
+
+if hasattr(Autotuner, 'run'):
+    Autotuner.run = warp_scalar_tensor_arg(Autotuner.run)
+else:
+    # maybe future version
+    pass
 
 if sys.version_info < (3, 8):
     '''
