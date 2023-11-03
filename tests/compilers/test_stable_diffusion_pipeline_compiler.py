@@ -49,6 +49,21 @@ def test_benchmark_sd21_model(sd21_model_path):
         ))
 
 
+def test_benchmark_sdxl_model(sdxl_model_path):
+    from diffusers import StableDiffusionXLPipeline
+
+    benchmark_sd_model(
+        sdxl_model_path,
+        kwarg_inputs=lambda: dict(
+            prompt=
+            '(masterpiece:1,2), best quality, masterpiece, best detail face, romantic style, a beautiful girl',
+            height=512,
+            width=512,
+            num_inference_steps=30,
+        ),
+        model_class=StableDiffusionXLPipeline)
+
+
 def test_benchmark_sd15_model_with_controlnet(sd15_model_path,
                                               sd_controlnet_canny_model_path,
                                               diffusers_dog_example_path):

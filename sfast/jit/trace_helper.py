@@ -43,14 +43,14 @@ def lazy_trace(func, *, ts_compiler=None, **kwargs_):
         func.forward if isinstance(func, torch.nn.Module) else func)
     def wrapper(*args, **kwargs):
         nonlocal lock, traced_modules
-        key = hash_arg(args), hash_arg(kwargs)
+        key = (hash_arg(args), hash_arg(kwargs))
         traced_module = traced_modules.get(key)
         if traced_module is None:
             with lock:
                 traced_module = traced_modules.get(key)
                 if traced_module is None:
                     logger.info(
-                        f'Tracing {func.__name__ if hasattr(func, "__name__") else func.__class__.__name__}'
+                        f'Tracing {getattr(func, "__name__", func.__class__.__name__)}'
                     )
                     traced_m, call_helper = trace_with_kwargs(
                         func, args, kwargs, **kwargs_)

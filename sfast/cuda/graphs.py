@@ -1,37 +1,34 @@
+import logging
+import functools
 import threading
 import torch
+
+logger = logging.getLogger()
 
 _per_device_execution_envs = {}
 _per_device_execution_envs_lock = threading.Lock()
 
 
-class GraphExecutionEnv:
+def make_dynamic_graphed_callable(callable):
+    lock = threading.Lock()
+    cached_callables = {}
 
-    def __init__(self, *, mempool, device=None, stream=None, lock=None):
-        self.mempool = mempool
-        if isinstance(device, torch.device):
-            assert device.type == 'cuda'
-            device = device.index
-        self.device = torch.cuda.current_device() if device is None else device
-        self.stream = torch.cuda.current_stream(
-            self.device) if stream is None else stream
-        self.lock = threading.Lock() if lock is None else lock
+    @functools.wraps(callable)
+    def dynamic_graphed_callable(*args, **kwargs):
+        key = (hash_arg(args), hash_arg(kwargs))
+        cached_callable = cached_callables.get(key)
+        if cached_callable is None:
+            with lock:
+                cached_callable = cached_callables.get(key)
+                if cached_callable is None:
+                    logger.info(f'Dynamically graphing {getattr(callable, "__name__", callable.__class__.__name__)}')
+                    cached_callable = simple_make_graphed_callable(callable, args,
+                                                                   kwargs)
+                    cached_callables[key] = cached_callable
+        return cached_callable(*args, **kwargs)
 
-
-def get_per_device_graph_execution_env(device=None):
-    if isinstance(device, torch.device):
-        assert device.type == 'cuda'
-        device = device.index
-    if device is None:
-        device = torch.cuda.current_device()
-    with _per_device_execution_envs_lock:
-        if device not in _per_device_execution_envs:
-            with torch.cuda.device(device):
-                mempool, stream, lock = torch.cuda.graphs.graph_pool_handle(
-                ), torch.cuda.Stream(), threading.Lock()
-            _per_device_execution_envs[device] = GraphExecutionEnv(
-                mempool=mempool, device=device, stream=stream, lock=lock)
-        return _per_device_execution_envs[device]
+    return dynamic_graphed_callable
+    
 
 
 def simple_make_graphed_callable(callable,
@@ -122,6 +119,47 @@ def make_graphed_callable(callable,
                                  static_kwarg_inputs,
                                  static_outputs,
                                  training=training)
+
+
+class GraphExecutionEnv:
+
+    def __init__(self, *, mempool, device=None, stream=None, lock=None):
+        self.mempool = mempool
+        if isinstance(device, torch.device):
+            assert device.type == 'cuda'
+            device = device.index
+        self.device = torch.cuda.current_device() if device is None else device
+        self.stream = torch.cuda.current_stream(
+            self.device) if stream is None else stream
+        self.lock = threading.Lock() if lock is None else lock
+
+
+def get_per_device_graph_execution_env(device=None):
+    if isinstance(device, torch.device):
+        assert device.type == 'cuda'
+        device = device.index
+    if device is None:
+        device = torch.cuda.current_device()
+    with _per_device_execution_envs_lock:
+        if device not in _per_device_execution_envs:
+            with torch.cuda.device(device):
+                mempool, stream, lock = torch.cuda.graphs.graph_pool_handle(
+                ), torch.cuda.Stream(), threading.Lock()
+            _per_device_execution_envs[device] = GraphExecutionEnv(
+                mempool=mempool, device=device, stream=stream, lock=lock)
+        return _per_device_execution_envs[device]
+
+def hash_arg(arg):
+    if isinstance(arg, torch.Tensor):
+        arg_device = arg.device
+        return (arg_device.type, arg_device.index, arg.dtype, arg.shape)
+    if isinstance(arg, (int, float, bool, str, bytes)):
+        return arg
+    if isinstance(arg, (tuple, list)):
+        return tuple(map(hash_arg, arg))
+    if isinstance(arg, dict):
+        return tuple(map(hash_arg, sorted((k, hash_arg(v)) for k, v in arg.items())))
+    return None
 
 
 def tree_copy_(dest, src):

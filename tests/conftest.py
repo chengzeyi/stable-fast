@@ -76,6 +76,11 @@ def sd21_model_path():
 
 
 @pytest.fixture
+def sdxl_model_path():
+    return 'stabilityai/stable-diffusion-xl-base-1.0'
+
+
+@pytest.fixture
 def diffusers_dog_example_path():
     from huggingface_hub import snapshot_download
 

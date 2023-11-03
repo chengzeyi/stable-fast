@@ -8,7 +8,7 @@ import sfast
 from sfast.jit import passes
 from sfast.jit.trace_helper import (lazy_trace, to_module)
 from sfast.jit import utils as jit_utils
-from sfast.cuda.graphs import simple_make_graphed_callable
+from sfast.cuda.graphs import make_dynamic_graphed_callable
 
 logger = logging.getLogger()
 
@@ -47,7 +47,6 @@ def compile(m, config):
                 ops.memory_efficient_attention = xformers_memory_efficient_attention
 
             m.enable_xformers_memory_efficient_attention()
-
         '''
         if config.enable_triton:
             import sfast.triton.modules.patch as tm_patch
@@ -86,8 +85,7 @@ def compile(m, config):
                             call_helper,
                             inputs,
                             kwarg_inputs,
-                            freeze=False,
-                            enable_cuda_graph=False):
+                            freeze=False):
                 with torch.jit.optimized_execution(True):
                     if freeze:
                         # raw freeze causes Tensor reference leak
@@ -95,18 +93,6 @@ def compile(m, config):
                         # the compilation unit are never freed.
                         m = jit_utils.better_freeze(m)
                     modify_model(m)
-
-                if enable_cuda_graph:
-                    cuda_graphed_m = m
-
-                    def cuda_graphify(*args, **kwargs):
-                        nonlocal cuda_graphed_m
-
-                        logger.info('CUDA graphing...')
-                        cuda_graphed_m = simple_make_graphed_callable(m, args, kwargs)
-
-                    call_helper(cuda_graphify)(*inputs, **kwarg_inputs)
-                    m = cuda_graphed_m
                 return m
 
             lazy_trace_ = functools.partial(
@@ -120,16 +106,16 @@ def compile(m, config):
 
             m.text_encoder.forward = lazy_trace_(
                 to_module(m.text_encoder.forward))
-            unet_forward = lazy_trace(
-                to_module(m.unet.forward),
-                ts_compiler=functools.partial(
-                    ts_compiler,
-                    enable_cuda_graph=config.enable_cuda_graph
-                    and m.device.type == 'cuda',
-                    freeze=config.enable_jit_freeze,
-                ),
-                check_trace=False,
-                strict=False)
+            unet_forward = lazy_trace(to_module(m.unet.forward),
+                                      ts_compiler=functools.partial(
+                                          ts_compiler,
+                                          freeze=config.enable_jit_freeze,
+                                      ),
+                                      check_trace=False,
+                                      strict=False)
+
+            if config.enable_cuda_graph and m.device.type == 'cuda':
+                unet_forward = make_dynamic_graphed_callable(unet_forward)
 
             @functools.wraps(m.unet.forward)
             def unet_forward_wrapper(sample, t, *args, **kwargs):
@@ -146,14 +132,11 @@ def compile(m, config):
                     to_module(m.vae.encoder.forward))
                 m.vae.quant_conv.forward = lazy_trace_(
                     to_module(m.vae.quant_conv.forward))
+
             if hasattr(m, 'controlnet'):
                 controlnet_forward = lazy_trace(
                     to_module(m.controlnet.forward),
-                    ts_compiler=functools.partial(
-                        ts_compiler,
-                        freeze=False,
-                        enable_cuda_graph=config.enable_cuda_graph
-                        and m.device.type == 'cuda'),
+                    ts_compiler=functools.partial(ts_compiler, freeze=False),
                     check_trace=False,
                     strict=False)
 
@@ -163,6 +146,10 @@ def compile(m, config):
                     return controlnet_forward(sample, t, *args, **kwargs)
 
                 m.controlnet.forward = controlnet_forward_wrapper
+
+                if config.enable_cuda_graph and m.device.type == 'cuda':
+                    m.controlnet.forward = make_dynamic_graphed_callable(
+                        m.controlnet.forward, )
 
         return m
 
@@ -190,10 +177,11 @@ def _modify_model(m,
     passes.jit_pass_optimize_linear(m.graph)
 
     if memory_format is not None:
-        sfast._C._jit_pass_convert_op_input_tensors(m.graph,
-                                                    'aten::_convolution',
-                                                    indices=[0],
-                                                    memory_format=memory_format)
+        sfast._C._jit_pass_convert_op_input_tensors(
+            m.graph,
+            'aten::_convolution',
+            indices=[0],
+            memory_format=memory_format)
 
     if enable_cnn_optimization:
         passes.jit_pass_optimize_cnn(m.graph)
