@@ -71,8 +71,11 @@ void RegisterCustomPythonOperator(const std::string &schema,
   auto arguments = parsed_schema.arguments();
   auto returns = parsed_schema.returns();
 
-  const py::function func = py::reinterpret_borrow<const py::function>(
-      py::handle(const_cast<PyObject *>(py_callable.get())));
+  std::shared_ptr<py::function> func_ptr(new py::function(py::reinterpret_borrow<const py::function>(
+      py::handle(const_cast<PyObject *>(py_callable.get())))), [](py::function *ptr) {
+    pybind11::gil_scoped_acquire gil;
+    delete ptr;
+  });
 
   RegisterOperators({Operator(
       schema,
@@ -95,7 +98,7 @@ void RegisterCustomPythonOperator(const std::string &schema,
           }
         }
         try {
-          py::object output = func(*py_inputs);
+          py::object output = (*func_ptr)(*py_inputs);
           if (num_outputs == 1) {
             auto output_type = returns[0].type();
             push(stack, returnToIValue(output_type, output));
