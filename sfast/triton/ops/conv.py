@@ -273,7 +273,8 @@ def early_config_prune(configs, named_args):
             kw["BLOCK_K"],
             config.num_stages,
         )
-        max_shared_memory = driver.utils.get_device_properties(device)["max_shared_mem"]
+        max_shared_memory = driver.utils.get_device_properties(
+            device)["max_shared_mem"]
         required_shared_memory = (BLOCK_M +
                                   BLOCK_N) * BLOCK_K * num_stages * dtsize
         if required_shared_memory <= max_shared_memory:
@@ -433,24 +434,17 @@ def _kernel_delta_x_hwc(
     off_w_crs = tl.arange(0, BLOCK_K)
     off_w_k = off_y_k
     w_ptrs = w + off_w_crs[:, None] + off_w_k[None, :] * stride_wn
+    mask_w = (off_x_crs < CRS)[:, None] & (off_w_k < KERNEL_N)[None, :]
+
+    # ------ load x ------
+    matrix_x = tl.load(x_ptrs, mask=mask_x, other=0.0)
+    # ------ load w ------
+    matrix_w = tl.load(w_ptrs, mask=mask_w, other=0.0)
 
     # -----------------------------------------------------------
     # allocate accumulator
     acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=ACC_TYPE)
     for crs in range(0, CRS, BLOCK_K):
-        mask_x = ((off_x_n < BATCH)[:, None]
-                  & (off_x_crs < CRS)[None, :]
-                  & (off_x_h[:, None] + delta_xh[None, :] >= 0)
-                  & (off_x_h[:, None] + delta_xh[None, :] < IN_H)
-                  & (off_x_w[:, None] + delta_xw[None, :] >= 0)
-                  & (off_x_w[:, None] + delta_xw[None, :] < IN_W))
-        mask_w = (off_x_crs < CRS)[:, None] & (off_w_k < KERNEL_N)[None, :]
-        # ------ prefetch ------
-        # ------ load x ------
-        matrix_x = tl.load(x_ptrs, mask=mask_x, other=0.0)
-        # ------ load w ------
-        matrix_w = tl.load(w_ptrs, mask=mask_w, other=0.0)
-
         # ------ matrix multiplication ------
         acc += tl.dot(matrix_x, matrix_w, out_dtype=ACC_TYPE)
         # ------ update ptrs ------
@@ -469,6 +463,19 @@ def _kernel_delta_x_hwc(
             x_ptrs = x + off_x_nhw[:, None] + off_x_crs_unpacked[None, :]
         else:
             x_ptrs += BLOCK_K
+
+        mask_x = ((off_x_n < BATCH)[:, None]
+                  & (off_x_crs < CRS)[None, :]
+                  & (off_x_h[:, None] + delta_xh[None, :] >= 0)
+                  & (off_x_h[:, None] + delta_xh[None, :] < IN_H)
+                  & (off_x_w[:, None] + delta_xw[None, :] >= 0)
+                  & (off_x_w[:, None] + delta_xw[None, :] < IN_W))
+        mask_w = (off_x_crs < CRS)[:, None] & (off_w_k < KERNEL_N)[None, :]
+        # ------ prefetch ------
+        # ------ load x ------
+        matrix_x = tl.load(x_ptrs, mask=mask_x, other=0.0)
+        # ------ load w ------
+        matrix_w = tl.load(w_ptrs, mask=mask_w, other=0.0)
 
     if WITH_BIAS:
         acc += tl.load(bias + off_y_k)[None, :]
@@ -596,23 +603,17 @@ def _kernel_delta_x(
     off_w_crs = tl.arange(0, BLOCK_K)
     off_w_k = off_y_k
     w_ptrs = w + off_w_crs[:, None] + off_w_k[None, :] * stride_wn
+    mask_w = (off_x_crs < CRS)[:, None] & (off_w_k < KERNEL_N)[None, :]
+
+    # ------ load x ------
+    matrix_x = tl.load(x_ptrs, mask=mask_x, other=0.0)
+    # ------ load w ------
+    matrix_w = tl.load(w_ptrs, mask=mask_w, other=0.0)
 
     # -----------------------------------------------------------
     # allocate accumulator
     acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=ACC_TYPE)
     for crs in range(0, CRS, BLOCK_K):
-        mask_x = ((off_x_n < BATCH)
-                  & (off_x_h >= 0)
-                  & (off_x_h < IN_H)
-                  & (off_x_w >= 0)
-                  & (off_x_w < IN_W))[:, None] & (off_x_crs < CRS)[None, :]
-        mask_w = (off_x_crs < CRS)[:, None] & (off_w_k < KERNEL_N)[None, :]
-        # ------ prefetch ------
-        # ------ load x ------
-        matrix_x = tl.load(x_ptrs, mask=mask_x, other=0.0)
-        # ------ load w ------
-        matrix_w = tl.load(w_ptrs, mask=mask_w, other=0.0)
-
         # ------ matrix multiplication ------
         acc += tl.dot(matrix_x, matrix_w, out_dtype=ACC_TYPE)
         # ------ update ptrs ------
@@ -628,6 +629,18 @@ def _kernel_delta_x(
         else:
             off_x_crs = crs + BLOCK_K + tl.arange(0, BLOCK_K)
             x_ptrs += BLOCK_K
+
+        mask_x = ((off_x_n < BATCH)
+                  & (off_x_h >= 0)
+                  & (off_x_h < IN_H)
+                  & (off_x_w >= 0)
+                  & (off_x_w < IN_W))[:, None] & (off_x_crs < CRS)[None, :]
+        mask_w = (off_x_crs < CRS)[:, None] & (off_w_k < KERNEL_N)[None, :]
+        # ------ prefetch ------
+        # ------ load x ------
+        matrix_x = tl.load(x_ptrs, mask=mask_x, other=0.0)
+        # ------ load w ------
+        matrix_w = tl.load(w_ptrs, mask=mask_w, other=0.0)
 
     if WITH_BIAS:
         acc += tl.load(bias + off_y_k)[None, :]
@@ -811,7 +824,10 @@ class _conv:
         else:
             memory_format = torch.contiguous_format
         # allocate output
-        y = torch.empty(shape_y, device=device, dtype=x.dtype, memory_format=memory_format)
+        y = torch.empty(shape_y,
+                        device=device,
+                        dtype=x.dtype,
+                        memory_format=memory_format)
         stride_y = y.stride()
 
         # allocate tmp
@@ -821,16 +837,13 @@ class _conv:
         # accumulator types
         x_dtype = x.dtype
         if x_dtype in (
-            torch.float32, torch.bfloat16,
+                torch.float32,
+                torch.bfloat16,
         ):
             ACC_TYPE = tl.float32
-        elif x_dtype in (
-            torch.float16,
-        ):
+        elif x_dtype in (torch.float16, ):
             ACC_TYPE = tl.float16
-        elif x_dtype in (
-            torch.float64,
-        ):
+        elif x_dtype in (torch.float64, ):
             ACC_TYPE = tl.float64
         else:
             ACC_TYPE = tl.int32
