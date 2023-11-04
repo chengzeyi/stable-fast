@@ -10,10 +10,14 @@ import torch
 from sfast.compilers.stable_diffusion_pipeline_compiler import (
     compile, CompilationConfig)
 from sfast.profile.auto_profiler import AutoProfiler
-from sfast.utils.term_image import print_image as display_image
+from sfast.utils.term_image import print_image
 from sfast.utils.compute_precision import low_compute_precision
 
 logger = logging.getLogger()
+
+
+def display_image(image):
+    print_image(image, max_width=120)
 
 
 def get_images_from_path(path):

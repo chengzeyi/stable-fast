@@ -73,8 +73,13 @@ void RegisterCustomPythonOperator(const std::string &schema,
 
   std::shared_ptr<py::function> func_ptr(new py::function(py::reinterpret_borrow<const py::function>(
       py::handle(const_cast<PyObject *>(py_callable.get())))), [](py::function *ptr) {
-    pybind11::gil_scoped_acquire gil;
-    delete ptr;
+    // Check if the current thread is holding the GIL
+    if (PyGILState_Check()) {
+      delete ptr;
+    } else {
+      py::gil_scoped_acquire gil;
+      delete ptr;
+    }
   });
 
   RegisterOperators({Operator(
