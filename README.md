@@ -1,7 +1,5 @@
 # 🚀Stable Fast
 
-[toc]
-
 ## Introduction
 
 __NOTE__: `stable-fast` is currently only in beta stage and is prone to be buggy, feel free to try it out and give suggestions!
