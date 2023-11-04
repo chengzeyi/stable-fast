@@ -86,11 +86,11 @@ Benchmark results will be available when I have the access to A100 again.
 
 ### Compatibility
 
-| Model                                | Supported |
-| ------------------------------------ | --------- |
-| Hugging Face Diffusers (1.5/2.1)     | Yes       |
-| With ControlNet                      | Yes       |
-| With LoRA                            | Yes       |
+| Model                               | Supported |
+| ----------------------------------- | --------- |
+| Hugging Face Diffusers (1.5/2.1/XL) | Yes       |
+| With ControlNet                     | Yes       |
+| With LoRA                           | Yes       |
 
 ## Usage
 
