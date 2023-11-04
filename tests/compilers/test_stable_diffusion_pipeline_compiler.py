@@ -30,7 +30,7 @@ def test_benchmark_sd15_model(sd15_model_path):
         sd15_model_path,
         kwarg_inputs=lambda: dict(
             prompt=
-            '(masterpiece:1,2), best quality, masterpiece, best detail face, realistic, unreal engine, a sexy girl',
+            '(masterpiece:1,2), best quality, masterpiece, best detail face, realistic, unreal engine, a beautiful girl',
             height=512,
             width=512,
             num_inference_steps=30,
@@ -57,8 +57,8 @@ def test_benchmark_sdxl_model(sdxl_model_path):
         kwarg_inputs=lambda: dict(
             prompt=
             '(masterpiece:1,2), best quality, masterpiece, best detail face, romantic style, a beautiful girl',
-            height=512,
-            width=512,
+            height=1024,
+            width=1024,
             num_inference_steps=30,
         ),
         model_class=StableDiffusionXLPipeline)

@@ -28,6 +28,13 @@ class CompilationConfig:
 
 
 def compile(m, config):
+    enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
+
+    if 'XL' in m.__class__.__name__:
+        if enable_cuda_graph:
+            logger.warning('CUDA Graph with SDXL is observed to be slow, it will be disabled')
+            enable_cuda_graph = False
+
     with torch.no_grad():
         scheduler = m.scheduler
         scheduler._set_timesteps = scheduler.set_timesteps
@@ -116,7 +123,7 @@ def compile(m, config):
                                       check_trace=False,
                                       strict=False)
 
-            if config.enable_cuda_graph and m.device.type == 'cuda':
+            if enable_cuda_graph:
                 unet_forward = make_dynamic_graphed_callable(unet_forward)
 
             @functools.wraps(m.unet.forward)
@@ -149,7 +156,7 @@ def compile(m, config):
 
                 m.controlnet.forward = controlnet_forward_wrapper
 
-                if config.enable_cuda_graph and m.device.type == 'cuda':
+                if enable_cuda_graph and m.device.type == 'cuda':
                     m.controlnet.forward = make_dynamic_graphed_callable(
                         m.controlnet.forward, )
 
