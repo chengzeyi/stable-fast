@@ -104,8 +104,10 @@ from sfast.compilers.stable_diffusion_pipeline_compiler import (compile,
                                                                 )
 
 def load_model():
+    # you can change to StableDiffusionXLPipeline to load SDXL model
     model = StableDiffusionPipeline.from_pretrained(
         'runwayml/stable-diffusion-v1-5', torch_dtype=torch.float16)
+
     model.scheduler = EulerAncestralDiscreteScheduler.from_config(
         model.scheduler.config)
     model.safety_checker = None
