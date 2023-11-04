@@ -28,14 +28,9 @@ class CompilationConfig:
 
 
 def compile(m, config):
-    enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
-
-    if 'XL' in m.__class__.__name__:
-        if enable_cuda_graph:
-            logger.warning('CUDA Graph with SDXL is observed to be slow, it will be disabled')
-            enable_cuda_graph = False
-
     with torch.no_grad():
+        enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
+
         scheduler = m.scheduler
         scheduler._set_timesteps = scheduler.set_timesteps
 
@@ -92,7 +87,8 @@ def compile(m, config):
                             call_helper,
                             inputs,
                             kwarg_inputs,
-                            freeze=False):
+                            freeze=False,
+                            enable_cuda_graph=False):
                 with torch.jit.optimized_execution(True):
                     if freeze:
                         # raw freeze causes Tensor reference leak
@@ -100,6 +96,9 @@ def compile(m, config):
                         # the compilation unit are never freed.
                         m = jit_utils.better_freeze(m)
                     modify_model(m)
+
+                if enable_cuda_graph:
+                    m = make_dynamic_graphed_callable(m)
                 return m
 
             lazy_trace_ = functools.partial(
@@ -119,12 +118,10 @@ def compile(m, config):
                                       ts_compiler=functools.partial(
                                           ts_compiler,
                                           freeze=config.enable_jit_freeze,
+                                          enable_cuda_graph=enable_cuda_graph,
                                       ),
                                       check_trace=False,
                                       strict=False)
-
-            if enable_cuda_graph:
-                unet_forward = make_dynamic_graphed_callable(unet_forward)
 
             @functools.wraps(m.unet.forward)
             def unet_forward_wrapper(sample, t, *args, **kwargs):
@@ -145,7 +142,11 @@ def compile(m, config):
             if hasattr(m, 'controlnet'):
                 controlnet_forward = lazy_trace(
                     to_module(m.controlnet.forward),
-                    ts_compiler=functools.partial(ts_compiler, freeze=False),
+                    ts_compiler=functools.partial(
+                        ts_compiler,
+                        freeze=False,
+                        enable_cuda_graph=enable_cuda_graph,
+                    ),
                     check_trace=False,
                     strict=False)
 
@@ -155,10 +156,6 @@ def compile(m, config):
                     return controlnet_forward(sample, t, *args, **kwargs)
 
                 m.controlnet.forward = controlnet_forward_wrapper
-
-                if enable_cuda_graph and m.device.type == 'cuda':
-                    m.controlnet.forward = make_dynamic_graphed_callable(
-                        m.controlnet.forward, )
 
         return m
 
