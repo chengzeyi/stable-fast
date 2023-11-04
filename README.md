@@ -1,4 +1,4 @@
-# Stable Fast
+# 🚀Stable Fast
 
 ## Introduction
 
@@ -37,9 +37,9 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | torch.compile (2.1.0+cu118, NHWC UNet)   | 40.2 it/s     | 6.1 it/s          |
 | AITemplate                               | untested      | untested          |
 | OneFlow                                  | untested      | untested          |
-| AUTO1111 WebUI                           | 17.2 it/s     | untested          |
+| AUTO1111 WebUI                           | 17.2 it/s     | 3.6 it/s          |
 | TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested          |
-| __Stable Fast (with xformers & Triton)__ | __49.1 it/s__ | __8.1 it/s__     |
+| __Stable Fast (with xformers & Triton)__ | __49.1 it/s__ | __8.1 it/s__      |
 
 #### RTX 4090 (512x512, batch size 1, fp16, tcmalloc enabled)
 

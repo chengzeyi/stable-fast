@@ -60,32 +60,48 @@ def unarchive_model(file_path):
     return cached_file
 
 
+def path_exists_or(file_path, other):
+    if os.path.exists(file_path):
+        return file_path
+    if isinstance(other, str):
+        return other
+    return other()
+
+
 @pytest.fixture
 def sd15_model_path():
-    return 'runwayml/stable-diffusion-v1-5'
+    return path_exists_or('../stable-diffusion-v1-5',
+                          'runwayml/stable-diffusion-v1-5')
 
 
 @pytest.fixture
 def sd_controlnet_canny_model_path():
-    return 'lllyasviel/sd-controlnet-canny'
+    return path_exists_or('../sd-controlnet-canny',
+                          'lllyasviel/sd-controlnet-canny')
 
 
 @pytest.fixture
 def sd21_model_path():
-    return 'stabilityai/stable-diffusion-2-1'
+    return path_exists_or('../stable-diffusion-2-1',
+                          'stabilityai/stable-diffusion-2-1')
 
 
 @pytest.fixture
 def sdxl_model_path():
-    return 'stabilityai/stable-diffusion-xl-base-1.0'
+    return path_exists_or('../stable-diffusion-xl-base-1.0',
+                          'stabilityai/stable-diffusion-xl-base-1.0')
 
 
 @pytest.fixture
 def diffusers_dog_example_path():
-    from huggingface_hub import snapshot_download
 
-    return snapshot_download(
-        'diffusers/dog-example',
-        repo_type='dataset',
-        ignore_patterns=['*.gitignore', '*.gitattributes', '*.DS_Store'],
-    )
+    def download():
+        from huggingface_hub import snapshot_download
+
+        return snapshot_download(
+            'diffusers/dog-example',
+            repo_type='dataset',
+            ignore_patterns=['*.gitignore', '*.gitattributes', '*.DS_Store'],
+        )
+
+    return path_exists_or('../dog-example', download)
