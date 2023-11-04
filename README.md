@@ -205,15 +205,15 @@ if packaging.version.parse(torch.__version__) >= packaging.version.parse('1.12.0
     torch.backends.cuda.matmul.allow_tf32 = True
 ```
 
-# Trouble Shooting
+## Trouble Shooting
 
-## Compilation Is SO SLOW. How To Improve It?
+### Compilation Is SO SLOW. How To Improve It?
 
 Dynamic code generation is usually the cause for slow compilation.
 You could disable features related to it to speed up compilation.
 But this might slow down your inference.
 
-### Disable JIT Optimized Execution
+#### Disable JIT Optimized Execution
 
 ```python
 # Wrap your code in this context manager
@@ -221,15 +221,15 @@ with torch.jit.optimized_execution(False):
     # Do your things
 ```
 
-### Disable Triton
+#### Disable Triton
 
 ```python
 config.enable_triton = False
 ```
 
-## Inference Is SO SLOW. What's Wrong?
+### Inference Is SO SLOW. What's Wrong?
 
-### Disable CUDA Graph When GPU VRAM Is Insufficient
+#### Disable CUDA Graph When GPU VRAM Is Insufficient
 
 When your GPU VRAM is insufficient or the image resolution is high,
 CUDA Graph could cause less efficient VRAM utilization and slow down the inference.
