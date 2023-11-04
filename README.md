@@ -104,7 +104,7 @@ from sfast.compilers.stable_diffusion_pipeline_compiler import (compile,
                                                                 )
 
 def load_model():
-    # you can change to StableDiffusionXLPipeline to load SDXL model
+    # NOTE: You can change to StableDiffusionXLPipeline to load SDXL model
     model = StableDiffusionPipeline.from_pretrained(
         'runwayml/stable-diffusion-v1-5', torch_dtype=torch.float16)
 
@@ -142,6 +142,7 @@ compiled_model = compile(model, config)
 kwarg_inputs = dict(
     prompt=
     '(masterpiece:1,2), best quality, masterpiece, best detail face, lineart, monochrome, a beautiful girl',
+    # NOTE: If you use SDXL, you should use a higher resolution to improve the generation quality.
     height=512,
     width=512,
     num_inference_steps=30,
