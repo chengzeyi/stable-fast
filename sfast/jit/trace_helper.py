@@ -3,6 +3,7 @@ import dataclasses
 import itertools
 import functools
 import threading
+import copy
 import ctypes
 import torch
 from .utils import better_trace
@@ -18,15 +19,16 @@ def trace_with_kwargs(func,
         example_inputs = tuple()
     if example_kwarg_inputs is None:
         example_kwarg_inputs = {}
-    pos_args = convert_to_pos_args(example_inputs, example_kwarg_inputs)
-
     # warmup
-    outputs = func(*example_inputs, **example_kwarg_inputs)
+    outputs = func(*copy.deepcopy(example_inputs),
+                   **copy.deepcopy(example_kwarg_inputs))
     converter = None
     if not isinstance(outputs, (tuple, list)):
         if dataclasses.is_dataclass(outputs):
             converter = DictToDataClassConverter(type(outputs))
 
+    pos_args = convert_to_pos_args(copy.deepcopy(example_inputs),
+                                   copy.deepcopy(example_kwarg_inputs))
     traced_module = better_trace(TraceablePosArgOnlyModuleWrapper(func),
                                  pos_args, **kwargs)
     training = getattr(func, 'training', False) if isinstance(
@@ -95,7 +97,10 @@ def hash_arg(arg):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
         return tuple(
-            map(hash_arg, sorted((k, hash_arg(v)) for k, v in arg.items())))
+            map(
+                hash_arg,
+                sorted(((k, hash_arg(v)) for k, v in arg.items()),
+                       key=lambda x: x[0])))
     return None
 
 
@@ -192,10 +197,11 @@ def convert_to_tensor_arg(arg):
         return torch.tensor(7, dtype=torch.int32), type(arg)(
             itertools.chain(*(convert_to_tensor_arg(a) for a in arg)))
     elif isinstance(arg, dict):
+        keys = sorted(arg.keys())
         return torch.tensor(8, dtype=torch.int32), tuple(
             itertools.chain(*(itertools.chain(convert_to_tensor_arg(key),
-                                              convert_to_tensor_arg(value))
-                              for key, value in arg.items())))
+                                              convert_to_tensor_arg(arg[key]))
+                              for key in keys)))
     else:
         return torch.tensor(
             9, dtype=torch.int32), save_object_reference_in_tensor(arg)

@@ -1,6 +1,7 @@
 import logging
 import functools
 import threading
+import copy
 import torch
 
 logger = logging.getLogger()
@@ -21,14 +22,15 @@ def make_dynamic_graphed_callable(callable):
             with lock:
                 cached_callable = cached_callables.get(key)
                 if cached_callable is None:
-                    logger.info(f'Dynamically graphing {getattr(callable, "__name__", callable.__class__.__name__)}')
-                    cached_callable = simple_make_graphed_callable(callable, args,
-                                                                   kwargs)
+                    logger.info(
+                        f'Dynamically graphing {getattr(callable, "__name__", callable.__class__.__name__)}'
+                    )
+                    cached_callable = simple_make_graphed_callable(
+                        callable, args, kwargs)
                     cached_callables[key] = cached_callable
         return cached_callable(*args, **kwargs)
 
     return dynamic_graphed_callable
-    
 
 
 def simple_make_graphed_callable(callable,
@@ -65,12 +67,12 @@ def make_graphed_callable(callable,
     torch.cuda.synchronize()
     with torch.cuda.stream(torch.cuda.Stream(device=execution_env.device)):
         for _ in range(3):
-            callable(*tree_copy(example_inputs),
-                     **tree_copy(example_kwarg_inputs))
+            callable(*copy.deepcopy(example_inputs),
+                     **copy.deepcopy(example_kwarg_inputs))
     torch.cuda.synchronize()
 
-    static_inputs = tree_copy(example_inputs)
-    static_kwarg_inputs = tree_copy(example_kwarg_inputs)
+    static_inputs = copy.deepcopy(example_inputs)
+    static_kwarg_inputs = copy.deepcopy(example_kwarg_inputs)
 
     with execution_env.lock:
         with torch.cuda.device(execution_env.device), torch.cuda.stream(
@@ -96,7 +98,7 @@ def make_graphed_callable(callable,
             def forward(self, *inputs, **kwarg_inputs):
                 with execution_env.lock:
                     outputs = self._forward(*inputs, **kwarg_inputs)
-                    outputs = tree_copy(outputs)
+                    outputs = copy.deepcopy(outputs)
                 return outputs
 
             def _forward(self, *inputs, **kwarg_inputs):
@@ -149,6 +151,7 @@ def get_per_device_graph_execution_env(device=None):
                 mempool=mempool, device=device, stream=stream, lock=lock)
         return _per_device_execution_envs[device]
 
+
 def hash_arg(arg):
     if isinstance(arg, torch.Tensor):
         arg_device = arg.device
@@ -158,7 +161,11 @@ def hash_arg(arg):
     if isinstance(arg, (tuple, list)):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
-        return tuple(map(hash_arg, sorted((k, hash_arg(v)) for k, v in arg.items())))
+        return tuple(
+            map(
+                hash_arg,
+                sorted(((k, hash_arg(v)) for k, v in arg.items()),
+                       key=lambda x: x[0])))
     return None
 
 
@@ -173,17 +180,6 @@ def tree_copy_(dest, src):
             tree_copy_(dest[k], src[k])
     else:
         assert dest == src
-
-
-def tree_copy(src):
-    if isinstance(src, torch.Tensor):
-        return src.detach().clone()
-    elif isinstance(src, (list, tuple)):
-        return type(src)(tree_copy(x) for x in src)
-    elif isinstance(src, dict):
-        return type(src)((k, tree_copy(v)) for k, v in src.items())
-    else:
-        return src
 
 
 def get_cuda_device_from_tensors(x):
