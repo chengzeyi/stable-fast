@@ -10,7 +10,7 @@ import torch
 from sfast.compilers.stable_diffusion_pipeline_compiler import (
     compile, CompilationConfig)
 from sfast.profile.auto_profiler import AutoProfiler
-from sfast.utils.term_image import display_image
+from sfast.utils.term_image import print_image as display_image
 from sfast.utils.compute_precision import low_compute_precision
 
 logger = logging.getLogger()

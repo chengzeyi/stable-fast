@@ -104,8 +104,10 @@ def compile(m, config):
                 check_trace=False,
                 strict=False)
 
-            m.text_encoder.forward = lazy_trace_(
-                to_module(m.text_encoder.forward))
+            # disable jit for text_encoder because of exception caused by
+            # tracing BaseModelOutputPooling of StableDiffusionXLPipeline
+            # m.text_encoder.forward = lazy_trace_(
+            #     to_module(m.text_encoder.forward))
             unet_forward = lazy_trace(to_module(m.unet.forward),
                                       ts_compiler=functools.partial(
                                           ts_compiler,

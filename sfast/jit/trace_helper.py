@@ -94,7 +94,8 @@ def hash_arg(arg):
     if isinstance(arg, (tuple, list)):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
-        return tuple(map(hash_arg, sorted((k, hash_arg(v)) for k, v in arg.items())))
+        return tuple(
+            map(hash_arg, sorted((k, hash_arg(v)) for k, v in arg.items())))
     return None
 
 
@@ -158,8 +159,8 @@ def convert_to_pos_args(args, kwargs):
     keys = sorted(kwargs.keys())
     return (torch.tensor(len(args), dtype=torch.int32), ) + (torch.tensor(
         len(keys), dtype=torch.int32), ) + tuple(
-            itertools.chain(*(
-                convert_to_tensor_arg(arg) for arg in args))) + tuple(
+            itertools.chain(
+                *(convert_to_tensor_arg(arg) for arg in args))) + tuple(
                     itertools.chain(*(convert_to_tensor_arg(key) +
                                       convert_to_tensor_arg(kwargs[key])
                                       for key in keys)))
@@ -191,10 +192,10 @@ def convert_to_tensor_arg(arg):
         return torch.tensor(7, dtype=torch.int32), type(arg)(
             itertools.chain(*(convert_to_tensor_arg(a) for a in arg)))
     elif isinstance(arg, dict):
-        return torch.tensor(8, dtype=torch.int32), type(arg)(
-            itertools.chain(*(itertools.chain(*(convert_to_tensor_arg(a)
-                                                for a in item))
-                              for item in arg.items())))
+        return torch.tensor(8, dtype=torch.int32), tuple(
+            itertools.chain(*(itertools.chain(convert_to_tensor_arg(key),
+                                              convert_to_tensor_arg(value))
+                              for key, value in arg.items())))
     else:
         return torch.tensor(
             9, dtype=torch.int32), save_object_reference_in_tensor(arg)
@@ -220,19 +221,29 @@ def convert_from_tensor_arg(arg_type, arg):
         return type(arg)(convert_from_tensor_arg(t, a)
                          for t, a in zip(arg[::2], arg[1::2]))
     elif arg_type == 8:
-        return type(arg)(
-            (convert_from_tensor_arg(t, a), convert_from_tensor_arg(t2, a2))
-            for (t, a), (t2,
-                         a2) in zip(arg[::4], arg[1::4], arg[2::4], arg[3::4]))
+        return dict(
+            (convert_from_tensor_arg(t1, a1), convert_from_tensor_arg(t2, a2))
+            for t1, a1, t2, a2 in zip(arg[::4], arg[1::4], arg[2::4],
+                                      arg[3::4]))
     elif arg_type == 9:
         return restore_object_from_tensor(arg)
     else:
         raise ValueError(f"Unknown arg type {arg_type}")
 
 
-def save_object_reference_in_tensor(obj):
-    obj_id = id(obj)
-    return torch.tensor(obj_id, dtype=torch.int64)
+class ObjectStorationHelper(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, obj):
+        obj_id = id(obj)
+        return torch.tensor(obj_id, dtype=torch.int64)
+
+    @staticmethod
+    def backward(ctx, grad):
+        return None
+
+
+save_object_reference_in_tensor = ObjectStorationHelper.apply
 
 
 class ObjectRestorationHelper(torch.autograd.Function):

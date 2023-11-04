@@ -27,6 +27,20 @@ Performance varies very greatly across different hardware/software/platform/driv
 It is very hard to benchmark accurately. And preparing the environment for benchmarking is also a hard job.
 I have tested on some platforms before but the results may still be inaccurate.
 
+#### RTX 4080 (512x512, batch size 1, fp16, tcmalloc enabled, in WSL2)
+
+This is my personal gaming PC😄. It has a more powerful CPU than those from cloud server providers.
+
+| Framework                                | SD 1.5        | SD XL         |
+| ---------------------------------------- | ------------- | ------------- |
+| Vanilla PyTorch (2.1.0+cu118)            | 29.5 it/s     | 17.1 it/s     |
+| torch.compile (2.1.0+cu118, NHWC UNet)   | 40.2 it/s     | 20.0 it/s     |
+| AITemplate                               | untested      | untested      |
+| OneFlow                                  | untested      | untested      |
+| AUTO1111 WebUI                           | 17.2 it/s     | untested      |
+| TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested      |
+| __Stable Fast (with xformers & Triton)__ | __49.1 it/s__ | __27.6 it/s__ |
+
 #### RTX 4090 (512x512, batch size 1, fp16, tcmalloc enabled)
 
 | Framework                                | SD 1.5        | SD 2.1         | SD 1.5 ControlNet |
@@ -39,20 +53,6 @@ I have tested on some platforms before but the results may still be inaccurate.
 | __Stable Fast (with xformers & Triton)__ | __61.8 it/s__ | __61.6 it/s__  | __42.3 it/s__     |
 
 (??): OneFlow seems to be not working well with SD 2.1
-
-#### RTX 4080 (512x512, batch size 1, fp16, tcmalloc enabled, in WSL2)
-
-This is my personal gaming PC😄. It has a more powerful CPU than those from cloud server providers.
-
-| Framework                                | SD 1.5        |
-| ---------------------------------------- | ------------- |
-| Vanilla PyTorch (2.1.0+cu118)            | 29.5 it/s     |
-| torch.compile (2.1.0+cu118, NHWC UNet)   | 40.2 it/s     |
-| AITemplate                               | untested      |
-| OneFlow                                  | untested      |
-| AUTO1111 WebUI                           | 17.2 it/s     |
-| TensorRT (AUTO1111 WebUI)                | 40.8 it/s     |
-| __Stable Fast (with xformers & Triton)__ | __49.1 it/s__ |
 
 #### RTX 3080 Ti (512x512, batch size 1, fp16, tcmalloc enabled)
 
@@ -130,9 +130,9 @@ try:
     config.enable_triton = True
 except ImportError:
     print('Triton not installed, skip')
-# CUDA Graph is suggested for small batch sizes.
-# After capturing, the model only accepts one fixed image size.
-# If you want the model to be dynamic, don't enable it.
+# CUDA Graph is suggested for small batch sizes to reduce CPU overhead.
+# My implementation can handle dynamic shape with increased need for GPU memory.
+# If you meet problems related to it, you should disable it.
 config.enable_cuda_graph = True
 
 compiled_model = compile(model, config)
@@ -195,4 +195,26 @@ import torch
 
 if packaging.version.parse(torch.__version__) >= packaging.version.parse('1.12.0'):
     torch.backends.cuda.matmul.allow_tf32 = True
+```
+
+# Trouble Shooting
+
+## Compilation Is SO SLOW. How To Improve It?
+
+Dynamic code generation is usually the cause for slow compilation.
+You could disable features related to it to speed up compilation.
+But this might slow down your inference.
+
+### Disable JIT Optimized Execution
+
+```python
+# Wrap your code in this context manager
+with torch.jit.optimized_execution(False):
+    # Do your things
+```
+
+### Do Not Use Triton
+
+```python
+config.enable_triton = False
 ```
