@@ -134,7 +134,7 @@ try:
     config.enable_triton = True
 except ImportError:
     print('Triton not installed, skip')
-# CUDA Graph is suggested for small batch sizes to reduce CPU overhead.
+# CUDA Graph is suggested for small batch sizes and small resolutions to reduce CPU overhead.
 # My implementation can handle dynamic shape with increased need for GPU memory.
 # If you meet problems related to it, you should disable it.
 config.enable_cuda_graph = True
