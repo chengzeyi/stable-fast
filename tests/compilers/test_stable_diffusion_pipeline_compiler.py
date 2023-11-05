@@ -139,52 +139,52 @@ def benchmark_sd_model(model_path,
     call_model_ = functools.partial(call_model, kwarg_inputs=kwarg_inputs)
 
     with AutoProfiler(.02) as profiler, low_compute_precision():
-        logger.info('Benchmarking StableDiffusionPipeline')
-        model = load_model()
+        # logger.info('Benchmarking StableDiffusionPipeline')
+        # model = load_model()
 
-        def call_original_model():
-            return call_model_(model)
+        # def call_original_model():
+        #     return call_model_(model)
 
-        for _ in range(3):
-            call_original_model()
+        # for _ in range(3):
+        #     call_original_model()
 
-        output_image = profiler.with_cProfile(call_original_model)()
-        display_image(output_image)
+        # output_image = profiler.with_cProfile(call_original_model)()
+        # display_image(output_image)
 
-        if hasattr(torch, 'compile'):
-            logger.info(
-                'Benchmarking StableDiffusionPipeline with torch.compile')
-            model.unet.to(memory_format=torch.channels_last)
-            model.unet = torch.compile(model.unet)
-            if hasattr(model, 'controlnet'):
-                model.controlnet.to(memory_format=torch.channels_last)
-                model.controlnet = torch.compile(model.controlnet)
+        # if hasattr(torch, 'compile'):
+        #     logger.info(
+        #         'Benchmarking StableDiffusionPipeline with torch.compile')
+        #     model.unet.to(memory_format=torch.channels_last)
+        #     model.unet = torch.compile(model.unet)
+        #     if hasattr(model, 'controlnet'):
+        #         model.controlnet.to(memory_format=torch.channels_last)
+        #         model.controlnet = torch.compile(model.controlnet)
 
-            def call_torch_compiled_model():
-                return call_model_(model)
+        #     def call_torch_compiled_model():
+        #         return call_model_(model)
 
-            for _ in range(3):
-                call_torch_compiled_model()
+        #     for _ in range(3):
+        #         call_torch_compiled_model()
 
-            output_image = profiler.with_cProfile(call_torch_compiled_model)()
-            display_image(output_image)
+        #     output_image = profiler.with_cProfile(call_torch_compiled_model)()
+        #     display_image(output_image)
 
-        del model
+        # del model
 
-        logger.info('Benchmarking compiled StableDiffusionPipeline')
-        config = CompilationConfig.Default()
-        compiled_model = compile(load_model(), config)
+        # logger.info('Benchmarking compiled StableDiffusionPipeline')
+        # config = CompilationConfig.Default()
+        # compiled_model = compile(load_model(), config)
 
-        def call_compiled_model():
-            return call_model_(compiled_model)
+        # def call_compiled_model():
+        #     return call_model_(compiled_model)
 
-        for _ in range(3):
-            call_compiled_model()
+        # for _ in range(3):
+        #     call_compiled_model()
 
-        output_image = profiler.with_cProfile(call_compiled_model)()
-        display_image(output_image)
+        # output_image = profiler.with_cProfile(call_compiled_model)()
+        # display_image(output_image)
 
-        del compiled_model
+        # del compiled_model
 
         logger.info(
             'Benchmarking compiled StableDiffusionPipeline with xformers, Triton and CUDA Graph'

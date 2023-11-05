@@ -6,6 +6,7 @@ import threading
 import copy
 import ctypes
 import torch
+from sfast.utils.flat_tensors import (convert_to_flat_tensors, convert_from_flat_tensors)
 from .utils import better_trace
 
 logger = logging.getLogger()
@@ -27,8 +28,8 @@ def trace_with_kwargs(func,
         if dataclasses.is_dataclass(outputs):
             converter = DictToDataClassConverter(type(outputs))
 
-    pos_args = convert_to_pos_args(copy.deepcopy(example_inputs),
-                                   copy.deepcopy(example_kwarg_inputs))
+    pos_args = convert_to_flat_tensors((copy.deepcopy(example_inputs),
+                                        copy.deepcopy(example_kwarg_inputs)))
     traced_module = better_trace(TraceablePosArgOnlyModuleWrapper(func),
                                  pos_args, **kwargs)
     training = getattr(func, 'training', False) if isinstance(
@@ -125,7 +126,7 @@ class TracedPosArgOnlyModuleWrapper(torch.nn.Module):
         self.train(training)
 
     def forward(self, *args, **kwargs):
-        outputs = self.module(*convert_to_pos_args(args, kwargs))
+        outputs = self.module(*convert_to_flat_tensors((args, kwargs)))
         if self.converter is not None:
             outputs = self.converter(outputs)
         return outputs
@@ -141,127 +142,5 @@ class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
         self.train(training)
 
     def forward(self, *args):
-        pos_arg_num = args[0].item()
-        kwargs_arg_num = args[1].item()
-        args_to_process = args[2:2 + pos_arg_num * 2]
-        kwargs_to_process = args[2 + pos_arg_num * 2:]
-
-        orig_args = []
-        for i in range(pos_arg_num):
-            orig_args.append(
-                convert_from_tensor_arg(args_to_process[i * 2],
-                                        args_to_process[i * 2 + 1]))
-        orig_kwargs = {}
-        for i in range(kwargs_arg_num):
-            orig_kwargs[convert_from_tensor_arg(
-                kwargs_to_process[i * 4], kwargs_to_process[i * 4 + 1])] = \
-                convert_from_tensor_arg(
-                    kwargs_to_process[i * 4 + 2], kwargs_to_process[i * 4 + 3])
+        orig_args, orig_kwargs = convert_from_flat_tensors(args)
         return self.module(*orig_args, **orig_kwargs)
-
-
-def convert_to_pos_args(args, kwargs):
-    keys = sorted(kwargs.keys())
-    return (torch.tensor(len(args), dtype=torch.int32), ) + (torch.tensor(
-        len(keys), dtype=torch.int32), ) + tuple(
-            itertools.chain(
-                *(convert_to_tensor_arg(arg) for arg in args))) + tuple(
-                    itertools.chain(*(convert_to_tensor_arg(key) +
-                                      convert_to_tensor_arg(kwargs[key])
-                                      for key in keys)))
-
-
-def convert_to_tensor_arg(arg):
-    if arg is None:
-        return torch.tensor(0, dtype=torch.int32), torch.Tensor()
-    elif isinstance(arg, torch.Tensor):
-        return torch.tensor(1, dtype=torch.int32), arg
-    elif isinstance(arg, float):
-        return torch.tensor(2, dtype=torch.int32), torch.tensor(
-            arg, dtype=torch.float64)
-    elif isinstance(arg, int):
-        return torch.tensor(3,
-                            dtype=torch.int32), torch.tensor(arg,
-                                                             dtype=torch.int64)
-    elif isinstance(arg, bool):
-        return torch.tensor(4,
-                            dtype=torch.int32), torch.tensor(arg,
-                                                             dtype=torch.bool)
-    elif isinstance(arg, str):
-        return torch.tensor(5, dtype=torch.int32), torch.as_tensor(
-            tuple(arg.encode('utf-8')), dtype=torch.uint8)
-    elif isinstance(arg, bytes):
-        return torch.tensor(6, dtype=torch.int32), torch.as_tensor(
-            tuple(arg), dtype=torch.uint8)
-    elif isinstance(arg, (list, tuple)):
-        return torch.tensor(7, dtype=torch.int32), type(arg)(
-            itertools.chain(*(convert_to_tensor_arg(a) for a in arg)))
-    elif isinstance(arg, dict):
-        keys = sorted(arg.keys())
-        return torch.tensor(8, dtype=torch.int32), tuple(
-            itertools.chain(*(itertools.chain(convert_to_tensor_arg(key),
-                                              convert_to_tensor_arg(arg[key]))
-                              for key in keys)))
-    else:
-        return torch.tensor(
-            9, dtype=torch.int32), save_object_reference_in_tensor(arg)
-
-
-def convert_from_tensor_arg(arg_type, arg):
-    arg_type = arg_type.item()
-    if arg_type == 0:
-        return None
-    elif arg_type == 1:
-        return arg
-    elif arg_type == 2:
-        return arg.item()
-    elif arg_type == 3:
-        return arg.item()
-    elif arg_type == 4:
-        return arg.item()
-    elif arg_type == 5:
-        return bytes(arg.tolist()).decode('utf-8')
-    elif arg_type == 6:
-        return bytes(arg.tolist())
-    elif arg_type == 7:
-        return type(arg)(convert_from_tensor_arg(t, a)
-                         for t, a in zip(arg[::2], arg[1::2]))
-    elif arg_type == 8:
-        return dict(
-            (convert_from_tensor_arg(t1, a1), convert_from_tensor_arg(t2, a2))
-            for t1, a1, t2, a2 in zip(arg[::4], arg[1::4], arg[2::4],
-                                      arg[3::4]))
-    elif arg_type == 9:
-        return restore_object_from_tensor(arg)
-    else:
-        raise ValueError(f"Unknown arg type {arg_type}")
-
-
-class ObjectStorationHelper(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, obj):
-        obj_id = id(obj)
-        return torch.tensor(obj_id, dtype=torch.int64)
-
-    @staticmethod
-    def backward(ctx, grad):
-        return None
-
-
-save_object_reference_in_tensor = ObjectStorationHelper.apply
-
-
-class ObjectRestorationHelper(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, t):
-        obj_id = t.item()
-        return ctypes.cast(obj_id, ctypes.py_object).value
-
-    @staticmethod
-    def backward(ctx, grad):
-        return None
-
-
-restore_object_from_tensor = ObjectRestorationHelper.apply
