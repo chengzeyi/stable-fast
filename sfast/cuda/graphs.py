@@ -57,7 +57,7 @@ def make_graphed_callable(callable,
     if example_inputs is None:
         example_inputs = tuple()
     if example_kwarg_inputs is None:
-        example_kwarg_inputs = dict()
+        example_kwarg_inputs = {}
 
     fwd_graph = torch.cuda.CUDAGraph()
 
@@ -69,10 +69,10 @@ def make_graphed_callable(callable,
         for _ in range(3):
             callable(*copy.deepcopy(example_inputs),
                      **copy.deepcopy(example_kwarg_inputs))
-    torch.cuda.synchronize()
 
     static_inputs = copy.deepcopy(example_inputs)
     static_kwarg_inputs = copy.deepcopy(example_kwarg_inputs)
+    torch.cuda.synchronize()
 
     with execution_env.lock:
         with torch.cuda.device(execution_env.device), torch.cuda.stream(
@@ -155,7 +155,10 @@ def get_per_device_graph_execution_env(device=None):
 def hash_arg(arg):
     if isinstance(arg, torch.Tensor):
         arg_device = arg.device
-        return (arg_device.type, arg_device.index, arg.dtype, arg.shape)
+        arg_device_type = arg_device.type
+        return (arg_device_type, arg_device.index, arg.dtype, arg.shape,
+                arg.item()
+                if arg_device_type == 'cpu' and arg.numel() == 1 else None)
     if isinstance(arg, (int, float, bool, str, bytes)):
         return arg
     if isinstance(arg, (tuple, list)):

@@ -1,4 +1,5 @@
 import io
+import functools
 import cProfile
 import pstats
 
@@ -7,6 +8,7 @@ def with_cProfile(*amount, out_func=None, file=None):
 
     def _with_cProfile(func):
 
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             pr = cProfile.Profile()
             try:

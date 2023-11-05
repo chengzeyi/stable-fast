@@ -104,7 +104,11 @@ from sfast.compilers.stable_diffusion_pipeline_compiler import (compile,
                                                                 )
 
 def load_model():
-    # NOTE: You could change to StableDiffusionXLPipeline to load SDXL model
+    # NOTE:
+    # You could change to StableDiffusionXLPipeline to load SDXL model.
+    # If the resolution is high (1024x1024),
+    # ensure you VRAM is sufficient (or RAM? I'm not sure, maybe I should upgrade my PC).
+    # Or the performance might regress.
     # model = StableDiffusionXLPipeline.from_pretrained(
     #     'stabilityai/stable-diffusion-xl-base-1.0', torch_dtype=torch.float16)
     model = StableDiffusionPipeline.from_pretrained(
@@ -127,7 +131,8 @@ try:
     config.enable_xformers = True
 except ImportError:
     print('xformers not installed, skip')
-# NOTE: On some recent GPUs (for example, RTX 4080), Triton might generate slow kernels.
+# NOTE:
+# When GPU VRAM is insufficient or the architecture is too old, Triton might be slow.
 # Disable Triton if you encounter this problem.
 try:
     import triton

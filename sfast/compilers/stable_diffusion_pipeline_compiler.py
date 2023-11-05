@@ -112,8 +112,8 @@ def compile(m, config):
 
             # disable jit for text_encoder because of exception caused by
             # tracing BaseModelOutputPooling of StableDiffusionXLPipeline
-            # m.text_encoder.forward = lazy_trace_(
-            #     to_module(m.text_encoder.forward))
+            m.text_encoder.forward = lazy_trace_(
+                to_module(m.text_encoder.forward))
             unet_forward = lazy_trace(to_module(m.unet.forward),
                                       ts_compiler=functools.partial(
                                           ts_compiler,
@@ -130,14 +130,14 @@ def compile(m, config):
 
             m.unet.forward = unet_forward_wrapper
 
-            if packaging.version.parse(
-                    torch.__version__) < packaging.version.parse('2.0.0'):
-                m.vae.decode = lazy_trace_(to_module(m.vae.decode))
-                # For img2img
-                m.vae.encoder.forward = lazy_trace_(
-                    to_module(m.vae.encoder.forward))
-                m.vae.quant_conv.forward = lazy_trace_(
-                    to_module(m.vae.quant_conv.forward))
+            # if packaging.version.parse(
+            #         torch.__version__) < packaging.version.parse('2.0.0'):
+            m.vae.decode = lazy_trace_(to_module(m.vae.decode))
+            # For img2img
+            m.vae.encoder.forward = lazy_trace_(
+                to_module(m.vae.encoder.forward))
+            m.vae.quant_conv.forward = lazy_trace_(
+                to_module(m.vae.quant_conv.forward))
 
             if hasattr(m, 'controlnet'):
                 controlnet_forward = lazy_trace(
@@ -169,6 +169,8 @@ def _modify_model(m,
         from sfast.jit.passes import triton_passes
 
     torch._C._jit_pass_inline(m.graph)
+
+    passes.jit_pass_remove_dropout(m.graph)
 
     passes.jit_pass_remove_contiguous(m.graph)
     passes.jit_pass_replace_view_with_reshape(m.graph)

@@ -20,14 +20,6 @@ def trace_with_kwargs(func,
         example_inputs = tuple()
     if example_kwarg_inputs is None:
         example_kwarg_inputs = {}
-    # warmup
-    outputs = func(*copy.deepcopy(example_inputs),
-                   **copy.deepcopy(example_kwarg_inputs))
-    converter = None
-    if not isinstance(outputs, (tuple, list)):
-        if dataclasses.is_dataclass(outputs):
-            converter = DictToDataClassConverter(type(outputs))
-
     pos_args = convert_to_flat_tensors((copy.deepcopy(example_inputs),
                                         copy.deepcopy(example_kwarg_inputs)))
     traced_module = better_trace(TraceablePosArgOnlyModuleWrapper(func),
@@ -35,7 +27,7 @@ def trace_with_kwargs(func,
     training = getattr(func, 'training', False) if isinstance(
         func, torch.nn.Module) else None
     return traced_module, lambda m: TracedPosArgOnlyModuleWrapper(
-        m, training=training, converter=converter)
+        m, training=training)
 
 
 def lazy_trace(func, *, ts_compiler=None, **kwargs_):
@@ -105,31 +97,20 @@ def hash_arg(arg):
     return None
 
 
-class DictToDataClassConverter:
-
-    def __init__(self, clz):
-        self.clz = clz
-
-    def __call__(self, d):
-        return self.clz(**d)
-
-
 class TracedPosArgOnlyModuleWrapper(torch.nn.Module):
 
-    def __init__(self, module, *, training=None, converter=None):
+    def __init__(self, module, *, training=None):
         super().__init__()
         self.module = module
         if training is None:
             training = getattr(module, 'training', False) if isinstance(
                 module, torch.nn.Module) else False
-        self.converter = converter
         self.train(training)
 
     def forward(self, *args, **kwargs):
         outputs = self.module(*convert_to_flat_tensors((args, kwargs)))
-        if self.converter is not None:
-            outputs = self.converter(outputs)
-        return outputs
+        unflat_outputs = convert_from_flat_tensors(outputs)
+        return unflat_outputs
 
 
 class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
@@ -143,4 +124,6 @@ class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
 
     def forward(self, *args):
         orig_args, orig_kwargs = convert_from_flat_tensors(args)
-        return self.module(*orig_args, **orig_kwargs)
+        outputs = self.module(*orig_args, **orig_kwargs)
+        flat_outputs = convert_to_flat_tensors(outputs)
+        return flat_outputs

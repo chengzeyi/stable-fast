@@ -12,6 +12,16 @@ graph(%1, %2):
     return (%1)''', graph)
 
 
+def jit_pass_remove_dropout(graph):
+    torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+        '''
+graph(%1, %2, %3):
+    %x : Tensor = aten::dropout(%1, %2, %3)
+    return (%x)''', '''
+graph(%1, %2, %3):
+    return (%1)''', graph)
+
+
 def jit_pass_lower_conv(graph):
     jit_pass_lower_conv1d(graph)
     jit_pass_lower_conv2d(graph)
@@ -136,6 +146,36 @@ def jit_pass_fuse_lowp_linear_add(graph):
 graph(%input, %weight, %bias, %other, %alpha):
     %x : Tensor = sfast::cublas_lowp_linear(%input, %weight, %bias)
     %y : Tensor = aten::add(%x, %other, %alpha)
+    return (%y)''', '''
+graph(%input, %weight, %bias, %other, %alpha):
+    %x : Tensor = sfast::cublas_lowp_linear_add(%input, %weight, %bias, %other, %alpha)
+    return (%x)''', graph)
+
+            torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+                '''
+graph(%input, %weight, %bias, %other, %alpha):
+    %x : Tensor = sfast::cublas_lowp_linear(%input, %weight, %bias)
+    %y : Tensor = aten::add_(%x, %other, %alpha)
+    return (%y)''', '''
+graph(%input, %weight, %bias, %other, %alpha):
+    %x : Tensor = sfast::cublas_lowp_linear_add(%input, %weight, %bias, %other, %alpha)
+    return (%x)''', graph)
+
+            torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+                '''
+graph(%input, %weight, %bias, %other, %alpha):
+    %x : Tensor = sfast::cublas_lowp_linear(%input, %weight, %bias)
+    %y : Tensor = aten::add(%other, %x, %alpha)
+    return (%y)''', '''
+graph(%input, %weight, %bias, %other, %alpha):
+    %x : Tensor = sfast::cublas_lowp_linear_add(%input, %weight, %bias, %other, %alpha)
+    return (%x)''', graph)
+
+            torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+                '''
+graph(%input, %weight, %bias, %other, %alpha):
+    %x : Tensor = sfast::cublas_lowp_linear(%input, %weight, %bias)
+    %y : Tensor = aten::add_(%other, %x, %alpha)
     return (%y)''', '''
 graph(%input, %weight, %bias, %other, %alpha):
     %x : Tensor = sfast::cublas_lowp_linear_add(%input, %weight, %bias, %other, %alpha)
@@ -268,6 +308,26 @@ graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
 graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
     %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
     %y : Tensor = aten::add_(%x, %14, %15)
+    return (%y)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add(%14, %x, %15)
+    return (%y)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add_(%14, %x, %15)
     return (%y)''', '''
 graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
     %x : Tensor = sfast::cudnn_convolution_bias_add(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
