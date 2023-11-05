@@ -35,8 +35,8 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | ---------------------------------------- | ------------- | ------------- | ----------------- |
 | Vanilla PyTorch (2.1.0+cu118)            | 29.5 it/s     | 32.4 it/s     | 4.6 it/s          |
 | torch.compile (2.1.0+cu118, NHWC UNet)   | 40.0 it/s     | 44.0 it/s     | 6.1 it/s          |
-| AITemplate                               | untested      | untested      | untested          |
-| OneFlow                                  | untested      | untested      | untested          |
+| AITemplate                               | 44.2 it/s     | untested      | untested          |
+| OneFlow                                  | 50.3 it/s     | untested      | untested          |
 | AUTO1111 WebUI                           | 17.2 it/s     | 15.2 it/s     | 3.6 it/s          |
 | AUTO1111 WebUI (with SDPA)               | 24.5 it/s     | 26.1 it/s     | 4.3 it/s          |
 | TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested      | untested          |
