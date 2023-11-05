@@ -25,6 +25,7 @@ class CompilationConfig:
         enable_xformers: bool = False
         enable_cuda_graph: bool = False
         enable_triton: bool = False
+        trace_scheduler: bool = False
 
 
 def compile(m, config):
@@ -138,6 +139,11 @@ def compile(m, config):
                 to_module(m.vae.encoder.forward))
             m.vae.quant_conv.forward = lazy_trace_(
                 to_module(m.vae.quant_conv.forward))
+
+            if config.trace_scheduler:
+                m.scheduler.scale_model_input = lazy_trace_(
+                    to_module(m.scheduler.scale_model_input))
+                m.scheduler.step = lazy_trace_(to_module(m.scheduler.step))
 
             if hasattr(m, 'controlnet'):
                 controlnet_forward = lazy_trace(

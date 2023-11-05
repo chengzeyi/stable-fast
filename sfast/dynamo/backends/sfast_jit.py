@@ -3,6 +3,7 @@ import torch
 from torch.utils._python_dispatch import _disable_current_modes
 from torch._dynamo.backends.registry import register_backend
 from torch._subclasses import FakeTensor
+from sfast.jit.utils import better_trace
 
 
 @register_backend
@@ -61,7 +62,7 @@ def sfast_jit_trace(gm, example_inputs, *, ts_compiler=None):
     # (torch/csrc/jit/api/function_impl.h: get_executor())
     # But we might modify its graph later, so we don't want to cache it.
     # So we set check_trace to False.
-    ts = torch.jit.trace(gm, example_inputs, check_trace=False)
+    ts = better_trace(gm, example_inputs, check_trace=False)
     if ts_compiler is not None:
         ts = ts_compiler(ts, example_inputs)
     return ts

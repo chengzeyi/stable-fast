@@ -31,15 +31,16 @@ I have tested on some platforms before but the results may still be inaccurate.
 
 This is my personal gaming PC😄. It has a more powerful CPU than those from cloud server providers.
 
-| Framework                                | SD 1.5        | SD XL (1024x1024) |
-| ---------------------------------------- | ------------- | ----------------- |
-| Vanilla PyTorch (2.1.0+cu118)            | 29.5 it/s     | 4.6 it/s          |
-| torch.compile (2.1.0+cu118, NHWC UNet)   | 40.2 it/s     | 6.1 it/s          |
-| AITemplate                               | untested      | untested          |
-| OneFlow                                  | untested      | untested          |
-| AUTO1111 WebUI                           | 17.2 it/s     | 3.6 it/s          |
-| TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested          |
-| __Stable Fast (with xformers & Triton)__ | __49.1 it/s__ | __8.1 it/s__      |
+| Framework                                | SD 1.5        | SD 2.1        | SD XL (1024x1024) |
+| ---------------------------------------- | ------------- | ------------- | ----------------- |
+| Vanilla PyTorch (2.1.0+cu118)            | 29.5 it/s     | 32.4 it/s     | 4.6 it/s          |
+| torch.compile (2.1.0+cu118, NHWC UNet)   | 40.0 it/s     | 44.0 it/s     | 6.1 it/s          |
+| AITemplate                               | untested      | untested      | untested          |
+| OneFlow                                  | untested      | untested      | untested          |
+| AUTO1111 WebUI                           | 17.2 it/s     | 15.2 it/s     | 3.6 it/s          |
+| AUTO1111 WebUI (with SDPA)               | 24.5 it/s     | 26.1 it/s     | 4.3 it/s          |
+| TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested      | untested          |
+| __Stable Fast (with xformers & Triton)__ | __49.7 it/s__ | __52.5 it/s__ | __8.1 it/s__      |
 
 #### RTX 4090 (512x512, batch size 1, fp16, tcmalloc enabled)
 
@@ -82,7 +83,9 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 
 Sorry, currently A100 is hard and expensive to rent from cloud server providers in my region.
 
-Benchmark results will be available when I have the access to A100 again.
+A few months ago I have tested this framework on A100 and the speed is around __61 it/s__ for SD 1.5.
+
+Detailed benchmark results will be available when I have the access to A100 again.
 
 ### Compatibility
 
@@ -91,6 +94,13 @@ Benchmark results will be available when I have the access to A100 again.
 | Hugging Face Diffusers (1.5/2.1/XL) | Yes       |
 | With ControlNet                     | Yes       |
 | With LoRA                           | Yes       |
+| Dynamic Shape                       | Yes       |
+
+| UI Framework                        | Supported | Link                                                                    |
+| ----------------------------------- | --------- | ----------------------------------------------------------------------- |
+| AUTOMATIC1111                       | WIP       |                                                                         |
+| SD Next                             | WIP       |                                                                         |
+| ComfyUI                             | Yes       | [`ComfyUI_stable_fast`](https://github.com/gameltb/ComfyUI_stable_fast) |
 
 ## Usage
 

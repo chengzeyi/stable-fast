@@ -202,6 +202,7 @@ def benchmark_sd_model(model_path,
             config.enable_triton = True
         except ImportError:
             logger.warning('triton not installed, skip')
+        # config.trace_scheduler = True
         config.enable_cuda_graph = enable_cuda_graph
         compiled_model = compile(load_model(), config)
 

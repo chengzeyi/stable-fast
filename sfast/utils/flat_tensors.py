@@ -4,10 +4,12 @@ import ctypes
 import torch
 
 
+# convert arbitrary object to a list of tensors
 def convert_to_flat_tensors(obj):
     return flatten_obj(obj)
 
 
+# convert a list of tensors to an arbitrary object
 def convert_from_flat_tensors(tensors):
     return unflatten_tensors(tensors)[0]
 
@@ -102,7 +104,8 @@ def flatten_dict(obj):
 
 
 def flatten_dataclass(obj):
-    d = dict((field.name, getattr(obj, field.name)) for field in dataclasses.fields(obj))
+    d = dict((field.name, getattr(obj, field.name))
+             for field in dataclasses.fields(obj))
     return flatten_unknown(obj.__class__) + flatten_dict(d)
 
 
