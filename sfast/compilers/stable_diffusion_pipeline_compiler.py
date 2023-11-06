@@ -131,14 +131,14 @@ def compile(m, config):
 
             m.unet.forward = unet_forward_wrapper
 
-            # if packaging.version.parse(
-            #         torch.__version__) < packaging.version.parse('2.0.0'):
-            m.vae.decode = lazy_trace_(to_module(m.vae.decode))
-            # For img2img
-            m.vae.encoder.forward = lazy_trace_(
-                to_module(m.vae.encoder.forward))
-            m.vae.quant_conv.forward = lazy_trace_(
-                to_module(m.vae.quant_conv.forward))
+            if packaging.version.parse(
+                    torch.__version__) < packaging.version.parse('2.0.0'):
+                m.vae.decode = lazy_trace_(to_module(m.vae.decode))
+                # For img2img
+                m.vae.encoder.forward = lazy_trace_(
+                    to_module(m.vae.encoder.forward))
+                m.vae.quant_conv.forward = lazy_trace_(
+                    to_module(m.vae.quant_conv.forward))
 
             if config.trace_scheduler:
                 m.scheduler.scale_model_input = lazy_trace_(
