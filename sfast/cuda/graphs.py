@@ -3,6 +3,7 @@ import functools
 import threading
 import copy
 import torch
+import sfast
 
 logger = logging.getLogger()
 
@@ -69,19 +70,30 @@ def make_graphed_callable(callable,
         for _ in range(3):
             callable(*copy.deepcopy(example_inputs),
                      **copy.deepcopy(example_kwarg_inputs))
-
-    static_inputs = copy.deepcopy(example_inputs)
-    static_kwarg_inputs = copy.deepcopy(example_kwarg_inputs)
     torch.cuda.synchronize()
 
     with execution_env.lock:
         with torch.cuda.device(execution_env.device), torch.cuda.stream(
                 execution_env.stream):
+
+            torch._C._cuda_beginAllocateCurrentStreamToPool(execution_env.device, execution_env.mempool)
+            try:
+                static_inputs_ = copy.deepcopy(example_inputs)
+                static_kwarg_inputs_ = copy.deepcopy(example_kwarg_inputs)
+            finally:
+                torch._C._cuda_endAllocateCurrentStreamToPool(execution_env.device)
+
+            static_inputs = shadow_copy(static_inputs_)
+            static_kwarg_inputs = shadow_copy(static_kwarg_inputs_)
+
             with torch.cuda.graph(fwd_graph,
                                   pool=execution_env.mempool,
                                   stream=execution_env.stream):
                 static_outputs = callable(*static_inputs,
                                           **static_kwarg_inputs)
+
+            static_outputs = shadow_copy(static_outputs)
+            del static_inputs_, static_kwarg_inputs_
 
     def make_graphed_function(callable, execution_env, fwd_graph,
                               static_inputs, static_kwarg_inputs,
@@ -176,13 +188,26 @@ def tree_copy_(dest, src):
     if isinstance(dest, torch.Tensor):
         dest.copy_(src)
     elif isinstance(dest, (list, tuple)):
+        assert len(dest) == len(src)
         for x, y in zip(dest, src):
             tree_copy_(x, y)
     elif isinstance(dest, dict):
+        assert len(dest) == len(src)
         for k in dest:
             tree_copy_(dest[k], src[k])
     else:
         assert dest == src
+
+
+def shadow_copy(obj):
+    if isinstance(obj, torch.Tensor):
+        return sfast._C._create_shadow_tensor(obj)
+    elif isinstance(obj, (list, tuple)):
+        return type(obj)(shadow_copy(x) for x in obj)
+    elif isinstance(obj, dict):
+        return type(obj)((k, shadow_copy(v)) for k, v in obj.items())
+    else:
+        return obj
 
 
 def get_cuda_device_from_tensors(x):
