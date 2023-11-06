@@ -60,8 +60,6 @@ def make_graphed_callable(callable,
     if example_kwarg_inputs is None:
         example_kwarg_inputs = {}
 
-    fwd_graph = torch.cuda.CUDAGraph()
-
     # Warmup
     # Hopefully prevents cudnn benchmarking and other lazy-initialization cuda work
     # from ending up in any captures.
@@ -72,19 +70,25 @@ def make_graphed_callable(callable,
                      **copy.deepcopy(example_kwarg_inputs))
     torch.cuda.synchronize()
 
+    tmp_graph = torch.cuda.CUDAGraph()
+
     with execution_env.lock:
         with torch.cuda.device(execution_env.device), torch.cuda.stream(
                 execution_env.stream):
-
-            torch._C._cuda_beginAllocateCurrentStreamToPool(execution_env.device, execution_env.mempool)
-            try:
+            with torch.cuda.graph(tmp_graph,
+                                  pool=execution_env.mempool,
+                                  stream=execution_env.stream):
                 static_inputs_ = copy.deepcopy(example_inputs)
                 static_kwarg_inputs_ = copy.deepcopy(example_kwarg_inputs)
-            finally:
-                torch._C._cuda_endAllocateCurrentStreamToPool(execution_env.device)
 
             static_inputs = shadow_copy(static_inputs_)
             static_kwarg_inputs = shadow_copy(static_kwarg_inputs_)
+
+    fwd_graph = torch.cuda.CUDAGraph()
+
+    with execution_env.lock:
+        with torch.cuda.device(execution_env.device), torch.cuda.stream(
+                execution_env.stream):
 
             with torch.cuda.graph(fwd_graph,
                                   pool=execution_env.mempool,
@@ -93,7 +97,8 @@ def make_graphed_callable(callable,
                                           **static_kwarg_inputs)
 
             static_outputs = shadow_copy(static_outputs)
-            del static_inputs_, static_kwarg_inputs_
+
+    del tmp_graph, static_inputs_, static_kwarg_inputs_
 
     def make_graphed_function(callable, execution_env, fwd_graph,
                               static_inputs, static_kwarg_inputs,
@@ -199,9 +204,20 @@ def tree_copy_(dest, src):
         assert dest == src
 
 
+def tree_copy(src):
+    if isinstance(src, torch.Tensor):
+        return src.clone()
+    elif isinstance(src, (list, tuple)):
+        return type(src)(tree_copy(x) for x in src)
+    elif isinstance(src, dict):
+        return type(src)((k, tree_copy(v)) for k, v in src.items())
+    else:
+        return src
+
+
 def shadow_copy(obj):
     if isinstance(obj, torch.Tensor):
-        return sfast._C._create_shadow_tensor(obj)
+        return sfast._C._create_shadow_tensor(obj) if obj.device.type == 'cuda' else obj
     elif isinstance(obj, (list, tuple)):
         return type(obj)(shadow_copy(x) for x in obj)
     elif isinstance(obj, dict):
