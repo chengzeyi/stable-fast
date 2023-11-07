@@ -81,8 +81,8 @@ def make_graphed_callable(callable,
                 static_inputs_ = copy.deepcopy(example_inputs)
                 static_kwarg_inputs_ = copy.deepcopy(example_kwarg_inputs)
 
-            static_inputs = shadow_copy(static_inputs_)
-            static_kwarg_inputs = shadow_copy(static_kwarg_inputs_)
+    static_inputs = shadow_copy(static_inputs_)
+    static_kwarg_inputs = shadow_copy(static_kwarg_inputs_)
 
     fwd_graph = torch.cuda.CUDAGraph()
 
@@ -96,8 +96,7 @@ def make_graphed_callable(callable,
                 static_outputs = callable(*static_inputs,
                                           **static_kwarg_inputs)
 
-            static_outputs = shadow_copy(static_outputs)
-
+    static_outputs = shadow_copy(static_outputs)
     del tmp_graph, static_inputs_, static_kwarg_inputs_
 
     def make_graphed_function(callable, execution_env, fwd_graph,
