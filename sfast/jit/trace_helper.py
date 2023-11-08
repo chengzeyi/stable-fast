@@ -108,26 +108,6 @@ class TracedPosArgOnlyModuleWrapper(torch.nn.Module):
         return unflat_outputs
 
 
-'''
-RuntimeError: output 1 ( 4
-[ CPULongType{1} ]) of traced region did not have observable data dependence with trace inputs; this probably indicates your program cannot be understood by the tracer.
-
-of QWen-7B-Chat model
-'''
-def make_data_dependency(inputs, outputs):
-    # make tracer happy
-    # I don't know why I have to visit some attribute of the output tensors
-    for o in outputs:
-        # seems that any attribute should be ok
-        o.data_ptr()
-    return outputs
-
-
-register_custom_python_operator(
-    'sfast_python::make_data_dependency(Tensor[] inputs, Tensor[] outputs) -> Tensor[]',
-    make_data_dependency)
-
-
 class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
 
     def __init__(self, module):
@@ -141,5 +121,4 @@ class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
         orig_args, orig_kwargs = convert_from_flat_tensors(args)
         outputs = self.module(*orig_args, **orig_kwargs)
         flat_outputs = convert_to_flat_tensors(outputs)
-        flat_outputs = torch.ops.sfast_python.make_data_dependency(args, flat_outputs)
         return flat_outputs

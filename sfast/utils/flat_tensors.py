@@ -4,6 +4,8 @@ import dataclasses
 import ctypes
 import torch
 
+is_tracing = torch._C._is_tracing
+
 
 # convert an arbitrary object to a tuple of tensors
 def convert_to_flat_tensors(obj):
@@ -15,9 +17,15 @@ def convert_from_flat_tensors(tensors):
     return unflatten_tensors(tensors)[0]
 
 
-@functools.lru_cache(maxsize=256)
-def tensor_from_int(num):
+def _tensor_from_int(num):
     return torch.tensor([num], dtype=torch.int64)
+
+
+_tensor_from_int_cached = functools.lru_cache(maxsize=256)(_tensor_from_int)
+
+
+def tensor_from_int(num):
+    return (_tensor_from_int if is_tracing() else _tensor_from_int_cached)(num)
 
 
 def flatten_obj(obj):
@@ -72,29 +80,52 @@ def flatten_tensor(obj):
     return (obj, )
 
 
-@functools.lru_cache(maxsize=256)
-def flatten_float(obj):
-    return (torch.tensor([obj], dtype=torch.float64), )
-
-
-@functools.lru_cache(maxsize=256)
-def flatten_int(obj):
-    return (torch.tensor([obj], dtype=torch.int64), )
-
-
-@functools.lru_cache(maxsize=256)
-def flatten_bool(obj):
+def _flatten_bool(obj):
     return (torch.tensor([obj], dtype=torch.bool), )
 
 
-@functools.lru_cache(maxsize=256)
+_flatten_bool_cached = functools.lru_cache(maxsize=256)(_flatten_bool)
+
+
+def flatten_bool(obj):
+    return (_flatten_bool if is_tracing() else _flatten_bool_cached)(obj)
+
+
+def _flatten_float(obj):
+    return (torch.tensor([obj], dtype=torch.float64), )
+
+
+_flatten_float_cached = functools.lru_cache(maxsize=256)(_flatten_float)
+
+
+def flatten_float(obj):
+    return (_flatten_float if is_tracing() else _flatten_float_cached)(obj)
+
+
+def _flatten_int(obj):
+    return (torch.tensor([obj], dtype=torch.int64), )
+
+
+_flatten_int_cached = functools.lru_cache(maxsize=256)(_flatten_int)
+
+
+def flatten_int(obj):
+    return (_flatten_int if is_tracing() else _flatten_int_cached)(obj)
+
+
 def flatten_str(obj):
-    return (torch.as_tensor(tuple(obj.encode('utf-8')), dtype=torch.uint8), )
+    return flatten_bytes(obj.encode('utf-8'))
 
 
-@functools.lru_cache(maxsize=256)
-def flatten_bytes(obj):
+def _flatten_bytes(obj):
     return (torch.as_tensor(tuple(obj), dtype=torch.uint8), )
+
+
+_flatten_bytes_cached = functools.lru_cache(maxsize=256)(_flatten_bytes)
+
+
+def flatten_bytes(obj):
+    return (_flatten_bytes if is_tracing() else _flatten_bytes_cached)(obj)
 
 
 def flatten_list_or_tuple(obj):
@@ -173,7 +204,8 @@ def unflatten_int(tensors, start):
 
 
 def unflatten_str(tensors, start):
-    return bytes(tensors[start].tolist()).decode('utf-8'), start + 1
+    bytes_obj, start = unflatten_bytes(tensors, start)
+    return bytes_obj.decode('utf-8'), start
 
 
 def unflatten_bytes(tensors, start):
