@@ -1,17 +1,31 @@
 import itertools
+import functools
 import dataclasses
 import ctypes
 import torch
 
+is_tracing = torch._C._is_tracing
 
-# convert arbitrary object to a list of tensors
+
+# convert an arbitrary object to a tuple of tensors
 def convert_to_flat_tensors(obj):
     return flatten_obj(obj)
 
 
-# convert a list of tensors to an arbitrary object
+# convert a tuple of tensors to an arbitrary object
 def convert_from_flat_tensors(tensors):
     return unflatten_tensors(tensors)[0]
+
+
+def _tensor_from_int(num):
+    return torch.tensor([num], dtype=torch.int64)
+
+
+_tensor_from_int_cached = functools.lru_cache(maxsize=256)(_tensor_from_int)
+
+
+def tensor_from_int(num):
+    return (_tensor_from_int if is_tracing() else _tensor_from_int_cached)(num)
 
 
 def flatten_obj(obj):
@@ -21,15 +35,16 @@ def flatten_obj(obj):
     elif isinstance(obj, torch.Tensor):
         type_num = 1
         flatten_func = flatten_tensor
-    elif isinstance(obj, float):
+    # bool must be be checked before int because bool is a subclass of int
+    elif isinstance(obj, bool):
         type_num = 2
+        flatten_func = flatten_bool
+    elif isinstance(obj, float):
+        type_num = 3
         flatten_func = flatten_float
     elif isinstance(obj, int):
-        type_num = 3
-        flatten_func = flatten_int
-    elif isinstance(obj, bool):
         type_num = 4
-        flatten_func = flatten_bool
+        flatten_func = flatten_int
     elif isinstance(obj, str):
         type_num = 5
         flatten_func = flatten_str
@@ -54,53 +69,78 @@ def flatten_obj(obj):
         type_num = 11
         flatten_func = flatten_unknown
 
-    return [torch.tensor([type_num], dtype=torch.uint8)] + flatten_func(obj)
+    return (tensor_from_int(type_num), ) + flatten_func(obj)
 
 
 def flatten_none(obj):
-    return []
+    return tuple()
 
 
 def flatten_tensor(obj):
-    return [obj]
+    return (obj, )
 
 
-def flatten_float(obj):
-    return [torch.tensor([obj], dtype=torch.float64)]
+def _flatten_bool(obj):
+    return (torch.tensor([obj], dtype=torch.bool), )
 
 
-def flatten_int(obj):
-    return [torch.tensor([obj], dtype=torch.int64)]
+_flatten_bool_cached = functools.lru_cache(maxsize=256)(_flatten_bool)
 
 
 def flatten_bool(obj):
-    return [torch.tensor([obj], dtype=torch.bool)]
+    return (_flatten_bool if is_tracing() else _flatten_bool_cached)(obj)
+
+
+def _flatten_float(obj):
+    return (torch.tensor([obj], dtype=torch.float64), )
+
+
+_flatten_float_cached = functools.lru_cache(maxsize=256)(_flatten_float)
+
+
+def flatten_float(obj):
+    return (_flatten_float if is_tracing() else _flatten_float_cached)(obj)
+
+
+def _flatten_int(obj):
+    return (torch.tensor([obj], dtype=torch.int64), )
+
+
+_flatten_int_cached = functools.lru_cache(maxsize=256)(_flatten_int)
+
+
+def flatten_int(obj):
+    return (_flatten_int if is_tracing() else _flatten_int_cached)(obj)
 
 
 def flatten_str(obj):
-    return [torch.as_tensor(tuple(obj.encode('utf-8')), dtype=torch.uint8)]
+    return flatten_bytes(obj.encode('utf-8'))
+
+
+def _flatten_bytes(obj):
+    return (torch.as_tensor(tuple(obj), dtype=torch.uint8), )
+
+
+_flatten_bytes_cached = functools.lru_cache(maxsize=256)(_flatten_bytes)
 
 
 def flatten_bytes(obj):
-    return [torch.as_tensor(tuple(obj), dtype=torch.uint8)]
+    return (_flatten_bytes if is_tracing() else _flatten_bytes_cached)(obj)
 
 
 def flatten_list_or_tuple(obj):
     size = len(obj)
-    content = list(
-        itertools.chain.from_iterable(flatten_obj(arg) for arg in obj))
-    return [torch.tensor([size], dtype=torch.int64)] + content
+    return (tensor_from_int(size),
+            *itertools.chain.from_iterable(flatten_obj(arg) for arg in obj))
 
 
 def flatten_dict(obj):
     keys = list(obj.keys())
     keys.sort()
     size = len(keys)
-    content = list(
-        itertools.chain.from_iterable(
-            itertools.chain(flatten_obj(key), flatten_obj(obj[key]))
-            for key in keys))
-    return [torch.tensor([size], dtype=torch.int64)] + content
+    return (tensor_from_int(size),
+            *itertools.chain.from_iterable(
+                itertools.chain(flatten_obj(key), flatten_obj(obj[key])) for key in keys))
 
 
 def flatten_dataclass(obj):
@@ -110,7 +150,7 @@ def flatten_dataclass(obj):
 
 
 def flatten_unknown(obj):
-    return [save_object_reference_in_tensor(obj)]
+    return (save_object_reference_in_tensor(obj), )
 
 
 def unflatten_tensors(tensors, start=0):
@@ -120,11 +160,11 @@ def unflatten_tensors(tensors, start=0):
     elif obj_type == 1:
         return unflatten_tensor(tensors, start + 1)
     elif obj_type == 2:
-        return unflatten_float(tensors, start + 1)
-    elif obj_type == 3:
-        return unflatten_int(tensors, start + 1)
-    elif obj_type == 4:
         return unflatten_bool(tensors, start + 1)
+    elif obj_type == 3:
+        return unflatten_float(tensors, start + 1)
+    elif obj_type == 4:
+        return unflatten_int(tensors, start + 1)
     elif obj_type == 5:
         return unflatten_str(tensors, start + 1)
     elif obj_type == 6:
@@ -151,20 +191,21 @@ def unflatten_tensor(tensors, start):
     return tensors[start], start + 1
 
 
+def unflatten_bool(tensors, start):
+    return bool(tensors[start].item()), start + 1
+
+
 def unflatten_float(tensors, start):
-    return tensors[start].item(), start + 1
+    return float(tensors[start].item()), start + 1
 
 
 def unflatten_int(tensors, start):
-    return tensors[start].item(), start + 1
-
-
-def unflatten_bool(tensors, start):
-    return tensors[start].item(), start + 1
+    return int(tensors[start].item()), start + 1
 
 
 def unflatten_str(tensors, start):
-    return bytes(tensors[start].tolist()).decode('utf-8'), start + 1
+    bytes_obj, start = unflatten_bytes(tensors, start)
+    return bytes_obj.decode('utf-8'), start
 
 
 def unflatten_bytes(tensors, start):

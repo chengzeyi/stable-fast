@@ -21,6 +21,10 @@ void initMiscBindings(py::module m) {
     }
     return stride_opt;
   });
+  m.def("_create_shadow_tensor", [](const Tensor &tensor) {
+    return torch::from_blob(tensor.data_ptr(), tensor.sizes(),
+                            tensor.strides(), tensor.options());
+  });
 }
 
 } // namespace misc

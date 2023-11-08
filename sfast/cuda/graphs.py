@@ -3,6 +3,7 @@ import functools
 import threading
 import copy
 import torch
+import sfast
 
 logger = logging.getLogger()
 
@@ -59,8 +60,6 @@ def make_graphed_callable(callable,
     if example_kwarg_inputs is None:
         example_kwarg_inputs = {}
 
-    fwd_graph = torch.cuda.CUDAGraph()
-
     # Warmup
     # Hopefully prevents cudnn benchmarking and other lazy-initialization cuda work
     # from ending up in any captures.
@@ -69,19 +68,36 @@ def make_graphed_callable(callable,
         for _ in range(3):
             callable(*copy.deepcopy(example_inputs),
                      **copy.deepcopy(example_kwarg_inputs))
-
-    static_inputs = copy.deepcopy(example_inputs)
-    static_kwarg_inputs = copy.deepcopy(example_kwarg_inputs)
     torch.cuda.synchronize()
+
+    tmp_graph = torch.cuda.CUDAGraph()
 
     with execution_env.lock:
         with torch.cuda.device(execution_env.device), torch.cuda.stream(
                 execution_env.stream):
+            with torch.cuda.graph(tmp_graph,
+                                  pool=execution_env.mempool,
+                                  stream=execution_env.stream):
+                static_inputs_ = copy.deepcopy(example_inputs)
+                static_kwarg_inputs_ = copy.deepcopy(example_kwarg_inputs)
+
+    static_inputs = shadow_copy(static_inputs_)
+    static_kwarg_inputs = shadow_copy(static_kwarg_inputs_)
+
+    fwd_graph = torch.cuda.CUDAGraph()
+
+    with execution_env.lock:
+        with torch.cuda.device(execution_env.device), torch.cuda.stream(
+                execution_env.stream):
+
             with torch.cuda.graph(fwd_graph,
                                   pool=execution_env.mempool,
                                   stream=execution_env.stream):
                 static_outputs = callable(*static_inputs,
                                           **static_kwarg_inputs)
+
+    static_outputs = shadow_copy(static_outputs)
+    del tmp_graph, static_inputs_, static_kwarg_inputs_
 
     def make_graphed_function(callable, execution_env, fwd_graph,
                               static_inputs, static_kwarg_inputs,
@@ -159,16 +175,13 @@ def hash_arg(arg):
         return (arg_device_type, arg_device.index, arg.dtype, arg.shape,
                 arg.item()
                 if arg_device_type == 'cpu' and arg.numel() == 1 else None)
-    if isinstance(arg, (int, float, bool, str, bytes)):
+    if isinstance(arg, (str, int, float, bool, bytes)):
         return arg
     if isinstance(arg, (tuple, list)):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
-        return tuple(
-            map(
-                hash_arg,
-                sorted(((k, hash_arg(v)) for k, v in arg.items()),
-                       key=lambda x: x[0])))
+        return tuple(sorted(((hash_arg(k), hash_arg(v)) for k, v in arg.items()),
+                            key=lambda x: x[0]))
     return None
 
 
@@ -176,13 +189,37 @@ def tree_copy_(dest, src):
     if isinstance(dest, torch.Tensor):
         dest.copy_(src)
     elif isinstance(dest, (list, tuple)):
+        assert len(dest) == len(src)
         for x, y in zip(dest, src):
             tree_copy_(x, y)
     elif isinstance(dest, dict):
+        assert len(dest) == len(src)
         for k in dest:
             tree_copy_(dest[k], src[k])
     else:
         assert dest == src
+
+
+def tree_copy(src):
+    if isinstance(src, torch.Tensor):
+        return src.clone()
+    elif isinstance(src, (list, tuple)):
+        return type(src)(tree_copy(x) for x in src)
+    elif isinstance(src, dict):
+        return type(src)((k, tree_copy(v)) for k, v in src.items())
+    else:
+        return src
+
+
+def shadow_copy(obj):
+    if isinstance(obj, torch.Tensor):
+        return sfast._C._create_shadow_tensor(obj) if obj.device.type == 'cuda' else obj
+    elif isinstance(obj, (list, tuple)):
+        return type(obj)(shadow_copy(x) for x in obj)
+    elif isinstance(obj, dict):
+        return type(obj)((k, shadow_copy(v)) for k, v in obj.items())
+    else:
+        return obj
 
 
 def get_cuda_device_from_tensors(x):

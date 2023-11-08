@@ -1,12 +1,10 @@
 import logging
-import dataclasses
-import itertools
 import functools
 import threading
 import copy
-import ctypes
 import torch
 from sfast.utils.flat_tensors import (convert_to_flat_tensors, convert_from_flat_tensors)
+from sfast.utils.custom_python_operator import register_custom_python_operator
 from .utils import better_trace
 
 logger = logging.getLogger()
@@ -84,17 +82,14 @@ def to_module(func, self=None):
 
 
 def hash_arg(arg):
-    if isinstance(arg, (int, float, bool, str, bytes)):
+    if isinstance(arg, (str, int, float, bool, bytes)):
         return arg
     if isinstance(arg, (tuple, list)):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
-        return tuple(
-            map(
-                hash_arg,
-                sorted(((k, hash_arg(v)) for k, v in arg.items()),
-                       key=lambda x: x[0])))
-    return None
+        return tuple(sorted(((hash_arg(k), hash_arg(v)) for k, v in arg.items()),
+                            key=lambda x: x[0]))
+    return type(arg)
 
 
 class TracedPosArgOnlyModuleWrapper(torch.nn.Module):
