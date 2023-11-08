@@ -175,16 +175,13 @@ def hash_arg(arg):
         return (arg_device_type, arg_device.index, arg.dtype, arg.shape,
                 arg.item()
                 if arg_device_type == 'cpu' and arg.numel() == 1 else None)
-    if isinstance(arg, (int, float, bool, str, bytes)):
+    if isinstance(arg, (str, int, float, bool, bytes)):
         return arg
     if isinstance(arg, (tuple, list)):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
-        return tuple(
-            map(
-                hash_arg,
-                sorted(((k, hash_arg(v)) for k, v in arg.items()),
-                       key=lambda x: x[0])))
+        return tuple(sorted(((hash_arg(k), hash_arg(v)) for k, v in arg.items()),
+                            key=lambda x: x[0]))
     return None
 
 

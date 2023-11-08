@@ -1,12 +1,10 @@
 import logging
-import dataclasses
-import itertools
 import functools
 import threading
 import copy
-import ctypes
 import torch
 from sfast.utils.flat_tensors import (convert_to_flat_tensors, convert_from_flat_tensors)
+from sfast.utils.custom_python_operator import register_custom_python_operator
 from .utils import better_trace
 
 logger = logging.getLogger()
@@ -84,17 +82,14 @@ def to_module(func, self=None):
 
 
 def hash_arg(arg):
-    if isinstance(arg, (int, float, bool, str, bytes)):
+    if isinstance(arg, (str, int, float, bool, bytes)):
         return arg
     if isinstance(arg, (tuple, list)):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
-        return tuple(
-            map(
-                hash_arg,
-                sorted(((k, hash_arg(v)) for k, v in arg.items()),
-                       key=lambda x: x[0])))
-    return None
+        return tuple(sorted(((hash_arg(k), hash_arg(v)) for k, v in arg.items()),
+                            key=lambda x: x[0]))
+    return type(arg)
 
 
 class TracedPosArgOnlyModuleWrapper(torch.nn.Module):
@@ -113,6 +108,26 @@ class TracedPosArgOnlyModuleWrapper(torch.nn.Module):
         return unflat_outputs
 
 
+'''
+RuntimeError: output 1 ( 4
+[ CPULongType{1} ]) of traced region did not have observable data dependence with trace inputs; this probably indicates your program cannot be understood by the tracer.
+
+of QWen-7B-Chat model
+'''
+def make_data_dependency(inputs, outputs):
+    # make tracer happy
+    # I don't know why I have to visit some attribute of the output tensors
+    for o in outputs:
+        # seems that any attribute should be ok
+        o.data_ptr()
+    return outputs
+
+
+register_custom_python_operator(
+    'sfast_python::make_data_dependency(Tensor[] inputs, Tensor[] outputs) -> Tensor[]',
+    make_data_dependency)
+
+
 class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
 
     def __init__(self, module):
@@ -126,4 +141,5 @@ class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
         orig_args, orig_kwargs = convert_from_flat_tensors(args)
         outputs = self.module(*orig_args, **orig_kwargs)
         flat_outputs = convert_to_flat_tensors(outputs)
+        flat_outputs = torch.ops.sfast_python.make_data_dependency(args, flat_outputs)
         return flat_outputs
