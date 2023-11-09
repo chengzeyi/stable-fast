@@ -61,8 +61,8 @@ def test_benchmark_sdxl_model(sdxl_model_path):
         kwarg_inputs=lambda: dict(
             prompt=
             '(masterpiece:1,2), best quality, masterpiece, best detail face, romantic style, a beautiful girl',
-            height=1024,
-            width=1024,
+            height=512,
+            width=512,
             num_inference_steps=30,
         ),
         model_class=StableDiffusionXLPipeline,

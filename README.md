@@ -6,7 +6,7 @@ __NOTE__: `stable-fast` is currently only in beta stage and is prone to be buggy
 
 ### What is this?
 
-`stable-fast` is an ultra lightweight inference optimization library for __HuggingFace Diffusers__ on __NVIDIA GPUs__.
+`stable-fast` is an ultra lightweight inference optimization framework for __HuggingFace Diffusers__ on __NVIDIA GPUs__.
 `stable-fast` provides super fast inference optimization by utilizing some key techniques and features:
 
 - __CUDNN Convolution Fusion__: `stable-fast` implements a series of fully-functional and fully-compatible CUDNN convolution fusion operators for all kinds of combinations of `Conv + Bias + Add + Act` computation patterns.
@@ -19,7 +19,7 @@ __NOTE__: `stable-fast` is currently only in beta stage and is prone to be buggy
 ### Differences With Other Acceleration Libraries
 
 - __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves a high performance across many libraries.
-- __Minimal__: `stable-fast` works as a plugin framework for `PyTorch`. it utilizes existing `PyTorch` functionality and infrastructures and is compatible with other acceleration techniques, as well as popular fine-tuning techniques and deployment solutions.
+- __Minimal__: `stable-fast` works as a plugin framework for `PyTorch`. It utilizes existing `PyTorch` functionality and infrastructures and is compatible with other acceleration techniques, as well as popular fine-tuning techniques and deployment solutions.
 
 ### Performance Comparison
 
@@ -82,9 +82,7 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 #### A100
 
 Sorry, currently A100 is hard and expensive to rent from cloud server providers in my region.
-
 A few months ago I have tested this framework on A100 and the speed is around __61 it/s__ for SD 1.5.
-
 Detailed benchmark results will be available when I have the access to A100 again.
 
 ### Compatibility
@@ -117,10 +115,14 @@ def load_model():
     # NOTE:
     # You could change to StableDiffusionXLPipeline to load SDXL model.
     # If the resolution is high (1024x1024),
-    # ensure you VRAM is sufficient (or RAM? I'm not sure, maybe I should upgrade my PC).
+    # ensure you VRAM is sufficient, especially when you are on Windows or WSL,
+    # where the GPU driver may choose to allocate from "shared VRAM" when OOM would occur.
     # Or the performance might regress.
+    # from diffusers import StableDiffusionXLPipeline
+    #
     # model = StableDiffusionXLPipeline.from_pretrained(
     #     'stabilityai/stable-diffusion-xl-base-1.0', torch_dtype=torch.float16)
+
     model = StableDiffusionPipeline.from_pretrained(
         'runwayml/stable-diffusion-v1-5', torch_dtype=torch.float16)
 
@@ -153,7 +155,8 @@ except ImportError:
 # CUDA Graph is suggested for small batch sizes and small resolutions to reduce CPU overhead.
 # My implementation can handle dynamic shape with increased need for GPU memory.
 # But when your GPU VRAM is insufficient or the image resolution is high,
-# CUDA Graph could cause less efficient VRAM utilization and slow down the inference.
+# CUDA Graph could cause less efficient VRAM utilization and slow down the inference,
+# especially when on Windows or WSL which has the "shared VRAM" mechanism.
 # If you meet problems related to it, you should disable it.
 config.enable_cuda_graph = True
 
@@ -180,7 +183,10 @@ output_image = compiled_model(**kwarg_inputs).images[0]
 
 ### Installation
 
-__NOTE__: `stable-fast` is currently only tested on `Linux` and `WSL2 in Windows`. You need to install PyTorch with CUDA support at first (versions from 1.12 to 2.1 are suggested).
+__NOTE__: `stable-fast` is currently only tested on `Linux` and `WSL2 in Windows`.
+You need to install PyTorch with CUDA support at first (versions from 1.12 to 2.1 are suggested).
+I only test `stable-fast` with `torch==2.1.0`, `xformers==0.0.22` and `triton==2.1.0` on `CUDA 12.1`.
+Other versions might build and run successfully but that's not guaranteed.
 
 #### Install From Source
 
@@ -202,7 +208,8 @@ pip3 install -v -U git+https://github.com/chengzeyi/stable-fast.git@main#egg=sta
 
 __NOTE__: Any usage outside `sfast.compilers` is not guaranteed to be backward compatible.
 
-__NOTE__: To get the best performance, `xformers` and OpenAI's `triton>=2.1.0` need to be installed and enabled. You might need to build `xformers` from source to make it compatible with your `PyTorch`.
+__NOTE__: To get the best performance, `xformers` and OpenAI's `triton>=2.1.0` need to be installed and enabled.
+You might need to build `xformers` from source to make it compatible with your `PyTorch`.
 
 ### Some Common Methods To Speed Up PyTorch
 

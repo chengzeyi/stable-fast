@@ -1207,9 +1207,22 @@ select_conv_backend(const Tensor &input_r, const Tensor &weight_r,
                     bool transposed_, IntArrayRef output_padding_,
                     int64_t groups_) {
   return torch::native::select_conv_backend(
-      input_r, weight_r, bias_opt, stride_, fromIntArrayRefUnchecked(padding_),
-      dilation_, transposed_, fromIntArrayRefUnchecked(output_padding_),
-      groups_, c10::nullopt);
+      input_r,
+      weight_r,
+      bias_opt,
+#if TORCH_VERSION_MINOR >= 2
+      fromIntArrayRefUnchecked
+#endif
+      (stride_),
+      fromIntArrayRefUnchecked(padding_),
+#if TORCH_VERSION_MINOR >= 2
+      fromIntArrayRefUnchecked
+#endif
+      (dilation_),
+      transposed_,
+      fromIntArrayRefUnchecked(output_padding_),
+      groups_,
+      c10::nullopt);
 }
 #endif
 
