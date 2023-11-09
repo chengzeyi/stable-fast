@@ -117,10 +117,14 @@ def load_model():
     # NOTE:
     # You could change to StableDiffusionXLPipeline to load SDXL model.
     # If the resolution is high (1024x1024),
-    # ensure you VRAM is sufficient (or RAM? I'm not sure, maybe I should upgrade my PC).
+    # ensure you VRAM is sufficient, especially when you are on Windows or WSL,
+    # where the GPU driver may choose to allocate from "shared VRAM" when OOM would occur.
     # Or the performance might regress.
+    # from diffusers import StableDiffusionXLPipeline
+    #
     # model = StableDiffusionXLPipeline.from_pretrained(
     #     'stabilityai/stable-diffusion-xl-base-1.0', torch_dtype=torch.float16)
+
     model = StableDiffusionPipeline.from_pretrained(
         'runwayml/stable-diffusion-v1-5', torch_dtype=torch.float16)
 
@@ -153,7 +157,8 @@ except ImportError:
 # CUDA Graph is suggested for small batch sizes and small resolutions to reduce CPU overhead.
 # My implementation can handle dynamic shape with increased need for GPU memory.
 # But when your GPU VRAM is insufficient or the image resolution is high,
-# CUDA Graph could cause less efficient VRAM utilization and slow down the inference.
+# CUDA Graph could cause less efficient VRAM utilization and slow down the inference,
+# especially when on Windows or WSL which has the "shared VRAM" mechanism.
 # If you meet problems related to it, you should disable it.
 config.enable_cuda_graph = True
 
