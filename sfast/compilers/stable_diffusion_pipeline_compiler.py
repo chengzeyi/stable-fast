@@ -9,6 +9,7 @@ from sfast.jit import passes
 from sfast.jit.trace_helper import (lazy_trace, to_module)
 from sfast.jit import utils as jit_utils
 from sfast.cuda.graphs import make_dynamic_graphed_callable
+from sfast.utils import gpu_device
 
 logger = logging.getLogger()
 
@@ -17,7 +18,8 @@ class CompilationConfig:
 
     @dataclass
     class Default:
-        memory_format: torch.memory_format = torch.channels_last
+        memory_format: torch.memory_format = torch.channels_last if gpu_device.device_has_tensor_core(
+        ) else torch.contiguous_format
         enable_jit: bool = True
         enable_jit_freeze: bool = True
         enable_cnn_optimization: bool = True
@@ -50,24 +52,6 @@ def compile(m, config):
                 ops.memory_efficient_attention = xformers_memory_efficient_attention
 
             m.enable_xformers_memory_efficient_attention()
-        '''
-        if config.enable_triton:
-            import sfast.triton.modules.patch as tm_patch
-            modules_to_patch = [
-                m.unet,
-                m.vae,
-                m.text_encoder,
-            ]
-            if hasattr(m, 'controlnet'):
-                modules_to_patch.append(m.controlnet)
-            for module in modules_to_patch:
-                tm_patch.patch_lora_compatible_conv(module)
-                tm_patch.patch_lora_compatible_linear(module)
-                # tm_patch.patch_conv2d(module)
-                # tm_patch.patch_linear(module)
-                # tm_patch.patch_group_norm_silu(module)
-                # tm_patch.patch_group_norm(module)
-        '''
 
         if config.memory_format == torch.channels_last:
             m.unet.to(memory_format=torch.channels_last)
@@ -131,8 +115,15 @@ def compile(m, config):
 
             m.unet.forward = unet_forward_wrapper
 
-            if packaging.version.parse(
-                    torch.__version__) < packaging.version.parse('2.0.0'):
+            if not packaging.version.parse('2.0.0') <= packaging.version.parse(
+                    torch.__version__) < packaging.version.parse('2.1.0'):
+                '''
+                Weird bug in PyTorch 2.0.x
+
+                RuntimeError: shape '[512, 512, 64, 64]' is invalid for input of size 2097152
+
+                When executing AttnProcessor in TorchScript
+                '''
                 m.vae.decode = lazy_trace_(to_module(m.vae.decode))
                 # For img2img
                 m.vae.encoder.forward = lazy_trace_(
