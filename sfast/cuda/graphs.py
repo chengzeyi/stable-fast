@@ -151,6 +151,16 @@ class GraphExecutionEnv:
             self.device) if stream is None else stream
         self.lock = threading.Lock() if lock is None else lock
 
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.device(self.device), torch.cuda.stream(
+                self.stream):
+            with torch.cuda.graph(graph,
+                                    pool=self.mempool,
+                                    stream=self.stream):
+                pass
+        # Hold a live graph to the mempool so that it has a non-zero use_count
+        self.graph = graph
+
 
 def get_per_device_graph_execution_env(device=None):
     if isinstance(device, torch.device):
