@@ -23,4 +23,4 @@ import sfast._C as _C
 
 # This line will be programatically read/write by setup.py.
 # Leave them at the bottom of this file and don't touch them.
-__version__ = "0.0.8"
+__version__ = "0.0.8+torch211.cu121"

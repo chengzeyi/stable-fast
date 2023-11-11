@@ -30,7 +30,7 @@ env:
   TWINE_USERNAME: __token__
 
 jobs:
-  build-internal:
+  build_internal:
     name: ${{ inputs.os }}-py${{ inputs.python }}-torch${{ inputs.torch_version }}+cu${{ inputs.cuda_short_version }}
     runs-on: ${{ inputs.os }}
     env:
@@ -60,7 +60,7 @@ jobs:
           }[cushort]
           with open(os.environ['GITHUB_OUTPUT'], "r+") as fp:
             fp.write("CUDA_VERSION=" + full_version + "\n")
-            fp.write("CUDA_VERSION_SUFFIX=+cu" + cushort + "\n")
+            fp.write("CUDA_VERSION_SUFFIX=cu" + cushort + "\n")
             # fp.write("TORCH_ORG_S3_PATH=s3://pytorch/whl/" + cushort + "\n")
             # fp.write("PUBLISH_PYPI=0\n")
             fp.write("CUDA_INSTALL_SCRIPT=" + install_script + "\n")
@@ -108,15 +108,16 @@ jobs:
           git config --global --add safe.directory "*"
           pip install packaging ninja
           version=`cat version.txt`
-          # if we are not building a tag, set BUILD_NIGHTLY=1
-          echo "BUILD_NIGHTLY=$([[ $VERSION_SOURCE == 'tag' ]] && echo 0 || echo 1)" >> ${GITHUB_ENV}
-          echo "BUILD_NIGHTLY=$([[ $VERSION_SOURCE == 'tag' ]] && echo 0 || echo 1)" >> ${GITHUB_OUTPUT}
-          echo "BUILD_VERSION=$version${{ steps.cuda_info.outputs.CUDA_VERSION_SUFFIX }}" >> ${GITHUB_ENV}
-          echo "BUILD_VERSION=$version${{ steps.cuda_info.outputs.CUDA_VERSION_SUFFIX }}" >> ${GITHUB_OUTPUT}
+          # Set build version to x.x.x.devYYYYMMDD+torchxxxcu111
+          torch_version_suffix=torch$(echo ${{ inputs.torch_version }} | sed 's/\.//g')
+          cuda_version_suffix=${{ steps.cuda_info.outputs.CUDA_VERSION_SUFFIX }}
+          nightly_tag=$([[ $VERSION_SOURCE == 'tag' ]] && echo '' || echo '.dev'`date +%Y%m%d`)
+          echo "BUILD_VERSION=$version$nightly_tag+torch${torch_version_suffix}${cuda_version_suffix}" >> ${GITHUB_ENV}
+          echo "BUILD_VERSION=$version$nightly_tag+torch${torch_version_suffix}${cuda_version_suffix}" >> ${GITHUB_OUTPUT}
           which ninja
           cat ${GITHUB_ENV}
       - run: echo "sfast-${BUILD_VERSION}"
-      - run: echo "release version (will upload to GitHub)"
+      - run: echo "release version"
         if: ${{ !contains(steps.sfast_version.outputs.BUILD_VERSION, '.dev') }}
 
       - name: Setup proper pytorch dependency in "requirements.txt"
@@ -133,7 +134,7 @@ jobs:
           python: ${{ inputs.python }}
 
       - name: Install dependencies
-        run: $PY -m pip install wheel setuptools twine -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }}
+        run: $PY -m pip install wheel setuptools twine -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
 
       - if: runner.os == 'Linux'
         name: (Linux) install cuda
