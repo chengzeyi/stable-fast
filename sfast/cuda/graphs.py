@@ -185,13 +185,15 @@ def hash_arg(arg):
         return (arg_device_type, arg_device.index, arg.dtype, arg.shape,
                 arg.item()
                 if arg_device_type == 'cpu' and arg.numel() == 1 else None)
-    if isinstance(arg, (str, int, float, bool, bytes)):
+    # micro optimization: bool obj is an instance of int
+    if isinstance(arg, (str, int, float, bytes)):
         return arg
     if isinstance(arg, (tuple, list)):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
-        return tuple(sorted(((hash_arg(k), hash_arg(v)) for k, v in arg.items()),
-                            key=lambda x: x[0]))
+        return tuple(
+            sorted(((hash_arg(k), hash_arg(v)) for k, v in arg.items()),
+                   key=lambda x: x[0]))
     return None
 
 
@@ -223,7 +225,8 @@ def tree_copy(src):
 
 def shadow_copy(obj):
     if isinstance(obj, torch.Tensor):
-        return sfast._C._create_shadow_tensor(obj) if obj.device.type == 'cuda' else obj
+        return sfast._C._create_shadow_tensor(
+            obj) if obj.device.type == 'cuda' else obj
     elif isinstance(obj, (list, tuple)):
         return type(obj)(shadow_copy(x) for x in obj)
     elif isinstance(obj, dict):

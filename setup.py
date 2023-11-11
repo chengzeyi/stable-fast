@@ -13,13 +13,18 @@ torch_ver = [int(x) for x in torch.__version__.split(".")[:2]]
 assert torch_ver >= [1, 8], "Requires PyTorch >= 1.8"
 
 
+def fetch_requirements():
+    with open("requirements.txt") as f:
+        reqs = f.read().strip().split("\n")
+    return reqs
+
+
 def get_version():
-    init_py_path = path.join(path.abspath(path.dirname(__file__)), "sfast",
-                             "__init__.py")
-    init_py = open(init_py_path, "r").readlines()
-    version_line = [l.strip() for l in init_py
-                    if l.startswith("__version__")][0]
-    version = version_line.split("=")[-1].strip().strip("'\"")
+    if os.getenv("BUILD_VERSION"):  # In CI
+        version = os.getenv("BUILD_VERSION", "0.0.0")
+    else:
+        version_file_path = path.join(path.abspath(path.dirname(__file__)), "version.txt")
+        version = open(version_file_path, "r").readlines()[0].strip()
 
     # The following is used to build release packages.
     # Users should never use it.
@@ -31,10 +36,13 @@ def get_version():
         date_str = datetime.today().strftime("%y%m%d")
         version = version + ".dev" + date_str
 
-        new_init_py = [l for l in init_py if not l.startswith("__version__")]
-        new_init_py.append('__version__ = "{}"\n'.format(version))
-        with open(init_py_path, "w") as f:
-            f.write("".join(new_init_py))
+    init_py_path = path.join(path.abspath(path.dirname(__file__)), "sfast",
+                             "__init__.py")
+    init_py = open(init_py_path, "r").readlines()
+    new_init_py = [l for l in init_py if not l.startswith("__version__")]
+    new_init_py.append('__version__ = "{}"\n'.format(version))
+    with open(init_py_path, "w") as f:
+        f.write("".join(new_init_py))
     return version
 
 
@@ -55,6 +63,8 @@ def get_extensions():
     # common code between cuda and rocm platforms, for hipify version [1,0,0] and later.
     source_cuda = glob.glob(path.join(extensions_dir, "**", "*.cu"),
                             recursive=True)
+    source_cuda_rt = glob.glob(path.join(extensions_dir, "**", "*.cc"),
+                               recursive=True)
 
     extension = CppExtension
 
@@ -66,6 +76,7 @@ def get_extensions():
             "FORCE_CUDA", "0") == "1":
         extension = CUDAExtension
         sources += source_cuda
+        sources += source_cuda_rt
 
         if not is_rocm_pytorch:
             define_macros += [("WITH_CUDA", None)]
@@ -111,17 +122,12 @@ setup(
     version=get_version(),
     author="Cheng Zeyi",
     url="https://github.com/chengzeyi/stable-fast",
-    description="Stable Fast is an ultra lightweight performance optimization framework"
+    description=
+    "Stable Fast is an ultra lightweight performance optimization framework"
     " for Hugging Fase diffuser pipelines.",
     packages=find_packages(exclude=("configs", "tests*")),
     python_requires=">=3.7",
-    install_requires=[
-        "packaging",
-        "torch>=1.12.0"
-        # NOTE: When adding new dependencies, if it is required at import time (in addition
-        # to runtime), it probably needs to appear in docs/requirements.txt, or as a mock
-        # in docs/conf.py
-    ],
+    install_requires=fetch_requirements(),
     extras_require={
         # optional dependencies, required by some features
         "all": [],

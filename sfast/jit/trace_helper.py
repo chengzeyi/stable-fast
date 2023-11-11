@@ -3,8 +3,8 @@ import functools
 import threading
 import copy
 import torch
-from sfast.utils.flat_tensors import (convert_to_flat_tensors, convert_from_flat_tensors)
-from sfast.utils.custom_python_operator import register_custom_python_operator
+from sfast.utils.flat_tensors import (convert_to_flat_tensors,
+                                      convert_from_flat_tensors)
 from .utils import better_trace
 
 logger = logging.getLogger()
@@ -18,8 +18,8 @@ def trace_with_kwargs(func,
         example_inputs = tuple()
     if example_kwarg_inputs is None:
         example_kwarg_inputs = {}
-    pos_args = convert_to_flat_tensors((copy.deepcopy(example_inputs),
-                                        copy.deepcopy(example_kwarg_inputs)))
+    pos_args = convert_to_flat_tensors(
+        (copy.deepcopy(example_inputs), copy.deepcopy(example_kwarg_inputs)))
     traced_module = better_trace(TraceablePosArgOnlyModuleWrapper(func),
                                  pos_args, **kwargs)
     training = getattr(func, 'training', False) if isinstance(
@@ -82,13 +82,15 @@ def to_module(func, self=None):
 
 
 def hash_arg(arg):
-    if isinstance(arg, (str, int, float, bool, bytes)):
+    # micro optimization: bool obj is an instance of int
+    if isinstance(arg, (str, int, float, bytes)):
         return arg
     if isinstance(arg, (tuple, list)):
         return tuple(map(hash_arg, arg))
     if isinstance(arg, dict):
-        return tuple(sorted(((hash_arg(k), hash_arg(v)) for k, v in arg.items()),
-                            key=lambda x: x[0]))
+        return tuple(
+            sorted(((hash_arg(k), hash_arg(v)) for k, v in arg.items()),
+                   key=lambda x: x[0]))
     return type(arg)
 
 
