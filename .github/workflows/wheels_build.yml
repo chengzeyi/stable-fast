@@ -61,8 +61,12 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], "r+") as fp:
             fp.write("CUDA_VERSION=" + full_version + "\n")
             fp.write("CUDA_VERSION_SUFFIX=+cu" + cushort + "\n")
+            # fp.write("TORCH_ORG_S3_PATH=s3://pytorch/whl/" + cushort + "\n")
+            # fp.write("PUBLISH_PYPI=0\n")
             fp.write("CUDA_INSTALL_SCRIPT=" + install_script + "\n")
       - run: echo "CUDA_VERSION_SUFFIX=${{ steps.cuda_info.outputs.CUDA_VERSION_SUFFIX }}"
+      # - run: echo "TORCH_ORG_S3_PATH=${{ steps.cuda_info.outputs.TORCH_ORG_S3_PATH }}"
+      # - run: echo "PUBLISH_PYPI=${{ steps.cuda_info.outputs.PUBLISH_PYPI }}"
 
       - name: Add H100 if nvcc 11.08+
         shell: python
