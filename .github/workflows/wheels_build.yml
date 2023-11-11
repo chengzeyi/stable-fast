@@ -30,7 +30,7 @@ env:
   TWINE_USERNAME: __token__
 
 jobs:
-  build:
+  build-internal:
     name: ${{ inputs.os }}-py${{ inputs.python }}-torch${{ inputs.torch_version }}+cu${{ inputs.cuda_short_version }}
     runs-on: ${{ inputs.os }}
     env:
