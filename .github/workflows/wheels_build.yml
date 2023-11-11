@@ -82,13 +82,6 @@ jobs:
             fp.write("TORCH_CUDA_ARCH_LIST=" + arch_list + "\n")
       - run: echo "${TORCH_CUDA_ARCH_LIST}"
 
-      - if: runner.os == 'Windows'
-        name: (Windows) Setup Runner
-        uses: ./.github/actions/setup-windows-runner
-        with:
-          cuda: ${{ steps.cuda_info.outputs.CUDA_VERSION }}
-          python: ${{ inputs.python }}
-
       - if: runner.os == 'Linux'
         name: (Linux) install cuda
         run: >
@@ -96,13 +89,6 @@ jobs:
           wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
           sh ./cuda.run --silent --toolkit &&
           rm ./cuda.run
-
-      - name: Recursive checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-          path: "."
-          fetch-depth: 0 # for tags
 
       - if: runner.os != 'Windows'
         name: (Linux) Setup venv for linux
@@ -113,6 +99,24 @@ jobs:
           echo "PY=$(which python)" >> ${GITHUB_ENV}
           echo "PATH=$PATH" >> ${GITHUB_ENV}
           echo "MAX_JOBS=3" >> ${GITHUB_ENV}
+
+      # Pre-install some to generate cache
+      - name: Install dependencies
+        run: $PY -m pip install wheel setuptools twine "torch==${{ inputs.torch_version }}" --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
+
+      - name: Recursive checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          path: "."
+          fetch-depth: 0 # for tags
+
+      - if: runner.os == 'Windows'
+        name: (Windows) Setup Runner
+        uses: ./.github/actions/setup-windows-runner
+        with:
+          cuda: ${{ steps.cuda_info.outputs.CUDA_VERSION }}
+          python: ${{ inputs.python }}
 
       - name: Define version
         id: sfast_version
@@ -127,8 +131,8 @@ jobs:
           torch_version_suffix=torch$(echo ${{ inputs.torch_version }} | sed 's/\.//g')
           cuda_version_suffix=${{ steps.cuda_info.outputs.CUDA_VERSION_SUFFIX }}
           nightly_tag=$([[ $VERSION_SOURCE == 'tag' ]] && echo '' || echo '.dev'`date +%Y%m%d`)
-          echo "BUILD_VERSION=$version$nightly_tag+torch${torch_version_suffix}${cuda_version_suffix}" >> ${GITHUB_ENV}
-          echo "BUILD_VERSION=$version$nightly_tag+torch${torch_version_suffix}${cuda_version_suffix}" >> ${GITHUB_OUTPUT}
+          echo "BUILD_VERSION=$version$nightly_tag+torch$torch_version_suffix$cuda_version_suffix" >> ${GITHUB_ENV}
+          echo "BUILD_VERSION=$version$nightly_tag+torch$torch_version_suffix$cuda_version_suffix" >> ${GITHUB_OUTPUT}
           which ninja
           cat ${GITHUB_ENV}
       - run: echo "sfast-${BUILD_VERSION}"
