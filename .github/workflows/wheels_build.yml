@@ -82,6 +82,21 @@ jobs:
             fp.write("TORCH_CUDA_ARCH_LIST=" + arch_list + "\n")
       - run: echo "${TORCH_CUDA_ARCH_LIST}"
 
+      - if: runner.os == 'Windows'
+        name: (Windows) Setup Runner
+        uses: ./.github/actions/setup-windows-runner
+        with:
+          cuda: ${{ steps.cuda_info.outputs.CUDA_VERSION }}
+          python: ${{ inputs.python }}
+
+      - if: runner.os == 'Linux'
+        name: (Linux) install cuda
+        run: >
+          yum install wget git prename -y &&
+          wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
+          sh ./cuda.run --silent --toolkit &&
+          rm ./cuda.run
+
       - name: Recursive checkout
         uses: actions/checkout@v3
         with:
@@ -126,23 +141,8 @@ jobs:
           echo "torch == ${{ inputs.torch_version }}" >> ./requirements.txt
           cat ./requirements.txt
 
-      - if: runner.os == 'Windows'
-        name: (Windows) Setup Runner
-        uses: ./.github/actions/setup-windows-runner
-        with:
-          cuda: ${{ steps.cuda_info.outputs.CUDA_VERSION }}
-          python: ${{ inputs.python }}
-
       - name: Install dependencies
         run: $PY -m pip install wheel setuptools twine -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
-
-      - if: runner.os == 'Linux'
-        name: (Linux) install cuda
-        run: >
-          yum install wget git prename -y &&
-          wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
-          sh ./cuda.run --silent --toolkit &&
-          rm ./cuda.run
 
       - name: Build wheel
         run: |
