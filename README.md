@@ -126,11 +126,16 @@ Download the wheel corresponding to your system from the [Releases Page](https:/
 
 Currently both __Linux__ and __Windows__ wheels are available.
 
+Linux
+
 ```bash
 # Linux
 pip3 install 'diffusers>=0.19.3' 'xformers>=0.0.20' 'triton>=2.1.0' 'torch>=1.12.0' <wheel file>
+```
 
-# Windows (skip Triton)
+Windows
+
+```powershell
 pip3 install 'diffusers>=0.19.3' 'xformers>=0.0.20' 'torch>=1.12.0' <wheel file>
 ```
 
@@ -149,6 +154,8 @@ pip3 install 'torch>=1.12.0' 'diffusers>=0.19.3' 'xformers>=0.0.20' 'triton>=2.1
 pip3 install ninja
 
 # Set TORCH_CUDA_ARCH_LIST if running and building on different GPU types
+# You can also install the latest stable release from PyPI
+# pip3 install -v -U stable-fast
 pip3 install -v -U git+https://github.com/chengzeyi/stable-fast.git@main#egg=stable-fast
 # (this can take dozens of minutes)
 ```

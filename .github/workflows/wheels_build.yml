@@ -17,6 +17,22 @@ on:
         required: true
         type: string
         description: "Example: 117 for 11.7"
+  workflow_dispatch:
+    inputs:
+      os:
+        required: true
+        type: string
+      python:
+        required: true
+        type: string
+      torch_version:
+        required: true
+        type: string
+        description: "Example: 1.13.1"
+      cuda_short_version:
+        required: true
+        type: string
+        description: "Example: 117 for 11.7"
 
 # this yaml file can be cleaned up using yaml anchors, but they're not supported in github actions yet
 # https://github.com/actions/runner/issues/1182
