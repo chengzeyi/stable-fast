@@ -119,8 +119,8 @@ jobs:
           torch_version_suffix=torch$(echo ${{ inputs.torch_version }} | sed 's/\.//g')
           cuda_version_suffix=${{ steps.cuda_info.outputs.CUDA_VERSION_SUFFIX }}
           nightly_tag=$([[ $VERSION_SOURCE == 'tag' ]] && echo '' || echo '.dev'`date +%Y%m%d`)
-          echo "BUILD_VERSION=$version$nightly_tag+torch$torch_version_suffix$cuda_version_suffix" >> ${GITHUB_ENV}
-          echo "BUILD_VERSION=$version$nightly_tag+torch$torch_version_suffix$cuda_version_suffix" >> ${GITHUB_OUTPUT}
+          echo "BUILD_VERSION=$version$nightly_tag+$torch_version_suffix$cuda_version_suffix" >> ${GITHUB_ENV}
+          echo "BUILD_VERSION=$version$nightly_tag+$torch_version_suffix$cuda_version_suffix" >> ${GITHUB_OUTPUT}
           cat ${GITHUB_ENV}
       - run: echo "sfast-${BUILD_VERSION}"
       - run: echo "release version"

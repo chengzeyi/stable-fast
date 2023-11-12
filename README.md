@@ -1,8 +1,18 @@
 # 🚀Stable Fast
 
+[![wheels](https://github.com/chengzeyi/stable-fast/actions/workflows/wheels.yml/badge.svg?branch=main)](https://github.com/chengzeyi/stable-fast/actions/workflows/wheels.yml)
+[![Upload Python Package](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml/badge.svg)](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml)
+
 ## Introduction
 
 __NOTE__: `stable-fast` is currently only in beta stage and is prone to be buggy, feel free to try it out and give suggestions!
+
+- [Performance Comparison](#performance-comparison)
+- [Usage](#usage)
+  - [Optimize StableDiffusionPipeline](#optimize-stablediffusionpipeline)
+  - [Installation](#installation)
+  - [Some Common Methods To Speed Up PyTorch](#some-common-methods-to-speed-up-pytorch)
+- [Trouble Shooting](#trouble-shooting)
 
 ### What is this?
 
@@ -185,8 +195,25 @@ output_image = compiled_model(**kwarg_inputs).images[0]
 
 __NOTE__: `stable-fast` is currently only tested on `Linux` and `WSL2 in Windows`.
 You need to install PyTorch with CUDA support at first (versions from 1.12 to 2.1 are suggested).
-I only test `stable-fast` with `torch==2.1.0`, `xformers==0.0.22` and `triton==2.1.0` on `CUDA 12.1`.
+
+I only test `stable-fast` with `torch==2.1.0`, `xformers==0.0.22` and `triton==2.1.0` on `CUDA 12.1` and `Python 3.10`.
 Other versions might build and run successfully but that's not guaranteed.
+
+#### Install Prebuilt Wheels
+
+[Releases Page](https://github.com/chengzeyi/stable-fast/releases)
+
+Download prebuilt wheels from the above releases page and install it with `pip3 install <wheel file>`.
+
+Currently both __Linux__ and __Windows__ wheels are available.
+
+```bash
+# Linux
+pip3 install 'diffusers>=0.19.3' 'xformers>=0.0.20' 'triton>=2.1.0' 'torch>=1.12.0' <wheel file>
+
+# Windows (skip Triton)
+pip3 install 'diffusers>=0.19.3' 'xformers>=0.0.20' 'torch>=1.12.0' <wheel file>
+```
 
 #### Install From Source
 
@@ -197,6 +224,7 @@ Other versions might build and run successfully but that's not guaranteed.
 
 # Install PyTorch with CUDA and other packages at first
 pip3 install 'torch>=1.12.0' 'diffusers>=0.19.3' 'xformers>=0.0.20' 'triton>=2.1.0'
+# Windows user: Triton might be not available, you could skip it.
 
 # (Optional) Makes the build much faster
 pip3 install ninja
