@@ -122,9 +122,7 @@ Other versions might build and run successfully but that's not guaranteed.
 
 ### Install Prebuilt Wheels
 
-[Releases Page](https://github.com/chengzeyi/stable-fast/releases)
-
-Download prebuilt wheels from the above releases page and install it with `pip3 install <wheel file>`.
+Download the wheel corresponding to your system from the [Releases Page](https://github.com/chengzeyi/stable-fast/releases) and install it with `pip3 install <wheel file>`.
 
 Currently both __Linux__ and __Windows__ wheels are available.
 
