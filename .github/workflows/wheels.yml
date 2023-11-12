@@ -2,10 +2,12 @@ name: wheels
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/wheel*"
-      - "setup.py"
-      - "requirements*.txt"
+    branches:
+      - main
+    # paths:
+    #   - ".github/workflows/wheel*"
+    #   - "setup.py"
+    #   - "requirements*.txt"
   push:
     branches:
       - main

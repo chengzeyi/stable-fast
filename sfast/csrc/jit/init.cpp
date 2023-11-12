@@ -47,18 +47,6 @@ void initJITBindings(py::module m) {
       py::arg("graph"), py::arg("op_name"), py::arg("device") = py::none(),
       py::arg("dtype") = py::none(), py::arg("memory_format") = py::none(),
       py::arg("indices") = py::none());
-  m.def("_jit_pass_replace_by_python_operator",
-        [](std::shared_ptr<torch::jit::Graph> &graph,
-           const std::string &op_name, py::object &pyobj,
-           const std::string &arg_types, std::vector<py::object> &scalar_args) {
-          THPObjectPtr pyobj_ptr(pyobj.ptr());
-          pyobj_list scalar_args_ptr;
-          for (auto &scalar_arg : scalar_args) {
-            scalar_args_ptr.emplace_back(scalar_arg.ptr());
-          }
-          ReplaceByPythonOperator(graph, op_name, pyobj_ptr, arg_types,
-                                  scalar_args_ptr);
-        });
   m.def("_jit_replace_graph",
         [](std::shared_ptr<torch::jit::Graph> &graph,
            const std::shared_ptr<torch::jit::Graph> &replacement) {

@@ -18,52 +18,6 @@ namespace sfast {
 namespace jit {
 
 using namespace torch::jit;
-using graph_rewrite_helper::PatternInfo;
-
-void ReplaceByPythonOperator(std::shared_ptr<Graph> &graph,
-                             const std::string &op_name, THPObjectPtr &pyobj,
-                             const std::string &arg_types,
-                             pyobj_list &scalar_args) {
-  ReplaceByPythonOperatorOnBlock(graph->block(), op_name, pyobj, arg_types,
-                                 scalar_args);
-  GRAPH_DUMP("After ReplacePythonOperator: ", graph);
-}
-
-void ReplaceByPythonOperatorOnBlock(Block *block, const std::string &op_name,
-                                    THPObjectPtr &pyobj,
-                                    const std::string &arg_types,
-                                    pyobj_list &scalar_args) {
-  for (auto it = block->nodes().begin(), end = block->nodes().end(); it != end;
-       ++it) {
-    for (auto sub : it->blocks()) {
-      ReplaceByPythonOperatorOnBlock(sub, op_name, pyobj, arg_types,
-                                     scalar_args);
-    }
-
-    if (it->kind().toQualString() == op_name) {
-      THPObjectPtr apply(PyObject_GetAttrString(pyobj.get(), "apply"));
-      if (!apply) {
-        throw python_error();
-      }
-      WithInsertPoint guard(*it);
-      pyobj_list scalar_args_copy;
-      scalar_args_copy.reserve(scalar_args.size());
-      for (auto &arg : scalar_args) {
-        auto raw_ptr = arg.get();
-        Py_INCREF(raw_ptr);
-        scalar_args_copy.emplace_back(raw_ptr);
-      }
-      Node *python_node = block->owningGraph()->createPythonOp(
-          std::move(apply), arg_types, std::move(scalar_args_copy));
-      python_node->insertBefore(*it);
-      for (auto input : it->inputs()) {
-        python_node->addInput(input);
-      }
-      it->output()->replaceAllUsesWith(python_node->output());
-      it.destroyCurrent();
-    }
-  }
-}
 
 void RegisterCustomPythonOperator(const std::string &schema,
                                   THPObjectPtr &&py_callable) {
