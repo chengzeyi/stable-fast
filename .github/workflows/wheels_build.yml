@@ -90,6 +90,13 @@ jobs:
           sh ./cuda.run --silent --toolkit &&
           rm ./cuda.run
 
+      - name: Recursive checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          path: "."
+          fetch-depth: 0 # for tags
+
       - if: runner.os != 'Windows'
         name: (Linux) Setup venv for linux
         run: |
@@ -99,24 +106,6 @@ jobs:
           echo "PY=$(which python)" >> ${GITHUB_ENV}
           echo "PATH=$PATH" >> ${GITHUB_ENV}
           echo "MAX_JOBS=3" >> ${GITHUB_ENV}
-
-      # Pre-install some to generate cache
-      - name: Install dependencies
-        run: $PY -m pip install wheel setuptools twine "torch==${{ inputs.torch_version }}" --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
-
-      - name: Recursive checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-          path: "."
-          fetch-depth: 0 # for tags
-
-      - if: runner.os == 'Windows'
-        name: (Windows) Setup Runner
-        uses: ./.github/actions/setup-windows-runner
-        with:
-          cuda: ${{ steps.cuda_info.outputs.CUDA_VERSION }}
-          python: ${{ inputs.python }}
 
       - name: Define version
         id: sfast_version
@@ -144,6 +133,13 @@ jobs:
           sed -i '/torch/d' ./requirements.txt
           echo "torch == ${{ inputs.torch_version }}" >> ./requirements.txt
           cat ./requirements.txt
+
+      - if: runner.os == 'Windows'
+        name: (Windows) Setup Runner
+        uses: ./.github/actions/setup-windows-runner
+        with:
+          cuda: ${{ steps.cuda_info.outputs.CUDA_VERSION }}
+          python: ${{ inputs.python }}
 
       - name: Install dependencies
         run: $PY -m pip install wheel setuptools twine -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
