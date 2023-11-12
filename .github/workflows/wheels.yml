@@ -43,6 +43,49 @@ jobs:
       torch_version: ${{ matrix.torch_version }}
       cuda_short_version: ${{ matrix.cuda_short_version }}
 
+  # publish to GitHub Release
+  gh_release:
+    name: gh_release
+    needs: build
+    runs-on: ubuntu-20.04
+
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          path: dist
+
+      - run: ls -R dist/
+
+      # create night release if it's a push to main
+      - if: github.repository == 'chengzeyi/stable-fast' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        name: Nightly Release
+        uses: andelf/nightly-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: nightly
+          name: 'stable-fast Nightly Release $$'
+          prerelease: true
+          body: 'TODO: Add nightly release notes'
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*.zip
+
+      # create release if it's a tag like vx.y.z
+      - if: github.repository == 'chengzeyi/stable-fast' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        name: Release
+        uses: softprops/action-gh-release@v1
+        with :
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*.zip
+
   # upload_pip:
   #   needs: build
   #   uses: ./.github/workflows/wheels_upload_pip.yml

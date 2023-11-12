@@ -1,5 +1,10 @@
 import sys
 import functools
+try:
+    import triton
+except ImportError:
+    raise ImportError(
+        'Triton is not installed. Please install it by `pip install triton`.')
 import triton.language as tl
 from triton.runtime.jit import JITFunction
 from triton.runtime.autotuner import Autotuner
