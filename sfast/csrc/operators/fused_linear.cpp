@@ -55,7 +55,7 @@ Tensor linear_gelu(const Tensor &input, const Tensor &weight,
   return linear_activation(input, weight, bias, true);
 }
 
-void initFusedLinearBindings(Library &m) {
+void initFusedLinearBindings(torch::Library &m) {
   m.def("linear_relu",
         dispatch(c10::DispatchKey::CompositeExplicitAutograd, linear_relu));
   m.def("linear_gelu",

@@ -935,7 +935,7 @@ Tensor cublas_lowp_linear_add(const Tensor &input, const Tensor &weight,
 }
 #endif
 
-void initCUBLASGEMMBindings(Library &m) {
+void initCUBLASGEMMBindings(torch::Library &m) {
 #if defined(WITH_CUDA)
   m.def(
       "cublas_lowp_addmm",

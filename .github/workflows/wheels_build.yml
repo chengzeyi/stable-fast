@@ -114,7 +114,6 @@ jobs:
         run: |
           set -Eeuo pipefail
           git config --global --add safe.directory "*"
-          pip install packaging ninja
           version=`cat version.txt`
           # Set build version to x.x.x.devYYYYMMDD+torchxxxcu111
           torch_version_suffix=torch$(echo ${{ inputs.torch_version }} | sed 's/\.//g')
@@ -122,7 +121,6 @@ jobs:
           nightly_tag=$([[ $VERSION_SOURCE == 'tag' ]] && echo '' || echo '.dev'`date +%Y%m%d`)
           echo "BUILD_VERSION=$version$nightly_tag+torch$torch_version_suffix$cuda_version_suffix" >> ${GITHUB_ENV}
           echo "BUILD_VERSION=$version$nightly_tag+torch$torch_version_suffix$cuda_version_suffix" >> ${GITHUB_OUTPUT}
-          which ninja
           cat ${GITHUB_ENV}
       - run: echo "sfast-${BUILD_VERSION}"
       - run: echo "release version"
@@ -142,7 +140,7 @@ jobs:
           python: ${{ inputs.python }}
 
       - name: Install dependencies
-        run: $PY -m pip install wheel setuptools twine -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
+        run: $PY -m pip install wheel setuptools ninja twine -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
 
       - name: Build wheel
         run: |

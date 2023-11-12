@@ -10,7 +10,7 @@ namespace operators {
 
 using namespace torch;
 
-void initCUDNNConvolutionBindings(Library &m) {
+void initCUDNNConvolutionBindings(torch::Library &m) {
 #if defined(WITH_CUDA)
   m.def("cudnn_convolution_bias_add",
         dispatch(c10::DispatchKey::CompositeImplicitAutograd,

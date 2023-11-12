@@ -46,7 +46,7 @@ Tensor cudnn_convolution_bias_tanh(const Tensor &input_t,
                                    IntArrayRef output_padding, int64_t groups);
 #endif
 
-void initCUDNNConvolutionBindings(Library &m);
+void initCUDNNConvolutionBindings(torch::Library &m);
 
 } // namespace operators
 } // namespace sfast

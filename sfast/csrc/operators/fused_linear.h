@@ -14,7 +14,7 @@ Tensor linear_relu(const Tensor &input_t, const Tensor &weight_t,
 Tensor linear_gelu(const Tensor &input_t, const Tensor &weight_t,
                    const c10::optional<Tensor> &bias_t = {});
 
-void initFusedLinearBindings(Library &m);
+void initFusedLinearBindings(torch::Library &m);
 
 } // namespace operators
 } // namespace sfast

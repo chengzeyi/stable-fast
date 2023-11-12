@@ -49,7 +49,7 @@ Tensor cublas_lowp_linear_add(const Tensor &input, const Tensor &weight,
                               const Tensor &other, const Scalar &alpha = 1);
 #endif
 
-    void initCUBLASGEMMBindings(Library &m);
+void initCUBLASGEMMBindings(torch::Library &m);
 
 } // namespace operators
 } // namespace sfast
