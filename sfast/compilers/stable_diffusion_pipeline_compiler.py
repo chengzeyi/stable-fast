@@ -79,7 +79,7 @@ def compile(m, config):
                         # raw freeze causes Tensor reference leak
                         # because the constant Tensors in the GraphFunction of
                         # the compilation unit are never freed.
-                        m = jit_utils.better_freeze(m)
+                        m = jit_utils.better_freeze(m, preserve_parameters=True)
                     modify_model(m)
 
                 if enable_cuda_graph:
