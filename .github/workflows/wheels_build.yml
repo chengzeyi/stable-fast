@@ -110,7 +110,7 @@ jobs:
       - name: Define version
         id: sfast_version
         env:
-          VERSION_SOURCE: ${{ github.ref_type == 'tag' && 'tag' || 'dev'  }}
+          VERSION_SOURCE: ${{ github.ref_type == 'tag' && 'tag' || 'dev' }}
         run: |
           set -Eeuo pipefail
           git config --global --add safe.directory "*"
