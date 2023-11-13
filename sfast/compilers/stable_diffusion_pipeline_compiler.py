@@ -6,7 +6,7 @@ import functools
 import torch
 import sfast
 from sfast.jit import passes
-from sfast.jit.trace_helper import lazy_trace, to_module
+from sfast.jit.trace_helper import lazy_trace
 from sfast.jit import utils as jit_utils
 from sfast.cuda.graphs import make_dynamic_graphed_callable
 from sfast.utils import gpu_device
@@ -24,159 +24,117 @@ class CompilationConfig:
         )
         enable_jit: bool = True
         enable_jit_freeze: bool = True
+        preserve_parameters: bool = True
         enable_cnn_optimization: bool = True
         prefer_lowp_gemm: bool = True
         enable_xformers: bool = False
         enable_cuda_graph: bool = False
         enable_triton: bool = False
-        enable_quantization: bool = False
         trace_scheduler: bool = False
 
 
 def compile(m, config):
-    with torch.no_grad():
-        enable_cuda_graph = config.enable_cuda_graph and m.device.type == "cuda"
+    enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
 
-        scheduler = m.scheduler
-        scheduler._set_timesteps = scheduler.set_timesteps
+    scheduler = m.scheduler
+    scheduler._set_timesteps = scheduler.set_timesteps
 
-        def set_timesteps(self, num_timesteps: int, device: Union[str, torch.device]):
-            return self._set_timesteps(num_timesteps, device=torch.device("cpu"))
+    def set_timesteps(self, num_timesteps: int, device: Union[str, torch.device]):
+        return self._set_timesteps(num_timesteps, device=torch.device('cpu'))
 
-        scheduler.set_timesteps = set_timesteps.__get__(scheduler)
+    scheduler.set_timesteps = set_timesteps.__get__(scheduler)
 
-        if config.enable_xformers:
-            if config.enable_jit:
-                from sfast.utils.xformers_attention import (
-                    xformers_memory_efficient_attention,
-                )
-                from xformers import ops
-
-                ops.memory_efficient_attention = xformers_memory_efficient_attention
-
-            m.enable_xformers_memory_efficient_attention()
-
-        if config.memory_format == torch.channels_last:
-            m.unet.to(memory_format=torch.channels_last)
-            m.vae.to(memory_format=torch.channels_last)
-            if hasattr(m, "controlnet"):
-                m.controlnet.to(memory_format=torch.channels_last)
-
-        if config.enable_quantization:
-            m.unet = torch.quantization.quantize_dynamic(
-                m.unet, {torch.nn.Linear}, dtype=torch.qint8, inplace=True
-            )
-
+    if config.enable_xformers:
         if config.enable_jit:
-            modify_model = functools.partial(
-                _modify_model,
-                enable_cnn_optimization=config.enable_cnn_optimization,
-                prefer_lowp_gemm=config.prefer_lowp_gemm,
-                enable_triton=config.enable_triton,
-                memory_format=config.memory_format,
+            from sfast.utils.xformers_attention import (
+                xformers_memory_efficient_attention,
             )
+            from xformers import ops
 
-            def ts_compiler(
-                m,
-                call_helper,
-                inputs,
-                kwarg_inputs,
-                freeze=False,
-                enable_cuda_graph=False,
-            ):
-                with torch.jit.optimized_execution(True):
-                    if freeze:
-                        # raw freeze causes Tensor reference leak
-                        # because the constant Tensors in the GraphFunction of
-                        # the compilation unit are never freed.
-                        m = jit_utils.better_freeze(
+            ops.memory_efficient_attention = xformers_memory_efficient_attention
+        m.enable_xformers_memory_efficient_attention()
+
+    if config.memory_format == torch.channels_last:
+        m.unet.to(memory_format=torch.channels_last)
+        m.vae.to(memory_format=torch.channels_last)
+        if hasattr(m, 'controlnet'):
+            m.controlnet.to(memory_format=torch.channels_last)
+
+    if config.enable_jit:
+        modify_model = functools.partial(
+            _modify_model,
+            enable_cnn_optimization=config.enable_cnn_optimization,
+            prefer_lowp_gemm=config.prefer_lowp_gemm,
+            enable_triton=config.enable_triton,
+            memory_format=config.memory_format,
+        )
+
+        def ts_compiler(
+            m,
+            call_helper,
+            inputs,
+            kwarg_inputs,
+            freeze=False,
+        ):
+            with torch.jit.optimized_execution(True):
+                if freeze:
+                    # raw freeze causes Tensor reference leak
+                    # because the constant Tensors in the GraphFunction of
+                    # the compilation unit are never freed.
+                    m = jit_utils.better_freeze(
                             m,
-                            # preserve_parameters=True is probably not needed
-                            # for load_state_dict() to work, because the
-                            # traced graph and CUDA graph shares the same underlying
-                            # data (pointer) for the parameters.
-                            # preserve_parameters=False,
+                            preserve_parameters=config.preserve_parameters,
                         )
-                    modify_model(m)
+                modify_model(m)
 
-                if enable_cuda_graph:
-                    m = make_dynamic_graphed_callable(m)
-                return m
+            return m
 
-            lazy_trace_ = functools.partial(
-                lazy_trace,
-                ts_compiler=functools.partial(
-                    ts_compiler,
-                    freeze=config.enable_jit_freeze,
-                ),
-                check_trace=False,
-                strict=False,
-            )
+        lazy_trace_ = functools.partial(
+            lazy_trace,
+            ts_compiler=functools.partial(
+                ts_compiler,
+                freeze=config.enable_jit_freeze,
+            ),
+            check_trace=False,
+            strict=False,
+        )
 
-            m.text_encoder.forward = lazy_trace_(to_module(m.text_encoder.forward))
-            unet_forward = lazy_trace(
-                to_module(m.unet.forward),
-                ts_compiler=functools.partial(
-                    ts_compiler,
-                    freeze=config.enable_jit_freeze,
-                    enable_cuda_graph=enable_cuda_graph,
-                ),
-                check_trace=False,
-                strict=False,
-            )
+        m.text_encoder.forward = lazy_trace_(m.text_encoder.forward)
+        m.unet.forward = lazy_trace_(m.unet.forward)
+        if hasattr(m, 'controlnet'):
+            controlnet.forward = lazy_trace_(controlnet.forward)
+        if (
+            not packaging.version.parse('2.0.0')
+            <= packaging.version.parse(torch.__version__)
+            < packaging.version.parse('2.1.0')
+        ):
+            """
+            Weird bug in PyTorch 2.0.x
 
-            @functools.wraps(m.unet.forward)
-            def unet_forward_wrapper(sample, t, *args, **kwargs):
-                t = t.to(device=sample.device)
-                return unet_forward(sample, t, *args, **kwargs)
+            RuntimeError: shape '[512, 512, 64, 64]' is invalid for input of size 2097152
 
-            m.unet.forward = unet_forward_wrapper
+            When executing AttnProcessor in TorchScript
+            """
+            m.vae.decode = lazy_trace_(m.vae.decode)
+            # For img2img
+            m.vae.encoder.forward = lazy_trace_(m.vae.encoder.forward)
+            m.vae.quant_conv.forward = lazy_trace_(m.vae.quant_conv.forward)
+        if config.trace_scheduler:
+            m.scheduler.scale_model_input = lazy_trace_(m.scheduler.scale_model_input)
+            m.scheduler.step = lazy_trace_(m.scheduler.step)
 
-            if (
-                not packaging.version.parse("2.0.0")
-                <= packaging.version.parse(torch.__version__)
-                < packaging.version.parse("2.1.0")
-            ):
-                """
-                Weird bug in PyTorch 2.0.x
+        if enable_cuda_graph:
+            for sub_m in [m.unet] + ([m.controlnet] if hasattr(m, 'controlnet') else []):
+                cuda_graphed_forward = make_dynamic_graphed_callable(sub_m.forward)
 
-                RuntimeError: shape '[512, 512, 64, 64]' is invalid for input of size 2097152
-
-                When executing AttnProcessor in TorchScript
-                """
-                m.vae.decode = lazy_trace_(to_module(m.vae.decode))
-                # For img2img
-                m.vae.encoder.forward = lazy_trace_(to_module(m.vae.encoder.forward))
-                m.vae.quant_conv.forward = lazy_trace_(
-                    to_module(m.vae.quant_conv.forward)
-                )
-
-            if config.trace_scheduler:
-                m.scheduler.scale_model_input = lazy_trace_(
-                    to_module(m.scheduler.scale_model_input)
-                )
-                m.scheduler.step = lazy_trace_(to_module(m.scheduler.step))
-
-            if hasattr(m, "controlnet"):
-                controlnet_forward = lazy_trace(
-                    to_module(m.controlnet.forward),
-                    ts_compiler=functools.partial(
-                        ts_compiler,
-                        freeze=False,
-                        enable_cuda_graph=enable_cuda_graph,
-                    ),
-                    check_trace=False,
-                    strict=False,
-                )
-
-                @functools.wraps(m.controlnet.forward)
-                def controlnet_forward_wrapper(sample, t, *args, **kwargs):
+                @functools.wraps(sub_m.forward)
+                def forward_with_timestamp(sample, t, *args, **kwargs):
                     t = t.to(device=sample.device)
-                    return controlnet_forward(sample, t, *args, **kwargs)
+                    return cuda_graphed_forward(sample, t, *args, **kwargs)
 
-                m.controlnet.forward = controlnet_forward_wrapper
+                sub_m.forward = forward_with_timestamp
 
-        return m
+    return m
 
 
 def _modify_model(

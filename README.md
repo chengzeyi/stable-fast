@@ -261,6 +261,8 @@ The following code assumes you have already load a LoRA and compiled the model,
 and you want to switch to another LoRA.
 
 ```python
+# load_state_dict with assign=True requires torch >= 2.1.0
+
 def update_state_dict(dst, src):
     for key, value in src.items():
         # Do inplace copy.
