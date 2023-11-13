@@ -1,6 +1,10 @@
-import torch
-import sfast
 import functools
+from typing import List, Optional
+
+import torch
+from torch.jit._script import RecursiveScriptModule, ScriptModule
+
+import sfast
 
 
 class ScriptModuleClearHook:
@@ -29,9 +33,34 @@ def better_trace(func, *args, **kwargs):
     attach_script_module_clear_hook(script_module._c)
     return script_module
 
+# Based on https://github.com/pytorch/pytorch/blob/7bcf7da3a268b435777fe87c7794c382f444e86d/torch/jit/_freeze.py#L13C1-L13C1
+def freeze(
+    mod, preserved_attrs: Optional[List[str]] = None, optimize_numerics: bool = True, preserve_parameters: bool = False
+):
+    if not isinstance(mod, ScriptModule):
+        raise RuntimeError(
+            "Freezing expects a ScriptModule as input. "
+            "Please use torch.jit.script or torch.jit.trace to script your 'nn.Module'."
+        )
 
-@functools.wraps(torch.jit.freeze)
+    if mod.training:
+        raise RuntimeError(
+            "Freezing is currently only implemented for modules in eval mode. "
+            "Please call .eval() on your module before freezing."
+        )
+
+    preserved_attrs = preserved_attrs if preserved_attrs is not None else []
+
+    out = RecursiveScriptModule(torch._C._freeze_module(mod._c, preserved_attrs, preserveParameters=preserve_parameters))
+    RecursiveScriptModule._finalize_scriptmodule(out)
+
+    preserved_methods = [x for x in preserved_attrs if mod._c._has_method(x)]
+    torch.jit.run_frozen_optimizations(out, optimize_numerics, preserved_methods)
+
+    return out
+
+@functools.wraps(freeze)
 def better_freeze(script_module, *args, **kwargs):
-    freezed_module = torch.jit.freeze(script_module, *args, **kwargs)
+    freezed_module = freeze(script_module, *args, **kwargs)
     attach_script_module_clear_hook(freezed_module._c)
     return freezed_module
