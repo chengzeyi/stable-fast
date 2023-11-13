@@ -27,6 +27,7 @@ class CompilationConfig:
         enable_xformers: bool = False
         enable_cuda_graph: bool = False
         enable_triton: bool = False
+        enable_quantization: bool = False
         trace_scheduler: bool = False
 
 
@@ -58,6 +59,10 @@ def compile(m, config):
             m.vae.to(memory_format=torch.channels_last)
             if hasattr(m, 'controlnet'):
                 m.controlnet.to(memory_format=torch.channels_last)
+
+        if config.enable_quantization:
+            m.unet = torch.quantization.quantize_dynamic(
+                m.unet, {torch.nn.Linear}, dtype=torch.qint8, inplace=True)
 
         if config.enable_jit:
             modify_model = functools.partial(
