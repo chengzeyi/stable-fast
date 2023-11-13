@@ -6,7 +6,7 @@ import functools
 import torch
 import sfast
 from sfast.jit import passes
-from sfast.jit.trace_helper import (lazy_trace, to_module)
+from sfast.jit.trace_helper import lazy_trace, to_module
 from sfast.jit import utils as jit_utils
 from sfast.cuda.graphs import make_dynamic_graphed_callable
 from sfast.utils import gpu_device
@@ -15,11 +15,13 @@ logger = logging.getLogger()
 
 
 class CompilationConfig:
-
     @dataclass
     class Default:
-        memory_format: torch.memory_format = torch.channels_last if gpu_device.device_has_tensor_core(
-        ) else torch.contiguous_format
+        memory_format: torch.memory_format = (
+            torch.channels_last
+            if gpu_device.device_has_tensor_core()
+            else torch.contiguous_format
+        )
         enable_jit: bool = True
         enable_jit_freeze: bool = True
         enable_cnn_optimization: bool = True
@@ -33,21 +35,21 @@ class CompilationConfig:
 
 def compile(m, config):
     with torch.no_grad():
-        enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
+        enable_cuda_graph = config.enable_cuda_graph and m.device.type == "cuda"
 
         scheduler = m.scheduler
         scheduler._set_timesteps = scheduler.set_timesteps
 
-        def set_timesteps(self, num_timesteps: int,
-                          device: Union[str, torch.device]):
-            return self._set_timesteps(num_timesteps,
-                                       device=torch.device('cpu'))
+        def set_timesteps(self, num_timesteps: int, device: Union[str, torch.device]):
+            return self._set_timesteps(num_timesteps, device=torch.device("cpu"))
 
         scheduler.set_timesteps = set_timesteps.__get__(scheduler)
 
         if config.enable_xformers:
             if config.enable_jit:
-                from sfast.utils.xformers_attention import xformers_memory_efficient_attention
+                from sfast.utils.xformers_attention import (
+                    xformers_memory_efficient_attention,
+                )
                 from xformers import ops
 
                 ops.memory_efficient_attention = xformers_memory_efficient_attention
@@ -57,12 +59,13 @@ def compile(m, config):
         if config.memory_format == torch.channels_last:
             m.unet.to(memory_format=torch.channels_last)
             m.vae.to(memory_format=torch.channels_last)
-            if hasattr(m, 'controlnet'):
+            if hasattr(m, "controlnet"):
                 m.controlnet.to(memory_format=torch.channels_last)
 
         if config.enable_quantization:
             m.unet = torch.quantization.quantize_dynamic(
-                m.unet, {torch.nn.Linear}, dtype=torch.qint8, inplace=True)
+                m.unet, {torch.nn.Linear}, dtype=torch.qint8, inplace=True
+            )
 
         if config.enable_jit:
             modify_model = functools.partial(
@@ -73,18 +76,27 @@ def compile(m, config):
                 memory_format=config.memory_format,
             )
 
-            def ts_compiler(m,
-                            call_helper,
-                            inputs,
-                            kwarg_inputs,
-                            freeze=False,
-                            enable_cuda_graph=False):
+            def ts_compiler(
+                m,
+                call_helper,
+                inputs,
+                kwarg_inputs,
+                freeze=False,
+                enable_cuda_graph=False,
+            ):
                 with torch.jit.optimized_execution(True):
                     if freeze:
                         # raw freeze causes Tensor reference leak
                         # because the constant Tensors in the GraphFunction of
                         # the compilation unit are never freed.
-                        m = jit_utils.better_freeze(m, preserve_parameters=True)
+                        m = jit_utils.better_freeze(
+                            m,
+                            # preserve_parameters=True is probably not needed
+                            # for load_state_dict() to work, because the
+                            # traced graph and CUDA graph shares the same underlying
+                            # data (pointer) for the parameters.
+                            # preserve_parameters=False,
+                        )
                     modify_model(m)
 
                 if enable_cuda_graph:
@@ -98,18 +110,20 @@ def compile(m, config):
                     freeze=config.enable_jit_freeze,
                 ),
                 check_trace=False,
-                strict=False)
+                strict=False,
+            )
 
-            m.text_encoder.forward = lazy_trace_(
-                to_module(m.text_encoder.forward))
-            unet_forward = lazy_trace(to_module(m.unet.forward),
-                                      ts_compiler=functools.partial(
-                                          ts_compiler,
-                                          freeze=config.enable_jit_freeze,
-                                          enable_cuda_graph=enable_cuda_graph,
-                                      ),
-                                      check_trace=False,
-                                      strict=False)
+            m.text_encoder.forward = lazy_trace_(to_module(m.text_encoder.forward))
+            unet_forward = lazy_trace(
+                to_module(m.unet.forward),
+                ts_compiler=functools.partial(
+                    ts_compiler,
+                    freeze=config.enable_jit_freeze,
+                    enable_cuda_graph=enable_cuda_graph,
+                ),
+                check_trace=False,
+                strict=False,
+            )
 
             @functools.wraps(m.unet.forward)
             def unet_forward_wrapper(sample, t, *args, **kwargs):
@@ -118,28 +132,32 @@ def compile(m, config):
 
             m.unet.forward = unet_forward_wrapper
 
-            if not packaging.version.parse('2.0.0') <= packaging.version.parse(
-                    torch.__version__) < packaging.version.parse('2.1.0'):
-                '''
+            if (
+                not packaging.version.parse("2.0.0")
+                <= packaging.version.parse(torch.__version__)
+                < packaging.version.parse("2.1.0")
+            ):
+                """
                 Weird bug in PyTorch 2.0.x
 
                 RuntimeError: shape '[512, 512, 64, 64]' is invalid for input of size 2097152
 
                 When executing AttnProcessor in TorchScript
-                '''
+                """
                 m.vae.decode = lazy_trace_(to_module(m.vae.decode))
                 # For img2img
-                m.vae.encoder.forward = lazy_trace_(
-                    to_module(m.vae.encoder.forward))
+                m.vae.encoder.forward = lazy_trace_(to_module(m.vae.encoder.forward))
                 m.vae.quant_conv.forward = lazy_trace_(
-                    to_module(m.vae.quant_conv.forward))
+                    to_module(m.vae.quant_conv.forward)
+                )
 
             if config.trace_scheduler:
                 m.scheduler.scale_model_input = lazy_trace_(
-                    to_module(m.scheduler.scale_model_input))
+                    to_module(m.scheduler.scale_model_input)
+                )
                 m.scheduler.step = lazy_trace_(to_module(m.scheduler.step))
 
-            if hasattr(m, 'controlnet'):
+            if hasattr(m, "controlnet"):
                 controlnet_forward = lazy_trace(
                     to_module(m.controlnet.forward),
                     ts_compiler=functools.partial(
@@ -148,7 +166,8 @@ def compile(m, config):
                         enable_cuda_graph=enable_cuda_graph,
                     ),
                     check_trace=False,
-                    strict=False)
+                    strict=False,
+                )
 
                 @functools.wraps(m.controlnet.forward)
                 def controlnet_forward_wrapper(sample, t, *args, **kwargs):
@@ -160,11 +179,13 @@ def compile(m, config):
         return m
 
 
-def _modify_model(m,
-                  enable_cnn_optimization=True,
-                  prefer_lowp_gemm=True,
-                  enable_triton=False,
-                  memory_format=None):
+def _modify_model(
+    m,
+    enable_cnn_optimization=True,
+    prefer_lowp_gemm=True,
+    enable_triton=False,
+    memory_format=None,
+):
     if enable_triton:
         from sfast.jit.passes import triton_passes
 
@@ -186,10 +207,8 @@ def _modify_model(m,
 
     if memory_format is not None:
         sfast._C._jit_pass_convert_op_input_tensors(
-            m.graph,
-            'aten::_convolution',
-            indices=[0],
-            memory_format=memory_format)
+            m.graph, "aten::_convolution", indices=[0], memory_format=memory_format
+        )
 
     if enable_cnn_optimization:
         passes.jit_pass_optimize_cnn(m.graph)

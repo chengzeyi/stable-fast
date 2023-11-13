@@ -12,7 +12,7 @@ logger = logging.getLogger()
 def get_cache_path_by_url(url):
     parts = urlparse(url)
     hub_dir = get_dir()
-    model_dir = os.path.join(hub_dir, 'checkpoints')
+    model_dir = os.path.join(hub_dir, "checkpoints")
     if not os.path.isdir(model_dir):
         os.makedirs(model_dir)
     filename = os.path.basename(parts.path)
@@ -42,10 +42,10 @@ def get_model_path(url_or_path):
 def get_cache_path_for_archiver(file_path):
     parts = urlparse(file_path)
     hub_dir = get_dir()
-    model_dir = os.path.join(hub_dir, 'checkpoints')
+    model_dir = os.path.join(hub_dir, "checkpoints")
     if not os.path.isdir(model_dir):
         os.makedirs(model_dir)
-    filename = os.path.basename(parts.path) + '.unarchived'
+    filename = os.path.basename(parts.path) + ".unarchived"
     cached_file = os.path.join(model_dir, filename)
     return cached_file
 
@@ -70,38 +70,49 @@ def path_exists_or(file_path, other):
 
 @pytest.fixture
 def sd15_model_path():
-    return path_exists_or('../stable-diffusion-v1-5',
-                          'runwayml/stable-diffusion-v1-5')
+    return path_exists_or("../stable-diffusion-v1-5", "runwayml/stable-diffusion-v1-5")
 
 
 @pytest.fixture
 def sd_controlnet_canny_model_path():
-    return path_exists_or('../sd-controlnet-canny',
-                          'lllyasviel/sd-controlnet-canny')
+    return path_exists_or("../sd-controlnet-canny", "lllyasviel/sd-controlnet-canny")
 
 
 @pytest.fixture
 def sd21_model_path():
-    return path_exists_or('../stable-diffusion-2-1',
-                          'stabilityai/stable-diffusion-2-1')
+    return path_exists_or("../stable-diffusion-2-1", "stabilityai/stable-diffusion-2-1")
 
 
 @pytest.fixture
 def sdxl_model_path():
-    return path_exists_or('../stable-diffusion-xl-base-1.0',
-                          'stabilityai/stable-diffusion-xl-base-1.0')
+    return path_exists_or(
+        "../stable-diffusion-xl-base-1.0", "stabilityai/stable-diffusion-xl-base-1.0"
+    )
+
+
+@pytest.fixture
+def sd15_lora_t4_path():
+    return path_exists_or(
+        "../sd-model-finetuned-lora-t4", "sayakpaul/sd-model-finetuned-lora-t4"
+    )
+
+
+@pytest.fixture
+def sd15_lora_dog_path():
+    return path_exists_or(
+        "../sd-model-finetuned-lora-dog", "sayakpaul/new-lora-check-v15"
+    )
 
 
 @pytest.fixture
 def diffusers_dog_example_path():
-
     def download():
         from huggingface_hub import snapshot_download
 
         return snapshot_download(
-            'diffusers/dog-example',
-            repo_type='dataset',
-            ignore_patterns=['*.gitignore', '*.gitattributes', '*.DS_Store'],
+            "diffusers/dog-example",
+            repo_type="dataset",
+            ignore_patterns=["*.gitignore", "*.gitattributes", "*.DS_Store"],
         )
 
-    return path_exists_or('../dog-example', download)
+    return path_exists_or("../dog-example", download)

@@ -49,6 +49,48 @@ def test_compile_sd15_model(sd15_model_path, skip_comparsion=True):
     test_benchmark_sd15_model(sd15_model_path, skip_comparsion=skip_comparsion)
 
 
+def test_benchmark_sd15_model_with_lora(sd15_model_path, sd15_lora_t4_path, sd15_lora_dog_path, skip_comparsion=False):
+    benchmark_sd_model(
+        sd15_model_path,
+        kwarg_inputs=basic_kwarg_inputs,
+        lora_a_path=sd15_lora_t4_path,
+        lora_b_path=sd15_lora_dog_path,
+        skip_comparsion=skip_comparsion,
+    )
+
+def test_compile_sd15_model_with_lora(sd15_model_path, sd15_lora_t4_path, sd15_lora_dog_path, skip_comparsion=True):
+    benchmark_sd_model(
+        sd15_model_path,
+        kwarg_inputs=basic_kwarg_inputs,
+        lora_a_path=sd15_lora_t4_path,
+        lora_b_path=sd15_lora_dog_path,
+        skip_comparsion=skip_comparsion,
+    )
+
+
+def test_benchmark_sd15_model_with_controlnet(
+    sd15_model_path, sd_controlnet_canny_model_path, diffusers_dog_example_path,
+    skip_comparsion=False
+):
+    from diffusers import StableDiffusionControlNetPipeline
+
+    dog_image = get_images_from_path(diffusers_dog_example_path)[0]
+    dog_image = cv2.resize(dog_image, (512, 512))
+    dog_image_canny = cv2.Canny(dog_image, 100, 200)
+    dog_image_canny = PIL.Image.fromarray(dog_image_canny)
+
+    benchmark_sd_model(
+        sd15_model_path,
+        kwarg_inputs=dict(
+            **basic_kwarg_inputs,
+            image=dog_image_canny,
+        ),
+        model_class=StableDiffusionControlNetPipeline,
+        controlnet_model_path=sd_controlnet_canny_model_path,
+        skip_comparsion=skip_comparsion,
+    )
+
+
 # def test_compile_sd15_model_with_quantization(sd15_model_path, skip_comparsion=True):
 #     benchmark_sd_model(
 #         sd15_model_path,
@@ -85,29 +127,6 @@ def test_compile_sdxl_model(sdxl_model_path, skip_comparsion=True):
     test_benchmark_sdxl_model(sdxl_model_path, skip_comparsion=skip_comparsion)
 
 
-def test_benchmark_sd15_model_with_controlnet(
-    sd15_model_path, sd_controlnet_canny_model_path, diffusers_dog_example_path,
-    skip_comparsion=False
-):
-    from diffusers import StableDiffusionControlNetPipeline
-
-    dog_image = get_images_from_path(diffusers_dog_example_path)[0]
-    dog_image = cv2.resize(dog_image, (512, 512))
-    dog_image_canny = cv2.Canny(dog_image, 100, 200)
-    dog_image_canny = PIL.Image.fromarray(dog_image_canny)
-
-    benchmark_sd_model(
-        sd15_model_path,
-        kwarg_inputs=dict(
-            **basic_kwarg_inputs,
-            image=dog_image_canny,
-        ),
-        model_class=StableDiffusionControlNetPipeline,
-        controlnet_model_path=sd_controlnet_canny_model_path,
-        skip_comparsion=skip_comparsion,
-    )
-
-
 def test_compile_sd15_model_with_controlnet(
     sd15_model_path, sd_controlnet_canny_model_path, diffusers_dog_example_path,
     skip_comparsion=True
@@ -137,6 +156,8 @@ def benchmark_sd_model(
     enable_cuda_graph=True,
     enable_quantization=False,
     skip_comparsion=False,
+    lora_a_path=None,
+    lora_b_path=None,
 ):
     from diffusers import (
         StableDiffusionPipeline,
@@ -166,6 +187,9 @@ def benchmark_sd_model(
             model.scheduler = scheduler_class.from_config(model.scheduler.config)
         model.safety_checker = None
         model.to(torch.device("cuda"))
+
+        if lora_a_path is not None:
+            model.unet.load_attn_procs(lora_a_path)
         return model
 
     call_model_ = functools.partial(call_model, kwarg_inputs=kwarg_inputs)
@@ -184,7 +208,10 @@ def benchmark_sd_model(
             output_image = profiler.with_cProfile(call_original_model)()
             display_image(output_image)
 
+            del model
+
             if hasattr(torch, "compile"):
+                model = load_model()
                 logger.info("Benchmarking StableDiffusionPipeline with torch.compile")
                 model.unet.to(memory_format=torch.channels_last)
                 model.unet = torch.compile(model.unet)
@@ -201,22 +228,22 @@ def benchmark_sd_model(
                 output_image = profiler.with_cProfile(call_torch_compiled_model)()
                 display_image(output_image)
 
-            del model
+                del model
 
-            logger.info("Benchmarking compiled StableDiffusionPipeline")
-            config = CompilationConfig.Default()
-            compiled_model = compile(load_model(), config)
+            # logger.info("Benchmarking compiled StableDiffusionPipeline")
+            # config = CompilationConfig.Default()
+            # compiled_model = compile(load_model(), config)
 
-            def call_compiled_model():
-                return call_model_(compiled_model)
+            # def call_compiled_model():
+            #     return call_model_(compiled_model)
 
-            for _ in range(3):
-                call_compiled_model()
+            # for _ in range(3):
+            #     call_compiled_model()
 
-            output_image = profiler.with_cProfile(call_compiled_model)()
-            display_image(output_image)
+            # output_image = profiler.with_cProfile(call_compiled_model)()
+            # display_image(output_image)
 
-            del compiled_model
+            # del compiled_model
 
         logger.info(
             "Benchmarking compiled StableDiffusionPipeline with xformers, Triton and CUDA Graph"
@@ -224,13 +251,11 @@ def benchmark_sd_model(
         config = CompilationConfig.Default()
         try:
             import xformers
-
             config.enable_xformers = True
         except ImportError:
             logger.warning("xformers not installed, skip")
         try:
             import triton
-
             config.enable_triton = True
         except ImportError:
             logger.warning("triton not installed, skip")
@@ -247,5 +272,34 @@ def benchmark_sd_model(
 
         output_image = profiler.with_cProfile(call_faster_compiled_model)()
         display_image(output_image)
+
+        if lora_a_path is not None and lora_b_path is not None:
+
+            def update_state_dict(dst, src):
+                for key, value in src.items():
+                    # Do inplace copy.
+                    # As the traced forward function shares the same reference of the tensors,
+                    # this modification will be reflected in the traced forward function.
+                    dst[key].copy_(value)
+                return dst
+
+            # Load "another" lora into UNet
+            def load_new_lora(unet, lora):
+                # Store the original UNet parameters
+                state_dict = unet.state_dict()
+                # Load another lora into unet
+                unet.load_attn_procs(lora_b_path)
+                # Inplace copy current UNet parameters to the original unet parameters
+                state_dict = update_state_dict(state_dict, unet.state_dict())
+                # Load the original UNet parameters back.
+                # We use assign=True because we still want to hold the references
+                # of the original UNet parameters
+                unet.load_state_dict(state_dict, assign=True)
+                return unet
+
+            compiled_model.unet = load_new_lora(compiled_model.unet, lora_b_path)
+
+            output_image = profiler.with_cProfile(call_faster_compiled_model)()
+            display_image(output_image)
 
         del compiled_model
