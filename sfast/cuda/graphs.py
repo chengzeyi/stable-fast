@@ -52,6 +52,10 @@ def make_graphed_callable(callable,
                           example_kwarg_inputs=None,
                           *,
                           execution_env):
+    is_default_allocator = not hasattr(
+        torch.cuda, 'get_allocator_backend'
+    ) or torch.cuda.get_allocator_backend() == 'native'
+
     training = getattr(callable, 'training', False) if isinstance(
         callable, torch.nn.Module) else False
 
@@ -70,19 +74,27 @@ def make_graphed_callable(callable,
                      **copy.deepcopy(example_kwarg_inputs))
     torch.cuda.synchronize()
 
-    tmp_graph = torch.cuda.CUDAGraph()
+    if is_default_allocator:
+        tmp_graph = torch.cuda.CUDAGraph()
 
-    with execution_env.lock:
-        with torch.cuda.device(execution_env.device), torch.cuda.stream(
-                execution_env.stream):
-            with torch.cuda.graph(tmp_graph,
-                                  pool=execution_env.mempool,
-                                  stream=execution_env.stream):
-                static_inputs_ = copy.deepcopy(example_inputs)
-                static_kwarg_inputs_ = copy.deepcopy(example_kwarg_inputs)
+        with execution_env.lock:
+            with torch.cuda.device(execution_env.device), torch.cuda.stream(
+                    execution_env.stream):
+                with torch.cuda.graph(tmp_graph,
+                                      pool=execution_env.mempool,
+                                      stream=execution_env.stream):
+                    static_inputs_ = copy.deepcopy(example_inputs)
+                    static_kwarg_inputs_ = copy.deepcopy(example_kwarg_inputs)
 
-    static_inputs = shadow_copy(static_inputs_)
-    static_kwarg_inputs = shadow_copy(static_kwarg_inputs_)
+        static_inputs = shadow_copy(static_inputs_)
+        static_kwarg_inputs = shadow_copy(static_kwarg_inputs_)
+    else:
+        tmp_graph = None
+        static_inputs_ = None
+        static_kwarg_inputs_ = None
+
+        static_inputs = copy.deepcopy(example_inputs)
+        static_kwarg_inputs = copy.deepcopy(example_kwarg_inputs)
 
     fwd_graph = torch.cuda.CUDAGraph()
 
@@ -96,7 +108,8 @@ def make_graphed_callable(callable,
                 static_outputs = callable(*static_inputs,
                                           **static_kwarg_inputs)
 
-    static_outputs = shadow_copy(static_outputs)
+    if is_default_allocator:
+        static_outputs = shadow_copy(static_outputs)
     del tmp_graph, static_inputs_, static_kwarg_inputs_
 
     def make_graphed_function(callable, execution_env, fwd_graph,
@@ -152,11 +165,9 @@ class GraphExecutionEnv:
         self.lock = threading.Lock() if lock is None else lock
 
         graph = torch.cuda.CUDAGraph()
-        with torch.cuda.device(self.device), torch.cuda.stream(
-                self.stream):
-            with torch.cuda.graph(graph,
-                                    pool=self.mempool,
-                                    stream=self.stream):
+        with torch.cuda.device(self.device), torch.cuda.stream(self.stream):
+            with torch.cuda.graph(graph, pool=self.mempool,
+                                  stream=self.stream):
                 pass
         # Hold a live graph to the mempool so that it has a non-zero use_count
         self.graph = graph

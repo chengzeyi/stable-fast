@@ -39,6 +39,9 @@ Performance varies very greatly across different hardware/software/platform/driv
 It is very hard to benchmark accurately. And preparing the environment for benchmarking is also a hard job.
 I have tested on some platforms before but the results may still be inaccurate.
 
+`stable-fast` is expected to work better on newer GPUs and newer CUDA versions.
+__On older GPUs, the performance increase might be limited.__
+
 #### RTX 4080 (512x512, batch size 1, fp16, tcmalloc enabled, in WSL2)
 
 This is my personal gaming PC😄. It has a more powerful CPU than those from cloud server providers.
@@ -293,4 +296,31 @@ CUDA Graph could cause less efficient VRAM utilization and slow down the inferen
 
 ```python
 config.enable_cuda_graph = False
+```
+
+### Crashes, Invalid Memory Access Or Segmentation Fault
+
+#### Try To Disable Triton, CUDA Graph or cudaMallocAsync
+
+Even in PyTorch's own implementation `torch.compile`, I have encountered crashes and segmentation faults.
+It is usually caused by Triton, CUDA Graph or cudaMallocAsync because they are not stable enough.
+You could try to remove the `PYTORCH_CUDA_MALLOC_CONF=backend:cudaMallocAsync` environment variable
+and disable Triton and CUDA Graph to fix it.
+
+```python
+config.enable_triton = False
+# or
+config.enable_cuda_graph = False
+```
+
+### Triton does not work
+
+#### Try To Clear Triton Cache
+
+Triton might be not working properly because it uses cache to store compiled kernels,
+especially when you just upgrade `stable-fast` or `triton`.
+You could try to clear the cache to fix it.
+
+```bash
+rm -rf ~/.triton
 ```
