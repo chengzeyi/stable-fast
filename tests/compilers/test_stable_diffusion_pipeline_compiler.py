@@ -281,23 +281,21 @@ def benchmark_sd_model(
                     # As the traced forward function shares the same reference of the tensors,
                     # this modification will be reflected in the traced forward function.
                     dst[key].copy_(value)
-                return dst
 
-            # Load "another" lora into UNet
-            def load_new_lora(unet, lora):
+            # Switch "another" LoRA into UNet
+            def switch_lora(unet, lora):
                 # Store the original UNet parameters
                 state_dict = unet.state_dict()
-                # Load another lora into unet
+                # Load another LoRA into unet
                 unet.load_attn_procs(lora)
                 # Inplace copy current UNet parameters to the original unet parameters
-                state_dict = update_state_dict(state_dict, unet.state_dict())
+                update_state_dict(state_dict, unet.state_dict())
                 # Load the original UNet parameters back.
                 # We use assign=True because we still want to hold the references
                 # of the original UNet parameters
                 unet.load_state_dict(state_dict, assign=True)
-                return unet
 
-            compiled_model.unet = load_new_lora(compiled_model.unet, lora_b_path)
+            switch_lora(compiled_model.unet, lora_b_path)
 
             output_image = profiler.with_cProfile(call_faster_compiled_model)()
             display_image(output_image)
