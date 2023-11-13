@@ -38,8 +38,6 @@ def compile(m, config):
     if hasattr(m, 'controlnet'):
         m.controlnet = compile_unet(m.controlnet, config)
 
-    enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
-
     if config.enable_xformers:
         _enable_xformers(m)
 
