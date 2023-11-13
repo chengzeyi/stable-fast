@@ -294,3 +294,24 @@ CUDA Graph could cause less efficient VRAM utilization and slow down the inferen
 ```python
 config.enable_cuda_graph = False
 ```
+
+### Crashes Or Segmentation Fault
+
+#### Try To Disable Triton, CUDA Graph or cudaMallocAsync
+
+Even in PyTorch's own implementation `torch.compile`, I have encountered crashes and segmentation faults.
+It is usually caused by Triton, CUDA Graph or cudaMallocAsync because they are not stable enough.
+You could try to remove the `PYTORCH_CUDA_MALLOC_CONF=backend:cudaMallocAsync` environment variable
+and disable Triton and CUDA Graph to fix it.
+
+### Triton does not work
+
+#### Try To Clear Triton Cache
+
+Triton might be not working properly because it uses cache to store compiled kernels,
+especially when you just upgrade `stable-fast` or `triton`.
+You could try to clear the cache to fix it.
+
+```bash
+rm -rf ~/.triton
+```
