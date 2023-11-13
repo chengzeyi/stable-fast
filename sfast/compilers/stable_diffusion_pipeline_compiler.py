@@ -36,14 +36,6 @@ class CompilationConfig:
 def compile(m, config):
     enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
 
-    scheduler = m.scheduler
-    scheduler._set_timesteps = scheduler.set_timesteps
-
-    def set_timesteps(self, num_timesteps: int, device: Union[str, torch.device]):
-        return self._set_timesteps(num_timesteps, device=torch.device('cpu'))
-
-    scheduler.set_timesteps = set_timesteps.__get__(scheduler)
-
     if config.enable_xformers:
         if config.enable_jit:
             from sfast.utils.xformers_attention import (
@@ -54,11 +46,11 @@ def compile(m, config):
             ops.memory_efficient_attention = xformers_memory_efficient_attention
         m.enable_xformers_memory_efficient_attention()
 
-    if config.memory_format == torch.channels_last:
-        m.unet.to(memory_format=torch.channels_last)
-        m.vae.to(memory_format=torch.channels_last)
+    if config.memory_format is not None:
+        m.unet.to(memory_format=config.memory_format)
+        m.vae.to(memory_format=config.memory_format)
         if hasattr(m, 'controlnet'):
-            m.controlnet.to(memory_format=torch.channels_last)
+            m.controlnet.to(memory_format=config.memory_format)
 
     if config.enable_jit:
         modify_model = functools.partial(
@@ -69,32 +61,16 @@ def compile(m, config):
             memory_format=config.memory_format,
         )
 
-        def ts_compiler(
-            m,
-            call_helper,
-            inputs,
-            kwarg_inputs,
-            freeze=False,
-        ):
-            with torch.jit.optimized_execution(True):
-                if freeze:
-                    # raw freeze causes Tensor reference leak
-                    # because the constant Tensors in the GraphFunction of
-                    # the compilation unit are never freed.
-                    m = jit_utils.better_freeze(
-                            m,
-                            preserve_parameters=config.preserve_parameters,
-                        )
-                modify_model(m)
-
-            return m
+        ts_compiler = functools.partial(
+            _ts_compiler,
+            freeze=config.enable_jit_freeze,
+            preserve_parameters=config.preserve_parameters,
+            modify_model_fn=modify_model,
+        )
 
         lazy_trace_ = functools.partial(
             lazy_trace,
-            ts_compiler=functools.partial(
-                ts_compiler,
-                freeze=config.enable_jit_freeze,
-            ),
+            ts_compiler=ts_compiler,
             check_trace=False,
             strict=False,
         )
@@ -125,14 +101,7 @@ def compile(m, config):
 
         if enable_cuda_graph:
             for sub_m in [m.unet] + ([m.controlnet] if hasattr(m, 'controlnet') else []):
-                cuda_graphed_forward = make_dynamic_graphed_callable(sub_m.forward)
-
-                @functools.wraps(sub_m.forward)
-                def forward_with_timestamp(sample, t, *args, **kwargs):
-                    t = t.to(device=sample.device)
-                    return cuda_graphed_forward(sample, t, *args, **kwargs)
-
-                sub_m.forward = forward_with_timestamp
+                sub_m.forward = make_dynamic_graphed_callable(sub_m.forward)
 
     return m
 
@@ -165,7 +134,7 @@ def _modify_model(
 
     if memory_format is not None:
         sfast._C._jit_pass_convert_op_input_tensors(
-            m.graph, "aten::_convolution", indices=[0], memory_format=memory_format
+            m.graph, 'aten::_convolution', indices=[0], memory_format=memory_format
         )
 
     if enable_cnn_optimization:
@@ -174,3 +143,27 @@ def _modify_model(
     if prefer_lowp_gemm:
         passes.jit_pass_prefer_lowp_gemm(m.graph)
         passes.jit_pass_fuse_lowp_linear_add(m.graph)
+
+
+def _ts_compiler(
+    m,
+    call_helper,
+    inputs,
+    kwarg_inputs,
+    modify_model_fn=None,
+    freeze=False,
+    preserve_parameters=False,
+):
+    with torch.jit.optimized_execution(True):
+        if freeze and not getattr(m, 'training', False):
+            # raw freeze causes Tensor reference leak
+            # because the constant Tensors in the GraphFunction of
+            # the compilation unit are never freed.
+            m = jit_utils.better_freeze(
+                    m,
+                    preserve_parameters=preserve_parameters,
+                )
+        if modify_model_fn is not None:
+            modify_model_fn(m)
+
+    return m
