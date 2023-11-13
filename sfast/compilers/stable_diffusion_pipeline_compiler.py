@@ -34,51 +34,22 @@ class CompilationConfig:
 
 
 def compile(m, config):
+    m.unet = compile_unet(m.unet, config)
+    if hasattr(m, 'controlnet'):
+        m.controlnet = compile_unet(m.controlnet, config)
+
     enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
 
     if config.enable_xformers:
-        if config.enable_jit:
-            from sfast.utils.xformers_attention import (
-                xformers_memory_efficient_attention,
-            )
-            from xformers import ops
-
-            ops.memory_efficient_attention = xformers_memory_efficient_attention
-        m.enable_xformers_memory_efficient_attention()
+        _enable_xformers(m)
 
     if config.memory_format is not None:
-        m.unet.to(memory_format=config.memory_format)
         m.vae.to(memory_format=config.memory_format)
-        if hasattr(m, 'controlnet'):
-            m.controlnet.to(memory_format=config.memory_format)
 
     if config.enable_jit:
-        modify_model = functools.partial(
-            _modify_model,
-            enable_cnn_optimization=config.enable_cnn_optimization,
-            prefer_lowp_gemm=config.prefer_lowp_gemm,
-            enable_triton=config.enable_triton,
-            memory_format=config.memory_format,
-        )
-
-        ts_compiler = functools.partial(
-            _ts_compiler,
-            freeze=config.enable_jit_freeze,
-            preserve_parameters=config.preserve_parameters,
-            modify_model_fn=modify_model,
-        )
-
-        lazy_trace_ = functools.partial(
-            lazy_trace,
-            ts_compiler=ts_compiler,
-            check_trace=False,
-            strict=False,
-        )
+        lazy_trace_ = _build_lazy_trace(config)
 
         m.text_encoder.forward = lazy_trace_(m.text_encoder.forward)
-        m.unet.forward = lazy_trace_(m.unet.forward)
-        if hasattr(m, 'controlnet'):
-            controlnet.forward = lazy_trace_(controlnet.forward)
         if (
             not packaging.version.parse('2.0.0')
             <= packaging.version.parse(torch.__version__)
@@ -99,9 +70,24 @@ def compile(m, config):
             m.scheduler.scale_model_input = lazy_trace_(m.scheduler.scale_model_input)
             m.scheduler.step = lazy_trace_(m.scheduler.step)
 
-        if enable_cuda_graph:
-            for sub_m in [m.unet] + ([m.controlnet] if hasattr(m, 'controlnet') else []):
-                sub_m.forward = make_dynamic_graphed_callable(sub_m.forward)
+    return m
+
+
+def compile_unet(m, config):
+    enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
+
+    if config.enable_xformers:
+        _enable_xformers(m)
+
+    if config.memory_format is not None:
+        m.to(memory_format=config.memory_format)
+
+    if config.enable_jit:
+        lazy_trace_ = _build_lazy_trace(config)
+        m.forward = lazy_trace_(m.forward)
+
+    if enable_cuda_graph:
+        m.forward = make_dynamic_graphed_callable(m.forward)
 
     return m
 
@@ -167,3 +153,39 @@ def _ts_compiler(
             modify_model_fn(m)
 
     return m
+
+
+def _build_lazy_trace(config):
+    modify_model = functools.partial(
+        _modify_model,
+        enable_cnn_optimization=config.enable_cnn_optimization,
+        prefer_lowp_gemm=config.prefer_lowp_gemm,
+        enable_triton=config.enable_triton,
+        memory_format=config.memory_format,
+    )
+
+    ts_compiler = functools.partial(
+        _ts_compiler,
+        freeze=config.enable_jit_freeze,
+        preserve_parameters=config.preserve_parameters,
+        modify_model_fn=modify_model,
+    )
+
+    lazy_trace_ = functools.partial(
+        lazy_trace,
+        ts_compiler=ts_compiler,
+        check_trace=False,
+        strict=False,
+    )
+
+    return lazy_trace_
+
+
+def _enable_xformers(m):
+    from xformers import ops
+    from sfast.utils.xformers_attention import (
+        xformers_memory_efficient_attention,
+    )
+
+    ops.memory_efficient_attention = xformers_memory_efficient_attention
+    m.enable_xformers_memory_efficient_attention()
