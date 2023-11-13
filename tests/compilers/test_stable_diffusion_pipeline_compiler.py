@@ -288,7 +288,7 @@ def benchmark_sd_model(
                 # Store the original UNet parameters
                 state_dict = unet.state_dict()
                 # Load another lora into unet
-                unet.load_attn_procs(lora_b_path)
+                unet.load_attn_procs(lora)
                 # Inplace copy current UNet parameters to the original unet parameters
                 state_dict = update_state_dict(state_dict, unet.state_dict())
                 # Load the original UNet parameters back.
