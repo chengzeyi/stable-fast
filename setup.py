@@ -115,6 +115,8 @@ def get_extensions():
         if CUDNN_HOME is None:
             try:
                 # Try to use the bundled version of CUDNN with PyTorch installation.
+                # This is also used in CI.
+                # CUBLAS is not needed as the downloaded CUDA should include it.
                 from nvidia import cudnn
             except ImportError:
                 cudnn = None
@@ -126,12 +128,11 @@ def get_extensions():
                 # Hope PyTorch knows how to link it correctly.
                 # We only need headers for build because PyTorch should have
                 # linked the actual library file.
-                # library_dirs.append(os.path.join(cudnn_dir, 'lib'))
-                # libraries.append('cudnn')
 
-        # Make CI happy (unresolved external symbol). Or Windows build will fail
-        libraries.append('cudnn')
-        libraries.append('cublas')
+                # Make Windows CI happy (unresolved external symbol),
+                # by adding /FORCE:UNRESOLVED
+                if platform.system() == "Windows":
+                    extra_compile_args["cxx"].append("/FORCE:UNRESOLVED")
     else:
         print("Compiling without CUDA support")
 
