@@ -76,7 +76,7 @@ jobs:
           }[cushort]
           cudnn_pypi_package = {
             "121": "nvidia-cudnn-cu12",
-            "118": "nvidia-cudnn-cu11"
+            "118": "nvidia-cudnn-cu11",
             "117": "nvidia-cudnn-cu11",
             "116": "nvidia-cudnn-cu11",
           }[cushort]
