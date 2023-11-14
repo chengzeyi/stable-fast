@@ -81,14 +81,15 @@ def get_extensions():
         sources += source_cuda
         sources += source_cuda_rt
 
-        from torch.utils.cpp_extension import ROCM_HOME
+        # from torch.utils.cpp_extension import ROCM_HOME
 
-        is_rocm_pytorch = (True if ((torch.version.hip is not None) and
-                                    (ROCM_HOME is not None)) else False)
-        if is_rocm_pytorch:
-            assert torch_ver >= [1, 8], "ROCM support requires PyTorch >= 1.8!"
+        # is_rocm_pytorch = (True if ((torch.version.hip is not None) and
+        #                             (ROCM_HOME is not None)) else False)
+        # if is_rocm_pytorch:
+        #     assert torch_ver >= [1, 8], "ROCM support requires PyTorch >= 1.8!"
 
-        if not is_rocm_pytorch:
+        # if not is_rocm_pytorch:
+        if True:
             define_macros += [("WITH_CUDA", None)]
             extra_compile_args["nvcc"] = [
                 "-O3",
