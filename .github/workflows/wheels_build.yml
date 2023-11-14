@@ -74,12 +74,19 @@ jobs:
             "117": ("11.7.1", "https://developer.download.nvidia.com/compute/cuda/11.7.1/local_installers/cuda_11.7.1_515.65.01_linux.run"),
             "116": ("11.6.2", "https://developer.download.nvidia.com/compute/cuda/11.6.2/local_installers/cuda_11.6.2_510.47.03_linux.run"),
           }[cushort]
+          cudnn_pypi_package = {
+            "121": "nvidia-cudnn-cu12",
+            "118": "nvidia-cudnn-cu11",
+            "117": "nvidia-cudnn-cu11",
+            "116": "nvidia-cudnn-cu11",
+          }[cushort]
           with open(os.environ['GITHUB_OUTPUT'], "r+") as fp:
             fp.write("CUDA_VERSION=" + full_version + "\n")
             fp.write("CUDA_VERSION_SUFFIX=cu" + cushort + "\n")
             # fp.write("TORCH_ORG_S3_PATH=s3://pytorch/whl/" + cushort + "\n")
             # fp.write("PUBLISH_PYPI=0\n")
             fp.write("CUDA_INSTALL_SCRIPT=" + install_script + "\n")
+            fp.write("CUDNN_PYPI_PACKAGE=" + cudnn_pypi_package + "\n")
       - run: echo "CUDA_VERSION_SUFFIX=${{ steps.cuda_info.outputs.CUDA_VERSION_SUFFIX }}"
       # - run: echo "TORCH_ORG_S3_PATH=${{ steps.cuda_info.outputs.TORCH_ORG_S3_PATH }}"
       # - run: echo "PUBLISH_PYPI=${{ steps.cuda_info.outputs.PUBLISH_PYPI }}"
@@ -156,7 +163,7 @@ jobs:
           python: ${{ inputs.python }}
 
       - name: Install dependencies
-        run: $PY -m pip install wheel setuptools ninja twine -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
+        run: $PY -m pip install wheel setuptools ninja twine ${{ steps.cuda_info.outputs.CUDNN_PYPI_PACKAGE }} -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
 
       - name: Build wheel
         run: |
