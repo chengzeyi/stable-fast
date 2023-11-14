@@ -9,7 +9,7 @@ from setuptools import find_packages, setup
 
 # from typing import List
 import torch
-from torch.utils.cpp_extension import CUDA_HOME, CppExtension, CUDAExtension
+from torch.utils.cpp_extension import CUDA_HOME, CUDNN_HOME, CppExtension, CUDAExtension
 
 torch_ver = [int(x) for x in torch.__version__.split(".")[:2]]
 assert torch_ver >= [1, 8], "Requires PyTorch >= 1.8"
@@ -23,7 +23,7 @@ def fetch_requirements():
 
 def get_version():
     if os.getenv("BUILD_VERSION"):  # In CI
-        version = os.getenv("BUILD_VERSION", "0.0.0")
+        version = os.getenv("BUILD_VERSION")
     else:
         version_file_path = path.join(path.abspath(path.dirname(__file__)),
                                       "version.txt")
@@ -109,18 +109,21 @@ def get_extensions():
             CC = os.environ.get("CC", None)
             if CC is not None:
                 extra_compile_args["nvcc"].append("-ccbin={}".format(CC))
-        try:
-            # Try to use the bundled version of CUDNN with PyTorch installation.
-            from nvidia import cudnn
-        except ImportError:
-            cudnn = None
 
-        if cudnn is not None:
-            print("Using CUDNN from {}".format(cudnn.__file__))
-            cudnn_dir = os.path.dirname(cudnn.__file__)
-            include_dirs.append(os.path.join(cudnn_dir, "include"))
-            library_dirs.append(os.path.join(cudnn_dir, 'lib'))
-            libraries.append('cudnn')
+        if CUDNN_HOME is None:
+            try:
+                # Try to use the bundled version of CUDNN with PyTorch installation.
+                from nvidia import cudnn
+            except ImportError:
+                cudnn = None
+
+            if cudnn is not None:
+                print("Using CUDNN from {}".format(cudnn.__file__))
+                cudnn_dir = os.path.dirname(cudnn.__file__)
+                include_dirs.append(os.path.join(cudnn_dir, "include"))
+                # Hope PyTorch knows how to link it correctly.
+                # library_dirs.append(os.path.join(cudnn_dir, 'lib'))
+                # libraries.append('cudnn')
     else:
         print("Compiling without CUDA support")
 
