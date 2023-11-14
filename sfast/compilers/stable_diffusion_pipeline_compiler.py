@@ -15,13 +15,49 @@ logger = logging.getLogger()
 
 
 class CompilationConfig:
+
     @dataclass
     class Default:
+        '''
+        Default compilation config
+
+        memory_format:
+            channels_last if tensor core is available, otherwise contiguous_format.
+            On GPUs with tensor core, channels_last is faster
+        enable_jit:
+            Whether to enable JIT, most optimizations are done with JIT
+        enable_jit_freeze:
+            Whether to freeze the model after JIT tracing.
+            Freezing the model will enable us to optimize the model further.
+        preserve_parameters:
+            Whether to preserve parameters when freezing the model.
+            If True, parameters will be preserved, but the model will be a bit slower.
+            If False, parameters will be marked as constants, and the model will be faster.
+            However, if parameters are not preserved, LoRA cannot be switched dynamically.
+        enable_cnn_optimization:
+            Whether to enable CNN optimization by fusion.
+        prefer_lowp_gemm:
+            Whether to prefer low-precision GEMM and a series of fusion optimizations.
+            This will make the model faster, but may cause numerical issues.
+        enable_xformers:
+            Whether to enable xformers and hijack it to make it compatible with JIT tracing.
+        enable_cuda_graph:
+            Whether to enable CUDA graph. CUDA Graph will significantly speed up the model,
+            by reducing the overhead of CUDA kernel launch, memory allocation, etc.
+            However, it will also increase the memory usage.
+            Our implementation of CUDA graph supports dynamic shape by caching graphs of
+            different shapes.
+        enable_triton:
+            Whether to enable Triton generated CUDA kernels.
+            Triton generated CUDA kernels are faster than PyTorch's CUDA kernels.
+            However, Triton has a lot of bugs, and can increase the CPU overhead,
+            though the overhead can be reduced by enabling CUDA graph.
+        trace_scheduler:
+            Whether to trace the scheduler.
+        '''
         memory_format: torch.memory_format = (
-            torch.channels_last
-            if gpu_device.device_has_tensor_core()
-            else torch.contiguous_format
-        )
+            torch.channels_last if gpu_device.device_has_tensor_core() else
+            torch.contiguous_format)
         enable_jit: bool = True
         enable_jit_freeze: bool = True
         preserve_parameters: bool = True
@@ -48,11 +84,8 @@ def compile(m, config):
         lazy_trace_ = _build_lazy_trace(config)
 
         m.text_encoder.forward = lazy_trace_(m.text_encoder.forward)
-        if (
-            not packaging.version.parse('2.0.0')
-            <= packaging.version.parse(torch.__version__)
-            < packaging.version.parse('2.1.0')
-        ):
+        if (not packaging.version.parse('2.0.0') <= packaging.version.parse(
+                torch.__version__) < packaging.version.parse('2.1.0')):
             """
             Weird bug in PyTorch 2.0.x
 
@@ -65,14 +98,19 @@ def compile(m, config):
             m.vae.encoder.forward = lazy_trace_(m.vae.encoder.forward)
             m.vae.quant_conv.forward = lazy_trace_(m.vae.quant_conv.forward)
         if config.trace_scheduler:
-            m.scheduler.scale_model_input = lazy_trace_(m.scheduler.scale_model_input)
+            m.scheduler.scale_model_input = lazy_trace_(
+                m.scheduler.scale_model_input)
             m.scheduler.step = lazy_trace_(m.scheduler.step)
 
     return m
 
 
 def compile_unet(m, config):
-    enable_cuda_graph = config.enable_cuda_graph and m.device.type == 'cuda'
+    # attribute `device` is not generally available
+    device = m.device if hasattr(m, 'device') else torch.device(
+        'cuda' if torch.cuda.is_available() else 'cpu')
+
+    enable_cuda_graph = config.enable_cuda_graph and device.type == 'cuda'
 
     if config.enable_xformers:
         _enable_xformers(m)
@@ -118,8 +156,10 @@ def _modify_model(
 
     if memory_format is not None:
         sfast._C._jit_pass_convert_op_input_tensors(
-            m.graph, 'aten::_convolution', indices=[0], memory_format=memory_format
-        )
+            m.graph,
+            'aten::_convolution',
+            indices=[0],
+            memory_format=memory_format)
 
     if enable_cnn_optimization:
         passes.jit_pass_optimize_cnn(m.graph)
@@ -144,9 +184,9 @@ def _ts_compiler(
             # because the constant Tensors in the GraphFunction of
             # the compilation unit are never freed.
             m = jit_utils.better_freeze(
-                    m,
-                    preserve_parameters=preserve_parameters,
-                )
+                m,
+                preserve_parameters=preserve_parameters,
+            )
         if modify_model_fn is not None:
             modify_model_fn(m)
 
@@ -182,8 +222,14 @@ def _build_lazy_trace(config):
 def _enable_xformers(m):
     from xformers import ops
     from sfast.utils.xformers_attention import (
-        xformers_memory_efficient_attention,
-    )
+        xformers_memory_efficient_attention, )
 
     ops.memory_efficient_attention = xformers_memory_efficient_attention
-    m.enable_xformers_memory_efficient_attention()
+
+    if hasattr(m, 'enable_xformers_memory_efficient_attention'):
+        m.enable_xformers_memory_efficient_attention()
+    else:
+        logger.warning(
+            'enable_xformers_memory_efficient_attention() is not available.'
+            ' If you have enabled xformers by other means, ignore this warning.'
+        )

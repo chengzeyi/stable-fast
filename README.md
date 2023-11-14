@@ -39,6 +39,7 @@ __NOTE__: `stable-fast` is currently only in beta stage and is prone to be buggy
 Performance varies very greatly across different hardware/software/platform/driver configurations.
 It is very hard to benchmark accurately. And preparing the environment for benchmarking is also a hard job.
 I have tested on some platforms before but the results may still be inaccurate.
+Note that when benchmarking, the progress bar showed by `tqdm` may be inaccurate because of the asynchronous nature of CUDA.
 
 `stable-fast` is expected to work better on newer GPUs and newer CUDA versions.
 __On older GPUs, the performance increase might be limited.__
@@ -253,7 +254,7 @@ output_image = compiled_model(**kwarg_inputs).images[0]
 ### Dynamically Switch LoRA
 
 Switching LoRA dynamically is supported but you need to do some extra work.
-It is possible because the compiled graph and `CUDA Graph` shares the same
+It is possible because the compiled graph and `CUDA Graph` share the same
 underlaying data (pointers) with the original UNet model. So all you need to do
 is to update the original UNet model's parameters inplace.
 
@@ -266,7 +267,7 @@ and you want to switch to another LoRA.
 def update_state_dict(dst, src):
     for key, value in src.items():
         # Do inplace copy.
-        # As the traced forward function shares the same reference of the tensors,
+        # As the traced forward function shares the same underlaying data (pointers),
         # this modification will be reflected in the traced forward function.
         dst[key].copy_(value)
 

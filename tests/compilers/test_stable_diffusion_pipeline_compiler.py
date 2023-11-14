@@ -18,9 +18,9 @@ from sfast.utils.compute_precision import low_compute_precision
 
 logger = logging.getLogger()
 
-
 basic_kwarg_inputs = dict(
-    prompt='(masterpiece:1,2), best quality, masterpiece, best detail face, realistic, unreal engine, a beautiful girl',
+    prompt=
+    '(masterpiece:1,2), best quality, masterpiece, best detail face, realistic, unreal engine, a beautiful girl',
     height=512,
     width=512,
     num_inference_steps=30,
@@ -33,7 +33,9 @@ def display_image(image):
 
 def get_images_from_path(path):
     image_paths = sorted(glob.glob(os.path.join(path, '*.*')))
-    images = [cv2.imread(image_path, cv2.IMREAD_COLOR) for image_path in image_paths]
+    images = [
+        cv2.imread(image_path, cv2.IMREAD_COLOR) for image_path in image_paths
+    ]
     images = [cv2.cvtColor(image, cv2.COLOR_BGR2RGB) for image in images]
     return images
 
@@ -50,7 +52,10 @@ def test_compile_sd15_model(sd15_model_path, skip_comparsion=True):
     test_benchmark_sd15_model(sd15_model_path, skip_comparsion=skip_comparsion)
 
 
-def test_benchmark_sd15_model_with_lora(sd15_model_path, sd15_lora_t4_path, sd15_lora_dog_path, skip_comparsion=False):
+def test_benchmark_sd15_model_with_lora(sd15_model_path,
+                                        sd15_lora_t4_path,
+                                        sd15_lora_dog_path,
+                                        skip_comparsion=False):
     benchmark_sd_model(
         sd15_model_path,
         kwarg_inputs=basic_kwarg_inputs,
@@ -59,7 +64,11 @@ def test_benchmark_sd15_model_with_lora(sd15_model_path, sd15_lora_t4_path, sd15
         skip_comparsion=skip_comparsion,
     )
 
-def test_compile_sd15_model_with_lora(sd15_model_path, sd15_lora_t4_path, sd15_lora_dog_path, skip_comparsion=True):
+
+def test_compile_sd15_model_with_lora(sd15_model_path,
+                                      sd15_lora_t4_path,
+                                      sd15_lora_dog_path,
+                                      skip_comparsion=True):
     benchmark_sd_model(
         sd15_model_path,
         kwarg_inputs=basic_kwarg_inputs,
@@ -69,10 +78,10 @@ def test_compile_sd15_model_with_lora(sd15_model_path, sd15_lora_t4_path, sd15_l
     )
 
 
-def test_benchmark_sd15_model_with_controlnet(
-    sd15_model_path, sd_controlnet_canny_model_path, diffusers_dog_example_path,
-    skip_comparsion=False
-):
+def test_benchmark_sd15_model_with_controlnet(sd15_model_path,
+                                              sd_controlnet_canny_model_path,
+                                              diffusers_dog_example_path,
+                                              skip_comparsion=False):
     from diffusers import StableDiffusionControlNetPipeline
 
     dog_image = get_images_from_path(diffusers_dog_example_path)[0]
@@ -119,21 +128,21 @@ def test_compile_sdxl_model(sdxl_model_path, skip_comparsion=True):
     test_benchmark_sdxl_model(sdxl_model_path, skip_comparsion=skip_comparsion)
 
 
-def test_compile_sd15_model_with_controlnet(
-    sd15_model_path, sd_controlnet_canny_model_path, diffusers_dog_example_path,
-    skip_comparsion=True
-):  
-    test_benchmark_sd15_model_with_controlnet(
-        sd15_model_path, sd_controlnet_canny_model_path, diffusers_dog_example_path,
-        skip_comparsion=skip_comparsion
-    )
+def test_compile_sd15_model_with_controlnet(sd15_model_path,
+                                            sd_controlnet_canny_model_path,
+                                            diffusers_dog_example_path,
+                                            skip_comparsion=True):
+    test_benchmark_sd15_model_with_controlnet(sd15_model_path,
+                                              sd_controlnet_canny_model_path,
+                                              diffusers_dog_example_path,
+                                              skip_comparsion=skip_comparsion)
 
 
 def call_model(model, inputs=None, kwarg_inputs=None):
-    inputs = tuple() if inputs is None else inputs() if callable(inputs) else inputs
-    kwarg_inputs = dict() if kwarg_inputs is None else kwarg_inputs() if callable(
-        kwarg_inputs
-    ) else kwarg_inputs
+    inputs = tuple() if inputs is None else inputs() if callable(
+        inputs) else inputs
+    kwarg_inputs = dict() if kwarg_inputs is None else kwarg_inputs(
+    ) if callable(kwarg_inputs) else kwarg_inputs
     torch.manual_seed(0)
     output_image = model(*inputs, **kwarg_inputs).images[0]
     return output_image
@@ -167,20 +176,33 @@ def benchmark_sd_model(
             from diffusers import ControlNetModel
 
             controlnet_model = ControlNetModel.from_pretrained(
-                controlnet_model_path, torch_dtype=torch.float16
-            )
+                controlnet_model_path, torch_dtype=torch.float16)
             model_init_kwargs['controlnet'] = controlnet_model
 
-        model = model_class.from_pretrained(
-            model_path, torch_dtype=torch.float16, **model_init_kwargs
-        )
+        model = model_class.from_pretrained(model_path,
+                                            torch_dtype=torch.float16,
+                                            **model_init_kwargs)
         if scheduler_class is not None:
-            model.scheduler = scheduler_class.from_config(model.scheduler.config)
+            model.scheduler = scheduler_class.from_config(
+                model.scheduler.config)
+
         model.safety_checker = None
         model.to(torch.device('cuda'))
 
         if lora_a_path is not None:
             model.unet.load_attn_procs(lora_a_path)
+
+        # This is only for benchmarking purpose.
+        # Patch the scheduler to force a synchronize to make the progress bar work properly.
+        scheduler_step = model.scheduler.step
+
+        def scheduler_step_(*args, **kwargs):
+            ret = scheduler_step(*args, **kwargs)
+            torch.cuda.synchronize()
+            return ret
+
+        model.scheduler.step = scheduler_step_
+
         return model
 
     call_model_ = functools.partial(call_model, kwarg_inputs=kwarg_inputs)
@@ -203,7 +225,8 @@ def benchmark_sd_model(
 
             if hasattr(torch, 'compile'):
                 model = load_model()
-                logger.info('Benchmarking StableDiffusionPipeline with torch.compile')
+                logger.info(
+                    'Benchmarking StableDiffusionPipeline with torch.compile')
                 model.unet.to(memory_format=torch.channels_last)
                 model.unet = torch.compile(model.unet)
                 if hasattr(model, 'controlnet'):
@@ -216,7 +239,8 @@ def benchmark_sd_model(
                 for _ in range(3):
                     call_torch_compiled_model()
 
-                output_image = profiler.with_cProfile(call_torch_compiled_model)()
+                output_image = profiler.with_cProfile(
+                    call_torch_compiled_model)()
                 display_image(output_image)
 
                 del model
@@ -264,7 +288,7 @@ def benchmark_sd_model(
         display_image(output_image)
 
         if lora_a_path is not None and lora_b_path is not None and packaging.version.parse(
-            torch.__version__) >= packaging.version.parse('2.1.0'):
+                torch.__version__) >= packaging.version.parse('2.1.0'):
             # load_state_dict with assign=True requires torch >= 2.1.0
 
             def update_state_dict(dst, src):
