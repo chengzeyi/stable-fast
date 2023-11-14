@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import glob
+import platform
 import os
 
 # import shutil
@@ -127,6 +128,10 @@ def get_extensions():
                 # linked the actual library file.
                 # library_dirs.append(os.path.join(cudnn_dir, 'lib'))
                 # libraries.append('cudnn')
+
+        # Make CI happy (unresolved external symbol). Or Windows build will fail
+        libraries.append('cudnn')
+        libraries.append('cublas')
     else:
         print("Compiling without CUDA support")
 
