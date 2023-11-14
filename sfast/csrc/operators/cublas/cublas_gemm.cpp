@@ -258,7 +258,7 @@ Tensor &addmm_out_cuda_impl(Tensor &result, const Tensor &self,
                                          transpose_mat2, transpose_result);
   c10::MaybeOwned<Tensor> other_;
   Scalar gamma_;
-  if (other.has_value() and gamma.toComplexDouble() != 0.0) {
+  if (other.has_value() && gamma.toComplexDouble() != 0.0) {
     other_ = prepare_matrix_for_cublas(other.value(), transpose_result);
     gamma_ = gamma;
   } else {
