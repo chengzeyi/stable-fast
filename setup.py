@@ -52,10 +52,10 @@ def get_version():
 def get_extensions():
     this_dir = path.dirname(path.abspath(__file__))
     extensions_dir = path.join(this_dir, "sfast", "csrc")
+    include_dirs = [extensions_dir]
 
     sources = glob.glob(path.join(extensions_dir, "**", "*.cpp"),
                         recursive=True)
-
     # common code between cuda and rocm platforms, for hipify version [1,0,0] and later.
     source_cuda = glob.glob(path.join(extensions_dir, "**", "*.cu"),
                             recursive=True)
@@ -65,11 +65,16 @@ def get_extensions():
     extension = CppExtension
 
     extra_compile_args = {"cxx": []}
+    library_dirs = []
+    libraries = []
     define_macros = []
 
     # if (torch.cuda.is_available()
     #         and ((CUDA_HOME is not None) or is_rocm_pytorch)):
+    # Skip the above useless check as we will always compile with CUDA support
     if os.getenv("WITHOUT_CUDA", "0") != "1":
+        assert CUDA_HOME is not None, "Cannot find CUDA installation."
+
         extension = CUDAExtension
         sources += source_cuda
         sources += source_cuda_rt
@@ -104,16 +109,20 @@ def get_extensions():
             CC = os.environ.get("CC", None)
             if CC is not None:
                 extra_compile_args["nvcc"].append("-ccbin={}".format(CC))
+        try:
+            # Try to use the bundled version of CUDNN with PyTorch installation.
+            from nvidia import cudnn
+        except ImportError:
+            cudnn = None
+
+        if cudnn is not None:
+            print("Using CUDNN from {}".format(cudnn.__file__))
+            cudnn_dir = os.path.dirname(cudnn.__file__)
+            include_dirs.append(os.path.join(cudnn_dir, "include"))
+            library_dirs.append(os.path.join(cudnn_dir, 'lib'))
+            libraries.append('cudnn')
     else:
-        if os.getenv("WITHOUT_CUDA", "0") == "1":
-            print("Compiling without CUDA support")
-        else:
-            raise RuntimeError(
-                "CUDA is not available, please check your PyTorch CUDA installation. "
-                "If you want to compile without CUDA, set the environment variable 'WITHOUT_CUDA' to '1'. "
-                "But if you compile without CUDA, there might be no speed improvement."
-            )
-    include_dirs = [extensions_dir]
+        print("Compiling without CUDA support")
 
     ext_modules = [
         extension(
@@ -122,6 +131,8 @@ def get_extensions():
             include_dirs=include_dirs,
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
+            library_dirs=library_dirs,
+            libraries=libraries,
         )
     ]
 
