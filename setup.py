@@ -129,10 +129,14 @@ def get_extensions():
                 # We only need headers for build because PyTorch should have
                 # linked the actual library file.
 
-                # Make Windows CI happy (unresolved external symbol),
+                # Make Windows CI happy (unresolved external symbol)
                 if platform.system() == "Windows":
                     library_dirs.append(os.path.join(cudnn_dir, "lib", "x64"))
                     libraries.append("cudnn")
+
+        # Make Windows CI happy (unresolved external symbol)
+        if platform.system() == "Windows":
+            libraries.append("cublas")
     else:
         print("Compiling without CUDA support")
 
