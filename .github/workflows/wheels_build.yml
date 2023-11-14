@@ -17,6 +17,11 @@ on:
         required: true
         type: string
         description: "Example: 117 for 11.7"
+      cudnn_version_major:
+        required: false
+        default: '8'
+        type: string
+        description: "Example: 8
   workflow_dispatch:
     inputs:
       os:
