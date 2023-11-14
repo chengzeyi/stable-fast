@@ -21,7 +21,7 @@ on:
         required: false
         default: '8'
         type: string
-        description: "Example: 8
+        description: "Example: 8"
   workflow_dispatch:
     inputs:
       os:
@@ -42,7 +42,7 @@ on:
         required: false
         default: '8'
         type: string
-        description: "Example: 8
+        description: "Example: 8"
 
 # this yaml file can be cleaned up using yaml anchors, but they're not supported in github actions yet
 # https://github.com/actions/runner/issues/1182
