@@ -130,9 +130,9 @@ def get_extensions():
                 # linked the actual library file.
 
                 # Make Windows CI happy (unresolved external symbol),
-                # by adding /FORCE:UNRESOLVED
                 if platform.system() == "Windows":
-                    extra_compile_args["cxx"].append("/FORCE:UNRESOLVED")
+                    library_dirs.append(os.path.join(cudnn_dir, "lib"))
+                    libraries.append("cudnn")
     else:
         print("Compiling without CUDA support")
 
