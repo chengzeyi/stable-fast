@@ -56,13 +56,6 @@ def get_extensions():
     sources = glob.glob(path.join(extensions_dir, "**", "*.cpp"),
                         recursive=True)
 
-    from torch.utils.cpp_extension import ROCM_HOME
-
-    is_rocm_pytorch = (True if ((torch.version.hip is not None) and
-                                (ROCM_HOME is not None)) else False)
-    if is_rocm_pytorch:
-        assert torch_ver >= [1, 8], "ROCM support requires PyTorch >= 1.8!"
-
     # common code between cuda and rocm platforms, for hipify version [1,0,0] and later.
     source_cuda = glob.glob(path.join(extensions_dir, "**", "*.cu"),
                             recursive=True)
@@ -74,12 +67,19 @@ def get_extensions():
     extra_compile_args = {"cxx": []}
     define_macros = []
 
-    if os.getenv("WITHOUT_CUDA", "0") != "1" and (torch.cuda.is_available() and
-                                                  ((CUDA_HOME is not None)
-                                                   or is_rocm_pytorch)):
+    # if (torch.cuda.is_available()
+    #         and ((CUDA_HOME is not None) or is_rocm_pytorch)):
+    if os.getenv("WITHOUT_CUDA", "0") != "1":
         extension = CUDAExtension
         sources += source_cuda
         sources += source_cuda_rt
+
+        from torch.utils.cpp_extension import ROCM_HOME
+
+        is_rocm_pytorch = (True if ((torch.version.hip is not None) and
+                                    (ROCM_HOME is not None)) else False)
+        if is_rocm_pytorch:
+            assert torch_ver >= [1, 8], "ROCM support requires PyTorch >= 1.8!"
 
         if not is_rocm_pytorch:
             define_macros += [("WITH_CUDA", None)]
