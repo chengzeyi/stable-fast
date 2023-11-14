@@ -71,7 +71,8 @@ def get_extensions():
 
     # if (torch.cuda.is_available()
     #         and ((CUDA_HOME is not None) or is_rocm_pytorch)):
-    # Skip the above useless check as we will always compile with CUDA support
+    # Skip the above useless check as we will always compile with CUDA support,
+    # and the CI might be running on CPU-only machines.
     if os.getenv("WITHOUT_CUDA", "0") != "1":
         assert CUDA_HOME is not None, "Cannot find CUDA installation."
 
@@ -122,6 +123,8 @@ def get_extensions():
                 cudnn_dir = os.path.dirname(cudnn.__file__)
                 include_dirs.append(os.path.join(cudnn_dir, "include"))
                 # Hope PyTorch knows how to link it correctly.
+                # We only need headers for build because PyTorch should have
+                # linked the actual library file.
                 # library_dirs.append(os.path.join(cudnn_dir, 'lib'))
                 # libraries.append('cudnn')
     else:
