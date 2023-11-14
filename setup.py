@@ -126,16 +126,18 @@ def get_extensions():
                 cudnn_dir = os.path.dirname(cudnn.__file__)
                 include_dirs.append(os.path.join(cudnn_dir, "include"))
                 # Hope PyTorch knows how to link it correctly.
-                # We only need headers for build because PyTorch should have
-                # linked the actual library file.
+                # We only need headers because PyTorch should have
+                # linked the actual library file. (But why not work on Windows?)
 
                 # Make Windows CI happy (unresolved external symbol)
+                # Why Linux does not need this?
                 if platform.system() == "Windows":
                     library_dirs.append(os.path.join(cudnn_dir, "lib", "x64"))
-                    libraries.append("cudnn")
 
         # Make Windows CI happy (unresolved external symbol)
+        # Why Linux does not need this?
         if platform.system() == "Windows":
+            libraries.append("cudnn")
             libraries.append("cublas")
     else:
         print("Compiling without CUDA support")
