@@ -2,9 +2,11 @@
 
 import glob
 import os
+
 # import shutil
 from os import path
 from setuptools import find_packages, setup
+
 # from typing import List
 import torch
 from torch.utils.cpp_extension import CUDA_HOME, CppExtension, CUDAExtension
@@ -23,7 +25,8 @@ def get_version():
     if os.getenv("BUILD_VERSION"):  # In CI
         version = os.getenv("BUILD_VERSION", "0.0.0")
     else:
-        version_file_path = path.join(path.abspath(path.dirname(__file__)), "version.txt")
+        version_file_path = path.join(path.abspath(path.dirname(__file__)),
+                                      "version.txt")
         version = open(version_file_path, "r").readlines()[0].strip()
 
     # The following is used to build release packages.
@@ -71,9 +74,9 @@ def get_extensions():
     extra_compile_args = {"cxx": []}
     define_macros = []
 
-    if (torch.cuda.is_available() and
-        ((CUDA_HOME is not None) or is_rocm_pytorch)) or os.getenv(
-            "FORCE_CUDA", "0") == "1":
+    if os.getenv("WITHOUT_CUDA", "0") != "1" and (torch.cuda.is_available() and
+                                                  ((CUDA_HOME is not None)
+                                                   or is_rocm_pytorch)):
         extension = CUDAExtension
         sources += source_cuda
         sources += source_cuda_rt
@@ -101,7 +104,15 @@ def get_extensions():
             CC = os.environ.get("CC", None)
             if CC is not None:
                 extra_compile_args["nvcc"].append("-ccbin={}".format(CC))
-
+    else:
+        if os.getenv("WITHOUT_CUDA", "0") == "1":
+            print("Compiling without CUDA support")
+        else:
+            raise RuntimeError(
+                "CUDA is not available, please check your PyTorch CUDA installation. "
+                "If you want to compile without CUDA, set the environment variable 'WITHOUT_CUDA' to '1'. "
+                "But if you compile without CUDA, there might be no speed improvement."
+            )
     include_dirs = [extensions_dir]
 
     ext_modules = [
