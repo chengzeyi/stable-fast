@@ -141,7 +141,8 @@ pip3 install 'diffusers>=0.19.3' 'xformers>=0.0.20' 'triton>=2.1.0' 'torch>=1.12
 Windows
 
 ```powershell
-pip3 install 'diffusers>=0.19.3' 'xformers>=0.0.20' 'torch>=1.12.0' <wheel file>
+# Change cu121 to your CUDA version
+pip3 install 'diffusers>=0.19.3' 'xformers>=0.0.20' 'torch>=1.12.0' <wheel file> --index-url https://download.pytorch.org/whl/cu121
 ```
 
 ### Install From Source
@@ -311,7 +312,7 @@ Dynamic code generation is usually the cause for slow compilation.
 You could disable features related to it to speed up compilation.
 But this might slow down your inference.
 
-#### Disable JIT Optimized Execution
+Disable JIT optimized execution.
 
 ```python
 # Wrap your code in this context manager
@@ -319,15 +320,13 @@ with torch.jit.optimized_execution(False):
     # Do your things
 ```
 
-#### Disable Triton
+Disable Triton.
 
 ```python
 config.enable_triton = False
 ```
 
 ### Inference Is SO SLOW. What's Wrong?
-
-#### Disable CUDA Graph When GPU VRAM Is Insufficient
 
 When your GPU VRAM is insufficient or the image resolution is high,
 CUDA Graph could cause less efficient VRAM utilization and slow down the inference.
@@ -336,9 +335,17 @@ CUDA Graph could cause less efficient VRAM utilization and slow down the inferen
 config.enable_cuda_graph = False
 ```
 
-### Crashes, Invalid Memory Access Or Segmentation Fault
+### Triton Does Not Work
 
-#### Try To Disable Triton, CUDA Graph or cudaMallocAsync
+Triton might be not working properly because it uses cache to store compiled kernels,
+especially when you just upgrade `stable-fast` or `triton`.
+You could try to clear the cache to fix it.
+
+```bash
+rm -rf ~/.triton
+```
+
+### Crashes, Invalid Memory Access Or Segmentation Fault
 
 Even in PyTorch's own implementation `torch.compile`, I have encountered crashes and segmentation faults.
 It is usually caused by Triton, CUDA Graph or cudaMallocAsync because they are not stable enough.
@@ -351,14 +358,10 @@ config.enable_triton = False
 config.enable_cuda_graph = False
 ```
 
-### Triton does not work
+### Import Error On Windows
 
-#### Try To Clear Triton Cache
-
-Triton might be not working properly because it uses cache to store compiled kernels,
-especially when you just upgrade `stable-fast` or `triton`.
-You could try to clear the cache to fix it.
-
-```bash
-rm -rf ~/.triton
 ```
+ImportError: DLL load failed while importing _C:  The specified module could not be found
+```
+
+Make sure you have installed `torch` with CUDA support and your installed version is compatible with your Python and CUDA version.
