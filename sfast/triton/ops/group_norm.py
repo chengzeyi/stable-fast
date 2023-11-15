@@ -119,10 +119,7 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
 
 @triton.autotune(configs=[
     triton.Config({'BLOCK_SIZE': 256}, num_warps=16),
-    triton.Config({'BLOCK_SIZE': 256}, num_warps=8),
-    triton.Config({'BLOCK_SIZE': 128}, num_warps=16),
     triton.Config({'BLOCK_SIZE': 128}, num_warps=8),
-    triton.Config({'BLOCK_SIZE': 64}, num_warps=8),
     triton.Config({'BLOCK_SIZE': 64}, num_warps=4),
 ],
                  key=['C', 'HxW', 'groups'])

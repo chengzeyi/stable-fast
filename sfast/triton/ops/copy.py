@@ -6,11 +6,7 @@ from itertools import product
 
 @triton.autotune(
     configs=[
-        triton.Config({'BLOCK_M': 64 * 64}, num_warps=16),
-        triton.Config({'BLOCK_M': 64 * 64}, num_warps=8),
-        triton.Config({'BLOCK_M': 32 * 32}, num_warps=8),
         triton.Config({'BLOCK_M': 32 * 32}, num_warps=4),
-        triton.Config({'BLOCK_M': 16 * 16}, num_warps=4),
         triton.Config({'BLOCK_M': 16 * 16}, num_warps=2),
         triton.Config({'BLOCK_M': 8 * 8}, num_warps=2),
     ], key=['bs', 'size_inp_0', 'batch_stride_inp', 'stride_inp_0', 'batch_stride_out', 'stride_out_0']
@@ -43,11 +39,7 @@ def copy_2d_kernel(
 
 @triton.autotune(
     configs=[
-        triton.Config({'BLOCK_M': 64, 'BLOCK_N': 64}, num_warps=16),
-        triton.Config({'BLOCK_M': 64, 'BLOCK_N': 64}, num_warps=8),
-        triton.Config({'BLOCK_M': 32, 'BLOCK_N': 32}, num_warps=8),
         triton.Config({'BLOCK_M': 32, 'BLOCK_N': 32}, num_warps=4),
-        triton.Config({'BLOCK_M': 16, 'BLOCK_N': 16}, num_warps=4),
         triton.Config({'BLOCK_M': 16, 'BLOCK_N': 16}, num_warps=2),
         triton.Config({'BLOCK_M': 8, 'BLOCK_N': 8}, num_warps=2),
     ], key=['bs', 'size_inp_0', 'size_inp_1', 'batch_stride_inp', 'stride_inp_0', 'stride_inp_1', 'batch_stride_out', 'stride_out_0', 'stride_out_1']
@@ -87,16 +79,9 @@ def copy_3d_kernel(
 
 @triton.autotune(
     configs=[
-        triton.Config({'BLOCK_M': 32, 'BLOCK_N': 32, 'BLOCK_K': 32}, num_warps=32),
         triton.Config({'BLOCK_M': 32, 'BLOCK_N': 32, 'BLOCK_K': 32}, num_warps=16),
-        triton.Config({'BLOCK_M': 32, 'BLOCK_N': 16, 'BLOCK_K': 16}, num_warps=16),
-        triton.Config({'BLOCK_M': 16, 'BLOCK_N': 32, 'BLOCK_K': 16}, num_warps=16),
-        triton.Config({'BLOCK_M': 16, 'BLOCK_N': 16, 'BLOCK_K': 32}, num_warps=16),
-        triton.Config({'BLOCK_M': 16, 'BLOCK_N': 16, 'BLOCK_K': 16}, num_warps=16),
-        triton.Config({'BLOCK_M': 8, 'BLOCK_N': 8, 'BLOCK_K': 8}, num_warps=16),
-        triton.Config({'BLOCK_M': 8, 'BLOCK_N': 8, 'BLOCK_K': 8}, num_warps=8),
+        triton.Config({'BLOCK_M': 16, 'BLOCK_N': 16, 'BLOCK_K': 16}, num_warps=8),
         triton.Config({'BLOCK_M': 8, 'BLOCK_N': 8, 'BLOCK_K': 8}, num_warps=4),
-        triton.Config({'BLOCK_M': 8, 'BLOCK_N': 8, 'BLOCK_K': 8}, num_warps=2),
     ], key=['bs', 'size_inp_0', 'size_inp_1', 'size_inp_2', 'batch_stride_inp', 'stride_inp_0', 'stride_inp_1', 'stride_inp_2', 'batch_stride_out', 'stride_out_0', 'stride_out_1', 'stride_out_2']
 )
 @triton.jit(do_not_specialize=[6])
