@@ -72,7 +72,7 @@ def group_norm_4d_forward_kernel(
     if gamma_ptr is None and beta_ptr is None:
         for c in range(0, C_G):
             a = rstd
-            b = - a * mean
+            b = -a * mean
             for off in range(0, HxW, BLOCK_SIZE):
                 r = off + tl.arange(0, BLOCK_SIZE)
                 x = tl.load(X + c * HxW + r, mask=r < HxW).to(tl.float32)
@@ -101,31 +101,27 @@ def group_norm_4d_forward_kernel(
 
 def create_group_norm_4d_forward_kernel(act=activation.identity):
     kernel = group_norm_4d_forward_kernel
-    kernel = copy_func(kernel, globals={
-        **globals(),
-        **{
-            'act': act
-        }
-    }, name=f'{kernel.__name__}_{act.__name__}')
-    kernel = triton.autotune(configs=[
-        triton.Config({'BLOCK_SIZE': 8 * 1024}, num_warps=32),
-        triton.Config({'BLOCK_SIZE': 4 * 1024}, num_warps=16),
-        triton.Config({'BLOCK_SIZE': 2 * 1024}, num_warps=8),
-        triton.Config({'BLOCK_SIZE': 1 * 1024}, num_warps=4),
-    ],
-                             key=['C', 'HxW', 'groups'])(triton.jit(kernel))
+    kernel = copy_func(kernel,
+                       globals={
+                           **globals(),
+                           **{
+                               'act': act
+                           }
+                       },
+                       name=f'{kernel.__name__}_{act.__name__}')
+    kernel = triton.heuristics({
+        'BLOCK_SIZE': lambda kwargs: 4096,
+    })(triton.jit(kernel))
     return kernel
 
 
-@triton.autotune(configs=[
-    triton.Config({'BLOCK_SIZE': 256}, num_warps=16),
-    triton.Config({'BLOCK_SIZE': 256}, num_warps=8),
-    triton.Config({'BLOCK_SIZE': 128}, num_warps=16),
-    triton.Config({'BLOCK_SIZE': 128}, num_warps=8),
-    triton.Config({'BLOCK_SIZE': 64}, num_warps=8),
-    triton.Config({'BLOCK_SIZE': 64}, num_warps=4),
-],
-                 key=['C', 'HxW', 'groups'])
+@triton.heuristics({
+    'ROW_SIZE':
+    lambda kwargs: triton.next_power_of_2(kwargs['C'] // kwargs['groups']),
+    'BLOCK_SIZE':
+    lambda kwargs: max(
+        1, 4096 // (triton.next_power_of_2(kwargs['C'] // kwargs['groups']))),
+})
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel(
     input_ptr,
@@ -187,10 +183,9 @@ def group_norm_4d_channels_last_forward_apply_kernel(
     eps,
     output_ptr,
     ROW_SIZE: tl.constexpr,
-    REPEATS: tl.constexpr,
     BLOCK_SIZE: tl.constexpr,
 ):
-    hw = tl.program_id(0) * REPEATS * BLOCK_SIZE
+    hw = tl.program_id(0) * BLOCK_SIZE
     group = tl.program_id(1)
     pid_batch = tl.program_id(2)
 
@@ -215,53 +210,35 @@ def group_norm_4d_channels_last_forward_apply_kernel(
     b = beta - a * mean
     a = a[None, :]
     b = b[None, :]
-    for i in range(0, REPEATS * BLOCK_SIZE, BLOCK_SIZE):
-        r = hw + i + tl.arange(0, BLOCK_SIZE)
-        x = tl.load(X + (r * C)[:, None] + ch[None, :],
-                    mask=(r < HxW)[:, None] & (row < C_G)[None, :]).to(tl.float32)
-        x = a * x + b
-        x = act(x)
-        tl.store(Y + (r * C)[:, None] + ch[None, :],
-                 x,
-                 mask=(r < HxW)[:, None] & (row < C_G)[None, :])
+    r = hw + tl.arange(0, BLOCK_SIZE)
+    x = tl.load(X + (r * C)[:, None] + ch[None, :],
+                mask=(r < HxW)[:, None] & (row < C_G)[None, :]).to(tl.float32)
+    x = a * x + b
+    x = act(x)
+    tl.store(Y + (r * C)[:, None] + ch[None, :],
+             x,
+             mask=(r < HxW)[:, None] & (row < C_G)[None, :])
 
 
 def create_group_norm_4d_channels_last_forward_apply_kernel(
         act=activation.identity):
     kernel = group_norm_4d_channels_last_forward_apply_kernel
-    kernel = copy_func(kernel, globals={
-        **globals(),
-        **{
-            'act': act
-        }
-    }, name=f'{kernel.__name__}_{act.__name__}')
-    kernel = triton.autotune(configs=[
-        triton.Config({
-            'BLOCK_SIZE': 128,
-            'REPEATS': 2
-        }, num_warps=4),
-        triton.Config({
-            'BLOCK_SIZE': 128,
-            'REPEATS': 1
-        }, num_warps=2),
-        triton.Config({
-            'BLOCK_SIZE': 64,
-            'REPEATS': 2
-        }, num_warps=4),
-        triton.Config({
-            'BLOCK_SIZE': 64,
-            'REPEATS': 1
-        }, num_warps=2),
-        triton.Config({
-            'BLOCK_SIZE': 32,
-            'REPEATS': 2
-        }, num_warps=4),
-        triton.Config({
-            'BLOCK_SIZE': 32,
-            'REPEATS': 1
-        }, num_warps=2),
-    ],
-                             key=['HxW'])(triton.jit(kernel))
+    kernel = copy_func(kernel,
+                       globals={
+                           **globals(),
+                           **{
+                               'act': act
+                           }
+                       },
+                       name=f'{kernel.__name__}_{act.__name__}')
+    kernel = triton.heuristics({
+        'ROW_SIZE':
+        lambda kwargs: triton.next_power_of_2(kwargs['C'] // kwargs['groups']),
+        'BLOCK_SIZE':
+        lambda kwargs: max(
+            1, 4096 //
+            (triton.next_power_of_2(kwargs['C'] // kwargs['groups']))),
+    })(triton.jit(kernel))
     return kernel
 
 
@@ -316,17 +293,14 @@ def create_group_norm_forward(act=activation.identity):
                 return (num_groups, N)
 
             group_norm_4d_channels_last_forward_collect_stats_kernel[grid](
-                input, N, C, H * W, num_groups, eps, mean, rstd,
-                triton.next_power_of_2(C // num_groups))
+                input, N, C, H * W, num_groups, eps, mean, rstd)
 
             def grid(meta):
-                return (triton.cdiv(H * W,
-                                    meta['REPEATS'] * meta['BLOCK_SIZE']),
-                        num_groups, N)
+                return (triton.cdiv(H * W, meta['BLOCK_SIZE']), num_groups, N)
 
             group_norm_4d_channels_last_forward_apply_kernel[grid](
                 input, weight, bias, mean, rstd, N, C, H * W, num_groups, eps,
-                output, triton.next_power_of_2(C // num_groups))
+                output)
 
             if not output_mean:
                 mean = None
