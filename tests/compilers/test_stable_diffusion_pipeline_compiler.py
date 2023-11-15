@@ -193,7 +193,8 @@ def benchmark_sd_model(
             model.unet.load_attn_procs(lora_a_path)
 
         # This is only for benchmarking purpose.
-        # Patch the scheduler to force a synchronize to make the progress bar work properly.
+        # Patch the scheduler to force a synchronize to make the progress bar work
+        # (But not accurate).
         scheduler_step = model.scheduler.step
 
         def scheduler_step_(*args, **kwargs):
@@ -202,6 +203,16 @@ def benchmark_sd_model(
             return ret
 
         model.scheduler.step = scheduler_step_
+
+        # Also patch the image processor.
+        image_processor_postprocess = model.image_processor.postprocess
+
+        def image_processor_postprocess_(*args, **kwargs):
+            torch.cuda.synchronize()
+            ret = image_processor_postprocess(*args, **kwargs)
+            return ret
+
+        model.image_processor.postprocess = image_processor_postprocess_
 
         return model
 
