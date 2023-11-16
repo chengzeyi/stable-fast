@@ -77,6 +77,13 @@ def get_extensions():
     if os.getenv("WITHOUT_CUDA", "0") != "1":
         assert CUDA_HOME is not None, "Cannot find CUDA installation."
 
+        cudnn_front_end_root = os.path.join(this_dir, "third_party", "cudnn-frontend")
+        if not os.path.exists(cudnn_front_end_root):
+            raise RuntimeError("Cannot find cudnn-frontend. Please run "
+                                 "`git submodule update --init --recursive`.")
+        cudnn_front_end_include = os.path.join(cudnn_front_end_root, "include")
+        include_dirs.append(cudnn_front_end_include)
+
         extension = CUDAExtension
         sources += source_cuda
         sources += source_cuda_rt
@@ -146,11 +153,11 @@ def get_extensions():
     ext_modules = [
         extension(
             "sfast._C",
-            sources,
-            include_dirs=include_dirs,
+            sorted(sources),
+            include_dirs=[os.path.abspath(p) for p in include_dirs],
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
-            library_dirs=library_dirs,
+            library_dirs=[os.path.abspath(p) for p in library_dirs],
             libraries=libraries,
         )
     ]
