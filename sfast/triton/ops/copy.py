@@ -4,11 +4,12 @@ import triton.language as tl
 from itertools import product
 
 
-@triton.heuristics({
+# Stupid: https://github.com/openai/triton/issues/1589
+@eval('''triton.heuristics({
     'BLOCK_M': lambda kwargs: min(4096, triton.next_power_of_2(kwargs['size_inp_0'])),
     'INPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_inp_0'] == 1,
     'OUTPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_out_0'] == 1,
-})
+})''')
 @triton.jit(do_not_specialize=[4])
 def copy_2d_kernel(
     output_ptr,
@@ -37,12 +38,13 @@ def copy_2d_kernel(
     tl.store(B, a, mask=mask)
 
 
-@triton.heuristics({
+# Stupid: https://github.com/openai/triton/issues/1589
+@eval('''triton.heuristics({
     'BLOCK_M': lambda kwargs: min(64, triton.next_power_of_2(kwargs['size_inp_0'])),
     'BLOCK_N': lambda kwargs: min(64, triton.next_power_of_2(kwargs['size_inp_1'])),
     'INPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_inp_1'] == 1,
     'OUTPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_out_1'] == 1,
-})
+})''')
 @triton.jit(do_not_specialize=[5])
 def copy_3d_kernel(
     output_ptr,
@@ -78,13 +80,14 @@ def copy_3d_kernel(
     tl.store(B, a, mask=mask)
 
 
-@triton.heuristics({
+# Stupid: https://github.com/openai/triton/issues/1589
+@eval('''triton.heuristics({
     'BLOCK_M': lambda kwargs: min(32, triton.next_power_of_2(kwargs['size_inp_0'])),
     'BLOCK_N': lambda kwargs: min(32, triton.next_power_of_2(kwargs['size_inp_1'])),
     'BLOCK_K': lambda kwargs: min(32, triton.next_power_of_2(kwargs['size_inp_2'])),
     'INPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_inp_2'] == 1,
     'OUTPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_out_2'] == 1,
-})
+})''')
 @triton.jit(do_not_specialize=[6])
 def copy_4d_kernel(
     output_ptr,

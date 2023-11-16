@@ -115,13 +115,14 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
     return kernel
 
 
-@triton.heuristics({
+# Stupid: https://github.com/openai/triton/issues/1589
+@eval('''triton.heuristics({
     'ROW_SIZE':
     lambda kwargs: triton.next_power_of_2(kwargs['C'] // kwargs['groups']),
     'BLOCK_SIZE':
     lambda kwargs: max(
         1, 4096 // (triton.next_power_of_2(kwargs['C'] // kwargs['groups']))),
-})
+})''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel(
     input_ptr,
