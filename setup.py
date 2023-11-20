@@ -74,17 +74,19 @@ def get_extensions():
     #         and ((CUDA_HOME is not None) or is_rocm_pytorch)):
     # Skip the above useless check as we will always compile with CUDA support,
     # and the CI might be running on CPU-only machines.
-    if os.getenv("WITHOUT_CUDA", "0") != "1":
+    if os.getenv("WITH_CUDA", "1") != "0":
         assert CUDA_HOME is not None, "Cannot find CUDA installation."
 
-        cudnn_front_end_root = os.path.join(this_dir, "third_party",
-                                            "cudnn-frontend")
-        cudnn_front_end_include = os.path.join(cudnn_front_end_root, "include")
-        if not os.path.exists(cudnn_front_end_root) or not os.path.exists(
-                cudnn_front_end_include):
-            raise RuntimeError("Cannot find cudnn-frontend. Please run "
+        cutlass_root = os.path.join(this_dir, "third_party", "cutlass")
+        cutlass_include = os.path.join(cutlass_root, "include")
+        if not os.path.exists(cutlass_root) or not os.path.exists(
+                cutlass_include):
+            raise RuntimeError("Cannot find cutlass. Please run "
                                "`git submodule update --init --recursive`.")
-        include_dirs.append(cudnn_front_end_include)
+        include_dirs.append(cutlass_include)
+        cutlass_tools_util_include = os.path.join(cutlass_root, "tools",
+                                                  "util", "include")
+        include_dirs.append(cutlass_tools_util_include)
 
         extension = CUDAExtension
         sources += source_cuda

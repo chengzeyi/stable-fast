@@ -8,7 +8,7 @@ namespace operators {
 
 using namespace torch;
 
-void initCUDNNQLinearBindings(torch::Library &m)
+void initCutlassQLinearBindings(torch::Library &m)
 #if defined(WITH_CUDA)
 ;
 #else
