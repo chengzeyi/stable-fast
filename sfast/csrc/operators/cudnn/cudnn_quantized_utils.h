@@ -58,6 +58,10 @@ private:
   template <bool ReluFused>
   void apply_impl_helper(const at::Tensor &quantized_output,
                          const at::Tensor &input, double output_scale = 1.0);
+
+  template <bool ReluFused>
+  void apply_impl_helper_dynamic(const at::Tensor &quantized_output,
+                         const at::Tensor &input);
 };
 
 template <int kSpatialDim = 2>

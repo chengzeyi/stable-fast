@@ -77,11 +77,13 @@ def get_extensions():
     if os.getenv("WITHOUT_CUDA", "0") != "1":
         assert CUDA_HOME is not None, "Cannot find CUDA installation."
 
-        cudnn_front_end_root = os.path.join(this_dir, "third_party", "cudnn-frontend")
-        if not os.path.exists(cudnn_front_end_root):
-            raise RuntimeError("Cannot find cudnn-frontend. Please run "
-                                 "`git submodule update --init --recursive`.")
+        cudnn_front_end_root = os.path.join(this_dir, "third_party",
+                                            "cudnn-frontend")
         cudnn_front_end_include = os.path.join(cudnn_front_end_root, "include")
+        if not os.path.exists(cudnn_front_end_root) or not os.path.exists(
+                cudnn_front_end_include):
+            raise RuntimeError("Cannot find cudnn-frontend. Please run "
+                               "`git submodule update --init --recursive`.")
         include_dirs.append(cudnn_front_end_include)
 
         extension = CUDAExtension
