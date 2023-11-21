@@ -5,6 +5,7 @@
 
 #include <ATen/cuda/CUDAConfig.h>
 #include <ATen/cudnn/cudnn-wrapper.h>
+#include <ATen/cudnn/Types.h>
 
 #include <c10/cuda/CUDACachingAllocator.h>
 #if TORCH_VERSION_MAJOR >= 2
@@ -25,6 +26,7 @@
 #include <sstream>
 #include <unordered_map>
 
+#include "cudnn_utils.h"
 #include "cudnn_convolution.h"
 
 #if CUDNN_VERSION < 8000
@@ -43,38 +45,10 @@ using namespace torch;
 using namespace torch::native;
 using namespace torch::autograd;
 
+namespace {
+
 constexpr size_t operator"" _TiB(unsigned long long n) {
   return size_t(n) * 1024 * 1024 * 1024 * 1024;
-}
-
-cudnnDataType_t getCudnnDataTypeFromScalarType(const at::ScalarType dtype) {
-  if (dtype == c10::kQInt8) {
-    return CUDNN_DATA_INT8;
-  } else if (dtype == at::kFloat) {
-    return CUDNN_DATA_FLOAT;
-  } else if (dtype == at::kDouble) {
-    return CUDNN_DATA_DOUBLE;
-  } else if (dtype == at::kHalf) {
-    return CUDNN_DATA_HALF;
-  }
-#if defined(CUDNN_VERSION) && CUDNN_VERSION >= 8200
-  else if (dtype == at::kBFloat16) {
-    return CUDNN_DATA_BFLOAT16;
-  } else if (dtype == at::kInt) {
-    return CUDNN_DATA_INT32;
-  } else if (dtype == at::kByte) {
-    return CUDNN_DATA_UINT8;
-  } else if (dtype == at::kChar) {
-    return CUDNN_DATA_INT8;
-  }
-#endif
-  std::string msg("getCudnnDataTypeFromScalarType() not supported for ");
-  msg += toString(dtype);
-  throw std::runtime_error(msg);
-}
-
-cudnnDataType_t getCudnnDataType(const at::Tensor &tensor) {
-  return getCudnnDataTypeFromScalarType(tensor.scalar_type());
 }
 
 struct ConvolutionDescriptor
@@ -1030,6 +1004,8 @@ void raw_cudnn_convolution_add_fallback_out(
     alpha_mul_z_add_bias = alpha_mul_z_add_bias.add(z, alpha);
   }
   output.add_(alpha_mul_z_add_bias);
+}
+
 }
 
 Tensor cudnn_convolution_bias_add_activation(

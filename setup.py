@@ -2,6 +2,7 @@
 
 import glob
 import platform
+import subprocess
 import os
 
 # import shutil
@@ -50,6 +51,19 @@ def get_version():
     return version
 
 
+def get_cuda_version(cuda_dir) -> int:
+    nvcc_bin = "nvcc" if cuda_dir is None else cuda_dir + "/bin/nvcc"
+    raw_output = subprocess.check_output([nvcc_bin, "-V"], universal_newlines=True)
+    output = raw_output.split()
+    release_idx = output.index("release") + 1
+    release = output[release_idx].split(".")
+    bare_metal_major = int(release[0])
+    bare_metal_minor = int(release[1][0])
+
+    assert bare_metal_minor < 100
+    return bare_metal_major * 100 + bare_metal_minor
+
+
 def get_extensions():
     this_dir = path.dirname(path.abspath(__file__))
     extensions_dir = path.join(this_dir, "sfast", "csrc")
@@ -74,8 +88,19 @@ def get_extensions():
     #         and ((CUDA_HOME is not None) or is_rocm_pytorch)):
     # Skip the above useless check as we will always compile with CUDA support,
     # and the CI might be running on CPU-only machines.
-    if os.getenv("WITHOUT_CUDA", "0") != "1":
+    if os.getenv("WITH_CUDA", "1") != "0":
         assert CUDA_HOME is not None, "Cannot find CUDA installation."
+
+        cutlass_root = os.path.join(this_dir, "third_party", "cutlass")
+        cutlass_include = os.path.join(cutlass_root, "include")
+        if not os.path.exists(cutlass_root) or not os.path.exists(
+                cutlass_include):
+            raise RuntimeError("Cannot find cutlass. Please run "
+                               "`git submodule update --init --recursive`.")
+        include_dirs.append(cutlass_include)
+        cutlass_tools_util_include = os.path.join(cutlass_root, "tools",
+                                                  "util", "include")
+        include_dirs.append(cutlass_tools_util_include)
 
         extension = CUDAExtension
         sources += source_cuda
@@ -88,20 +113,34 @@ def get_extensions():
         # if is_rocm_pytorch:
         #     assert torch_ver >= [1, 8], "ROCM support requires PyTorch >= 1.8!"
 
-        # if not is_rocm_pytorch:
-        if True:
-            define_macros += [("WITH_CUDA", None)]
-            extra_compile_args["nvcc"] = [
-                "-O3",
-                "-DCUDA_HAS_FP16=1",
-                "-D__CUDA_NO_HALF_OPERATORS__",
-                "-D__CUDA_NO_HALF_CONVERSIONS__",
-                "-D__CUDA_NO_HALF2_OPERATORS__",
-                "--extended-lambda",  # for fused_group_norm_impl.cu
+        define_macros += [("WITH_CUDA", None)]
+        extra_compile_args["nvcc"] = [
+            "--use_fast_math",
+            "-U__CUDA_NO_HALF_OPERATORS__",
+            "-U__CUDA_NO_HALF_CONVERSIONS__",
+            "--extended-lambda",
+            "-D_ENABLE_EXTENDED_ALIGNED_STORAGE",
+            "-std=c++17",
+            "--ptxas-options=-O2",
+            "--ptxas-options=-allow-expensive-optimizations=true",
+        ]
+
+        cuda_version = get_cuda_version(CUDA_HOME)
+        if cuda_version >= 1102:
+            extra_compile_args["nvcc"] += [
+                "--threads",
+                "4",
+                "--ptxas-options=-v",
             ]
-        else:
-            define_macros += [("WITH_HIP", None)]
-            extra_compile_args["nvcc"] = []
+        if platform.system() == "Windows":
+            extra_compile_args["nvcc"] += [
+                "-Xcompiler",
+                "/Zc:lambda",
+                "-Xcompiler",
+                "/Zc:preprocessor",
+                "-Xcompiler",
+                "/Zc:__cplusplus", # cannot call non-constexpr function "cutlass::const_min"
+            ]
 
         nvcc_flags_env = os.getenv("NVCC_FLAGS", "")
         if nvcc_flags_env != "":
@@ -146,11 +185,11 @@ def get_extensions():
     ext_modules = [
         extension(
             "sfast._C",
-            sources,
-            include_dirs=include_dirs,
+            sorted(sources),
+            include_dirs=[os.path.abspath(p) for p in include_dirs],
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
-            library_dirs=library_dirs,
+            library_dirs=[os.path.abspath(p) for p in library_dirs],
             libraries=libraries,
         )
     ]

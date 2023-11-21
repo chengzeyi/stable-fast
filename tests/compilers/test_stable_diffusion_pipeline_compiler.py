@@ -15,6 +15,7 @@ from sfast.compilers.stable_diffusion_pipeline_compiler import (
 from sfast.profile.auto_profiler import AutoProfiler
 from sfast.utils.term_image import print_image
 from sfast.utils.compute_precision import low_compute_precision
+from sfast.utils.patch import patch_module
 
 logger = logging.getLogger()
 
@@ -50,6 +51,19 @@ def test_benchmark_sd15_model(sd15_model_path, skip_comparsion=False):
 
 def test_compile_sd15_model(sd15_model_path, skip_comparsion=True):
     test_benchmark_sd15_model(sd15_model_path, skip_comparsion=skip_comparsion)
+
+
+def test_benchmark_quantized_sd15_model(sd15_model_path, skip_comparsion=False):
+    benchmark_sd_model(
+        sd15_model_path,
+        kwarg_inputs=basic_kwarg_inputs,
+        skip_comparsion=skip_comparsion,
+        quantize=True,
+    )
+
+
+def test_compile_quantized_sd15_model(sd15_model_path, skip_comparsion=True):
+    test_benchmark_quantized_sd15_model(sd15_model_path, skip_comparsion=skip_comparsion)
 
 
 def test_benchmark_sd15_model_with_lora(sd15_model_path,
@@ -158,6 +172,7 @@ def benchmark_sd_model(
     skip_comparsion=False,
     lora_a_path=None,
     lora_b_path=None,
+    quantize=False,
 ):
     from diffusers import (
         StableDiffusionPipeline,
@@ -170,51 +185,81 @@ def benchmark_sd_model(
         scheduler_class = EulerAncestralDiscreteScheduler
 
     def load_model():
-        model_init_kwargs = {}
+        with torch.no_grad():
+            model_init_kwargs = {}
 
-        if controlnet_model_path is not None:
-            from diffusers import ControlNetModel
+            if controlnet_model_path is not None:
+                from diffusers import ControlNetModel
 
-            controlnet_model = ControlNetModel.from_pretrained(
-                controlnet_model_path, torch_dtype=torch.float16)
-            model_init_kwargs['controlnet'] = controlnet_model
+                controlnet_model = ControlNetModel.from_pretrained(
+                    controlnet_model_path, torch_dtype=torch.float16)
+                model_init_kwargs['controlnet'] = controlnet_model
 
-        model = model_class.from_pretrained(model_path,
-                                            torch_dtype=torch.float16,
-                                            **model_init_kwargs)
-        if scheduler_class is not None:
-            model.scheduler = scheduler_class.from_config(
-                model.scheduler.config)
+            model = model_class.from_pretrained(model_path,
+                                                torch_dtype=torch.float16,
+                                                **model_init_kwargs)
+            if scheduler_class is not None:
+                model.scheduler = scheduler_class.from_config(
+                    model.scheduler.config)
 
-        model.safety_checker = None
-        model.to(torch.device('cuda'))
+            model.safety_checker = None
+            model.to(torch.device('cuda'))
+            if quantize:
+                def replace_linear(m):
+                    # Replace LoraCompatibleLinear with torch.nn.Linear
+                    new_m = torch.nn.Linear(m.in_features, m.out_features, bias=m.bias is not None).eval()
+                    new_m = new_m.to(device=m.weight.device, dtype=m.weight.dtype)
+                    new_m.weight.copy_(m.weight)
+                    if m.bias is not None:
+                        new_m.bias.copy_(m.bias)
+                    return new_m
 
-        if lora_a_path is not None:
-            model.unet.load_attn_procs(lora_a_path)
+                def make_linear_compatible(m):
+                    forward = m.forward
 
-        # This is only for benchmarking purpose.
-        # Patch the scheduler to force a synchronize to make the progress bar work
-        # (But not accurate).
-        scheduler_step = model.scheduler.step
+                    def new_forward(x, *args, **kwargs):
+                        return forward(x)
 
-        def scheduler_step_(*args, **kwargs):
-            ret = scheduler_step(*args, **kwargs)
-            torch.cuda.synchronize()
-            return ret
+                    m.forward = new_forward
+                    return m
 
-        model.scheduler.step = scheduler_step_
+                def quantize_unet(m):
+                    patch_module(m, lambda stack: isinstance(stack[-1][1], torch.nn.Linear), replace_linear)
+                    m = torch.quantization.quantize_dynamic(
+                        m, {torch.nn.Linear}, dtype=torch.qint8, inplace=True)
+                    patch_module(m, lambda stack: isinstance(stack[-1][1], torch.ao.nn.quantized.Linear), make_linear_compatible)
+                    return m
+                
+                model.unet = quantize_unet(model.unet)
+                if hasattr(model, 'controlnet'):
+                    model.controlnet = quantize_unet(model.controlnet)
 
-        # Also patch the image processor.
-        image_processor_postprocess = model.image_processor.postprocess
+            if lora_a_path is not None:
+                model.unet.load_attn_procs(lora_a_path)
 
-        def image_processor_postprocess_(*args, **kwargs):
-            torch.cuda.synchronize()
-            ret = image_processor_postprocess(*args, **kwargs)
-            return ret
+            # This is only for benchmarking purpose.
+            # Patch the scheduler to force a synchronize to make the progress bar work
+            # (But not accurate).
+            scheduler_step = model.scheduler.step
 
-        model.image_processor.postprocess = image_processor_postprocess_
+            def scheduler_step_(*args, **kwargs):
+                ret = scheduler_step(*args, **kwargs)
+                torch.cuda.synchronize()
+                return ret
 
-        return model
+            model.scheduler.step = scheduler_step_
+
+            # Also patch the image processor.
+            image_processor_postprocess = model.image_processor.postprocess
+
+            def image_processor_postprocess_(*args, **kwargs):
+                torch.cuda.synchronize()
+                ret = image_processor_postprocess(*args, **kwargs)
+                return ret
+
+            model.image_processor.postprocess = image_processor_postprocess_
+
+            return model
 
     call_model_ = functools.partial(call_model, kwarg_inputs=kwarg_inputs)
 
@@ -234,7 +279,7 @@ def benchmark_sd_model(
 
             del model
 
-            if hasattr(torch, 'compile'):
+            if hasattr(torch, 'compile') and not quantize:
                 model = load_model()
                 logger.info(
                     'Benchmarking StableDiffusionPipeline with torch.compile')
