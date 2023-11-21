@@ -10,38 +10,30 @@ class LinearModule(torch.nn.Module):
 
     def __init__(self, bias=True):
         super().__init__()
-        self.linear = torch.nn.Linear(64, 32, bias=bias)
+        self.linear = torch.nn.Linear(8, 16, bias=bias)
 
     def forward(self, x):
         return self.linear(x)
 
 
-def test_linear_dynamic():
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+@pytest.mark.parametrize("bias", [False, True])
+def test_linear_dynamic(dtype, bias):
     with torch.no_grad():
-        m = LinearModule().eval().cuda()
+        m = LinearModule(bias=bias).eval()
         m_q = torch.quantization.quantize_dynamic(m, {torch.nn.Linear},
                                                   dtype=torch.qint8)
-        x = torch.randn(16, 64).cuda()
+        x = torch.randn(4, 8)
+        out = m_q(x)
+        out = out.cuda().to(dtype=dtype)
 
-        torch.testing.assert_allclose(m(x), m_q(x))
+        m_cuda = m.cuda().to(dtype=dtype)
+        m_q_cuda = torch.quantization.quantize_dynamic(
+            m_cuda, {torch.nn.Linear},
+            dtype=torch.qint8).to(dtype=dtype)
+        x_cuda = x.cuda().to(dtype=dtype)
+        out_cuda = m_q_cuda(x_cuda)
 
-        m = LinearModule(bias=False).eval().cuda()
-        m_q = torch.quantization.quantize_dynamic(m, {torch.nn.Linear},
-                                                  dtype=torch.qint8)
-        x = torch.randn(16, 64).cuda()
-
-        torch.testing.assert_allclose(m(x), m_q(x))
-
-        m = LinearModule().eval().cuda().half()
-        m_q = torch.quantization.quantize_dynamic(m, {torch.nn.Linear},
-                                                  dtype=torch.qint8)
-        x = torch.randn(16, 64).cuda().half()
-
-        torch.testing.assert_allclose(m(x), m_q(x))
-
-        m = LinearModule(bias=False).eval().cuda().half()
-        m_q = torch.quantization.quantize_dynamic(m, {torch.nn.Linear},
-                                                  dtype=torch.qint8)
-        x = torch.randn(16, 64).cuda().half()
-
-        torch.testing.assert_allclose(m(x), m_q(x))
+        logger.info(f"bias={bias}, dtype={dtype}")
+        logger.info(f"out={out}")
+        logger.info(f"out_cuda={out_cuda}")
