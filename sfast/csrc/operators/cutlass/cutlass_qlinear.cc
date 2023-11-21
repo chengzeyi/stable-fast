@@ -83,7 +83,7 @@ TORCH_LIBRARY_IMPL(quantized, CUDA, m) {
 } // namespace
 
 void initCutlassQLinearBindings(torch::Library &m) {
-  m.def("cudnn_qlinear_dynamic",
+  m.def("cutlass_qlinear_dynamic",
         torch::dispatch(c10::DispatchKey::CompositeImplicitAutograd,
                         QLinearInt8<false>::run_dynamic));
 }
