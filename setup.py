@@ -2,6 +2,7 @@
 
 import glob
 import platform
+import subprocess
 import os
 
 # import shutil
@@ -48,6 +49,19 @@ def get_version():
     with open(init_py_path, "w") as f:
         f.write("".join(new_init_py))
     return version
+
+
+def get_cuda_version(cuda_dir) -> int:
+    nvcc_bin = "nvcc" if cuda_dir is None else cuda_dir + "/bin/nvcc"
+    raw_output = subprocess.check_output([nvcc_bin, "-V"], universal_newlines=True)
+    output = raw_output.split()
+    release_idx = output.index("release") + 1
+    release = output[release_idx].split(".")
+    bare_metal_major = int(release[0])
+    bare_metal_minor = int(release[1][0])
+
+    assert bare_metal_minor < 100
+    return bare_metal_major * 100 + bare_metal_minor
 
 
 def get_extensions():
@@ -99,20 +113,32 @@ def get_extensions():
         # if is_rocm_pytorch:
         #     assert torch_ver >= [1, 8], "ROCM support requires PyTorch >= 1.8!"
 
-        # if not is_rocm_pytorch:
-        if True:
-            define_macros += [("WITH_CUDA", None)]
-            extra_compile_args["nvcc"] = [
-                "-O3",
-                "-DCUDA_HAS_FP16=1",
-                "-D__CUDA_NO_HALF_OPERATORS__",
-                "-D__CUDA_NO_HALF_CONVERSIONS__",
-                "-D__CUDA_NO_HALF2_OPERATORS__",
-                "--extended-lambda",  # for fused_group_norm_impl.cu
+        define_macros += [("WITH_CUDA", None)]
+        extra_compile_args["nvcc"] = [
+            "--use_fast_math",
+            "-U__CUDA_NO_HALF_OPERATORS__",
+            "-U__CUDA_NO_HALF_CONVERSIONS__",
+            "--extended-lambda",
+            "-D_ENABLE_EXTENDED_ALIGNED_STORAGE",
+            "-std=c++17",
+            "--ptxas-options=-O2",
+            "--ptxas-options=-allow-expensive-optimizations=true",
+        ]
+
+        cuda_version = get_cuda_version(CUDA_HOME)
+        if cuda_version >= 1102:
+            extra_compile_args["nvcc"] += [
+                "--threads",
+                "4",
+                "--ptxas-options=-v",
             ]
-        else:
-            define_macros += [("WITH_HIP", None)]
-            extra_compile_args["nvcc"] = []
+        if sys.platform == "win32":
+            extra_compile_args["nvcc"] += [
+                "-Xcompiler",
+                "/Zc:lambda",
+                "-Xcompiler",
+                "/Zc:preprocessor",
+            ]
 
         nvcc_flags_env = os.getenv("NVCC_FLAGS", "")
         if nvcc_flags_env != "":

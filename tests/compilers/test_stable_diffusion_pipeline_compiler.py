@@ -52,6 +52,19 @@ def test_compile_sd15_model(sd15_model_path, skip_comparsion=True):
     test_benchmark_sd15_model(sd15_model_path, skip_comparsion=skip_comparsion)
 
 
+def test_benchmark_quantized_sd15_model(sd15_model_path, skip_comparsion=False):
+    benchmark_sd_model(
+        sd15_model_path,
+        kwarg_inputs=basic_kwarg_inputs,
+        skip_comparsion=skip_comparsion,
+        quantize=True,
+    )
+
+
+def test_compile_quantized_sd15_model(sd15_model_path, skip_comparsion=True):
+    test_benchmark_quantized_sd15_model(sd15_model_path, skip_comparsion=skip_comparsion)
+
+
 def test_benchmark_sd15_model_with_lora(sd15_model_path,
                                         sd15_lora_t4_path,
                                         sd15_lora_dog_path,
@@ -158,6 +171,7 @@ def benchmark_sd_model(
     skip_comparsion=False,
     lora_a_path=None,
     lora_b_path=None,
+    quantize=False,
 ):
     from diffusers import (
         StableDiffusionPipeline,
@@ -188,6 +202,12 @@ def benchmark_sd_model(
 
         model.safety_checker = None
         model.to(torch.device('cuda'))
+        if quantize:
+            model.unet = torch.quantization.quantize_dynamic(
+                model.unet, {torch.nn.Linear}, dtype=torch.qint8, inplace=True)
+            if hasattr(model, 'controlnet'):
+                model.controlnet = torch.quantization.quantize_dynamic(
+                    model.controlnet, {torch.nn.Linear}, dtype=torch.qint8, inplace=True)
 
         if lora_a_path is not None:
             model.unet.load_attn_procs(lora_a_path)
@@ -234,7 +254,7 @@ def benchmark_sd_model(
 
             del model
 
-            if hasattr(torch, 'compile'):
+            if hasattr(torch, 'compile') and not quantize:
                 model = load_model()
                 logger.info(
                     'Benchmarking StableDiffusionPipeline with torch.compile')
