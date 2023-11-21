@@ -138,6 +138,7 @@ def get_extensions():
                 "/Zc:lambda",
                 "-Xcompiler",
                 "/Zc:preprocessor",
+                "-Xcompiler",
                 "/Zc:__cplusplus", # cannot call non-constexpr function "cutlass::const_min"
             ]
 
