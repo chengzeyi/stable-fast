@@ -132,7 +132,7 @@ def get_extensions():
                 "4",
                 "--ptxas-options=-v",
             ]
-        if sys.platform == "win32":
+        if platform.system() == "Windows":
             extra_compile_args["nvcc"] += [
                 "-Xcompiler",
                 "/Zc:lambda",

@@ -1,5 +1,7 @@
 #include <torch/extension.h>
 
+#include <c10/cuda/CUDAStream.h>
+
 #include <cutlass/cutlass.h>
 #include <cutlass/gemm/device/gemm_universal.h>
 // #include <cutlass/gemm/device/gemm_batched.h>
@@ -156,19 +158,17 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
       torch::empty({static_cast<int64_t>(workspace_size)},
                    torch::dtype(torch::kUInt8).device(input.device()));
 
-  cutlass::Status status;
-  Gemm gemm_op;
-
-  // set device and stream
-
   torch::DeviceGuard device_guard(input.device());
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+
+  cutlass::Status status;
+  Gemm gemm_op;
 
   status = gemm_op.initialize(arguments, workspace.data_ptr<uint8_t>());
   TORCH_CHECK(status == cutlass::Status::kSuccess,
               "failed to initialize cutlass gemm");
 
-  status = gemm_op();
+  status = gemm_op(stream);
   TORCH_CHECK(status == cutlass::Status::kSuccess,
               "failed to execute cutlass gemm");
   return y;
