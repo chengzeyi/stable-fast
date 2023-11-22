@@ -280,4 +280,4 @@ if packaging.version.parse(torch.__version__) >= packaging.version.parse('1.12.0
 
 ## Troubleshooting
 
-Refer to [doc/trouble_shooting.md](doc/trouble_shooting.md) for more details.
+Refer to [doc/troubleshooting.md](doc/troubleshooting.md) for more details.
