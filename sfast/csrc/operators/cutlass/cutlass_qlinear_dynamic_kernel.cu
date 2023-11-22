@@ -68,7 +68,7 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
       cutlass::epilogue::thread::LinearCombination<
           ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
           ElementAccumulator, ElementComputeEpilogue>,
-      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>, NumStages,
+      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
       8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
       cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
 
@@ -81,7 +81,7 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
           ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
           ElementAccumulator, ElementComputeEpilogue,
           cutlass::epilogue::thread::ScaleType::OnlyAlphaScaling>,
-      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>, NumStages,
+      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
       8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
       cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
 };
