@@ -93,10 +93,13 @@ def compile(m, config):
 
             When executing AttnProcessor in TorchScript
             """
-            m.vae.decode = lazy_trace_(m.vae.decode)
+            if hasattr(m.vae, 'decode'):
+                m.vae.decode = lazy_trace_(m.vae.decode)
             # For img2img
-            m.vae.encoder.forward = lazy_trace_(m.vae.encoder.forward)
-            m.vae.quant_conv.forward = lazy_trace_(m.vae.quant_conv.forward)
+            if hasattr(m.vae, 'encoder'):
+                m.vae.encoder.forward = lazy_trace_(m.vae.encoder.forward)
+            if hasattr(m.vae, 'quant_conv'):
+                m.vae.quant_conv.forward = lazy_trace_(m.vae.quant_conv.forward)
         if config.trace_scheduler:
             m.scheduler.scale_model_input = lazy_trace_(
                 m.scheduler.scale_model_input)
