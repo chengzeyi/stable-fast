@@ -7,7 +7,7 @@
 #include "operators/cutlass/cutlass_qlinear.h"
 #include "operators/fused_linear.h"
 
-namespace sfast {
+using namespace sfast;
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   jit::initJITBindings(m);
@@ -20,5 +20,3 @@ TORCH_LIBRARY(sfast, m) {
   operators::initCutlassQLinearBindings(m);
   operators::initFusedLinearBindings(m);
 }
-
-} // namespace sfast
