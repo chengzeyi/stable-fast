@@ -22,6 +22,7 @@
     - [Optimize StableDiffusionPipeline](#optimize-stablediffusionpipeline)
     - [Optimize LCM Pipeline](#optimize-lcm-pipeline)
     - [Dynamically Switch LoRA](#dynamically-switch-lora)
+    - [Model Quantization](#model-quantization)
     - [Some Common Methods To Speed Up PyTorch](#some-common-methods-to-speed-up-pytorch)
   - [Troubleshooting](#troubleshooting)
 
@@ -41,9 +42,14 @@ __NOTE__: `stable-fast` is currently only in beta stage and is prone to be buggy
 - __CUDA Graph__: `stable-fast` can capture the UNet structure into CUDA Graph format, which can reduce the CPU overhead when the batch size is small.
 - __Fused Multihead Attention__: `stable-fast` just uses xformers and make it compatible with __TorchScript__.
 
+My next goal is to keep `stable-fast` as one of the fastest inference optimization frameworks for `diffusers` and also
+provide both speedup and VRAM reduction for `transformers`.
+In fact, I already use `stable-fast` to optimize LLMs and achieve a significant speedup.
+But I still need to do some work to make it more stable and easy to use and provide a stable user interface.
+
 ### Differences With Other Acceleration Libraries
 
-- __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves a high performance across many libraries.
+- __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves a high performance across many libraries. And it provides a very fast compilation speed with only a few seconds.
 - __Minimal__: `stable-fast` works as a plugin framework for `PyTorch`. It utilizes existing `PyTorch` functionality and infrastructures and is compatible with other acceleration techniques, as well as popular fine-tuning techniques and deployment solutions.
 
 ### Performance Comparison
@@ -135,6 +141,7 @@ Thanks for __@SuperSecureHuman__'s help, benchmarking on A100 PCIe 40GB is avail
 | With ControlNet                     | Yes       |
 | With LoRA                           | Yes       |
 | Dynamic Shape                       | Yes       |
+| Latent Consistency Model            | Yes       |
 
 | UI Framework                        | Supported | Link                                                                    |
 | ----------------------------------- | --------- | ----------------------------------------------------------------------- |
@@ -243,6 +250,17 @@ def switch_lora(unet, lora):
 
 switch_lora(compiled_model.unet, lora_b_path)
 ```
+
+### Model Quantization
+
+`stable-fast` extends PyTorch's `quantize_dynamic` functionality and provides a fast quantized linear operator.
+By enabling it, you could get a slight VRAM reduction for `diffusers` and significant VRAM reduction for `transformers`,
+and cound get a potential speedup.
+
+However, since `diffusers` implements its own `Linear` layer as `LoRACompatibleLinear`,
+you need to do some hacks to make it work and it is a little complex and tricky.
+
+Refer to [tests/compilers/test_stable_fast_pipeline_compiler.py](tests/compilers/test_stable_fast_pipeline_compiler.py) to see how to do it.
 
 ### Some Common Methods To Speed Up PyTorch
 

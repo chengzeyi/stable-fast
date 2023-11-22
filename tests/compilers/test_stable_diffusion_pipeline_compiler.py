@@ -4,6 +4,7 @@ import logging
 import functools
 import packaging.version
 import os
+import gc
 import glob
 import cv2
 import PIL
@@ -195,6 +196,10 @@ def benchmark_sd_model(
                     controlnet_model_path, torch_dtype=torch.float16)
                 model_init_kwargs['controlnet'] = controlnet_model
 
+            gc.collect()
+            torch.cuda.empty_cache()
+            before_memory = torch.cuda.memory_allocated()
+
             model = model_class.from_pretrained(model_path,
                                                 torch_dtype=torch.float16,
                                                 **model_init_kwargs)
@@ -204,6 +209,12 @@ def benchmark_sd_model(
 
             model.safety_checker = None
             model.to(torch.device('cuda'))
+
+            gc.collect()
+            after_memory = torch.cuda.memory_allocated()
+            logger.info(
+                f'Loaded model with {after_memory - before_memory} bytes allocated'
+            )
             if quantize:
                 def replace_linear(m):
                     # Replace LoraCompatibleLinear with torch.nn.Linear
@@ -233,6 +244,12 @@ def benchmark_sd_model(
                 model.unet = quantize_unet(model.unet)
                 if hasattr(model, 'controlnet'):
                     model.controlnet = quantize_unet(model.controlnet)
+
+                gc.collect()
+                after_memory = torch.cuda.memory_allocated()
+                logger.info(
+                    f'Quantized model with {after_memory - before_memory} bytes allocated'
+                )
 
             if lora_a_path is not None:
                 model.unet.load_attn_procs(lora_a_path)
