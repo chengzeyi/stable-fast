@@ -40,6 +40,8 @@ Performance varies very greatly across different hardware/software/platform/driv
 It is very hard to benchmark accurately. And preparing the environment for benchmarking is also a hard job.
 I have tested on some platforms before but the results may still be inaccurate.
 Note that when benchmarking, the progress bar showed by `tqdm` may be inaccurate because of the asynchronous nature of CUDA.
+To solve this problem, I have to add `torch.cuda.synchronize()` after every inference step, which will slow down the inference,
+so the results might not be very accurate and might be slower thant the actual performance.
 
 `stable-fast` is expected to work better on newer GPUs and newer CUDA versions.
 __On older GPUs, the performance increase might be limited.__
@@ -97,11 +99,19 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | TensorRT                                 | untested      |
 | __Stable Fast (with xformers & Triton)__ | __31.5 it/s__ |
 
-#### A100
+#### H100
 
-Sorry, currently A100 is hard and expensive to rent from cloud server providers in my region.
-A few months ago I have tested this framework on A100 and the speed is around __61 it/s__ for SD 1.5.
-Detailed benchmark results will be available when I have the access to A100 again.
+Thanks for __Consceleratus__'s help, I have tested speed on H100.
+
+#### A100 PCIe 40GB
+
+Thanks for __@SuperSecureHuman__'s help, benchmarking on A100 PCIe 40GB is available now.
+
+| Framework                                | SD 1.5        | SD 2.1         | SD 1.5 ControlNet | SD XL         |
+| ---------------------------------------- | ------------- | -------------- | ----------------- | --------------|
+| Vanilla PyTorch (2.1.0+cu118)            | 23.8 it/s     | 23.8 it/s      | 15.7 it/s         | 10.0 it/s     |
+| torch.compile (2.1.0+cu118, NHWC UNet)   | 37.7 it/s     | 42.7 it/s      | 24.7 it/s         | 20.9 it/s     |
+| __Stable Fast (with xformers & Triton)__ | __53.2 it/s__ | __55.9 it/s__  | __37.1 it/s__     | __29.6 it/s__ |
 
 ### Compatibility
 
