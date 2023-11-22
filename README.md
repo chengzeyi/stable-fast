@@ -207,13 +207,13 @@ You might need to build `xformers` from source to make it compatible with your `
 
 ### Optimize StableDiffusionPipeline
 
-Refer to [examples](examples/optimize_lcm_pipeline.py) for more details.
+Refer to [examples/optimize_stable_diffusion_pipeline.py](examples/optimize_stable_diffusion_pipeline.py) for more details.
 
 ### Optimize LCM Pipeline
 
 `stable-fast` is able to optimize the newest `latent consistency model` pipeline and achieve a significant speedup.
 
-Refer to [examples](examples/optimize_lcm_pipeline.py) for more details.
+Refer to [examples/optimize_lcm_pipeline.py](examples/optimize_lcm_pipeline.py) for more details.
 
 ### Dynamically Switch LoRA
 
