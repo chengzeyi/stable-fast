@@ -260,7 +260,7 @@ and cound get a potential speedup.
 However, since `diffusers` implements its own `Linear` layer as `LoRACompatibleLinear`,
 you need to do some hacks to make it work and it is a little complex and tricky.
 
-Refer to [tests/compilers/test_stable_fast_pipeline_compiler.py](tests/compilers/test_stable_fast_pipeline_compiler.py) to see how to do it.
+Refer to [tests/compilers/test_stable_diffusion_pipeline_compiler.py](tests/compilers/test_stable_diffusion_pipeline_compiler.py) to see how to do it.
 
 ### Some Common Methods To Speed Up PyTorch
 
