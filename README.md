@@ -43,6 +43,7 @@ Note that when benchmarking, the progress bar showed by `tqdm` may be inaccurate
 
 `stable-fast` is expected to work better on newer GPUs and newer CUDA versions.
 __On older GPUs, the performance increase might be limited.__
+__During benchmarking, the progress bar might work incorrectly because of the asynchronous nature of CUDA.__
 
 #### RTX 4080 (512x512, batch size 1, fp16, tcmalloc enabled, in WSL2)
 
