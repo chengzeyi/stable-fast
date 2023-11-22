@@ -47,9 +47,11 @@ def test_linear_dynamic(dtype, bias, in_features, out_features, N):
 @pytest.mark.parametrize('bias', [False, True])
 @pytest.mark.parametrize('in_features', [256, 512, 1024])
 @pytest.mark.parametrize('out_features', [512, 1024])
-@pytest.mark.parametrize('N', [10000, 20000])
+@pytest.mark.parametrize('N', [1, 16, 10000])
 def test_benchmark_linear_dynamic(dtype, bias, in_features, out_features, N):
     with torch.no_grad():
+        logger.info(f'bias={bias}, dtype={dtype}, in_features={in_features}, out_features={out_features}, N={N}')
+
         m = LinearModule(in_features, out_features, bias=bias).cuda().to(dtype=dtype).eval()
         m_q = torch.quantization.quantize_dynamic(m, {torch.nn.Linear},
                                                   dtype=torch.qint8)

@@ -39,31 +39,50 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
       ElementA, LayoutInputA, ElementB, LayoutInputB, ElementOutput,
       LayoutOutput, ElementAccumulator, MMAOp, SmArch,
       cutlass::gemm::GemmShape<128, 128, 64>,
-      cutlass::gemm::GemmShape<64, 64, 64>,
-      cutlass::gemm::GemmShape<16, 8, 16>,
+      cutlass::gemm::GemmShape<64, 64, 64>, cutlass::gemm::GemmShape<16, 8, 16>,
       cutlass::epilogue::thread::LinearCombination<
           ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
           ElementAccumulator, ElementComputeEpilogue>,
       cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
-      8,
-      16,
-      cutlass::arch::OpMultiplyAddMixedInputUpcast,
+      8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
       cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
 
   using GemmNoBias = cutlass::gemm::device::GemmUniversal<
       ElementA, LayoutInputA, ElementB, LayoutInputB, ElementOutput,
       LayoutOutput, ElementAccumulator, MMAOp, SmArch,
       cutlass::gemm::GemmShape<128, 128, 64>,
-      cutlass::gemm::GemmShape<64, 64, 64>,
-      cutlass::gemm::GemmShape<16, 8, 16>,
+      cutlass::gemm::GemmShape<64, 64, 64>, cutlass::gemm::GemmShape<16, 8, 16>,
       cutlass::epilogue::thread::LinearCombination<
           ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
           ElementAccumulator, ElementComputeEpilogue,
           cutlass::epilogue::thread::ScaleType::OnlyAlphaScaling>,
       cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
-      8,
-      16,
-      cutlass::arch::OpMultiplyAddMixedInputUpcast,
+      8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
+      cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
+
+  using GemmSmall = cutlass::gemm::device::GemmUniversal<
+      ElementA, LayoutInputA, ElementB, LayoutInputB, ElementOutput,
+      LayoutOutput, ElementAccumulator, MMAOp, SmArch,
+      cutlass::gemm::GemmShape<64, 64, 32>,
+      cutlass::gemm::GemmShape<32, 32, 32>, cutlass::gemm::GemmShape<16, 8, 16>,
+      cutlass::epilogue::thread::LinearCombination<
+          ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
+          ElementAccumulator, ElementComputeEpilogue>,
+      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>, NumStages,
+      8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
+      cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
+
+  using GemmNoBiasSmall = cutlass::gemm::device::GemmUniversal<
+      ElementA, LayoutInputA, ElementB, LayoutInputB, ElementOutput,
+      LayoutOutput, ElementAccumulator, MMAOp, SmArch,
+      cutlass::gemm::GemmShape<64, 64, 32>,
+      cutlass::gemm::GemmShape<32, 32, 32>, cutlass::gemm::GemmShape<16, 8, 16>,
+      cutlass::epilogue::thread::LinearCombination<
+          ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
+          ElementAccumulator, ElementComputeEpilogue,
+          cutlass::epilogue::thread::ScaleType::OnlyAlphaScaling>,
+      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>, NumStages,
+      8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
       cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
 };
 } // namespace sm80_space
@@ -165,16 +184,20 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
   Gemm gemm_op;
 
   status = gemm_op.can_implement(arguments);
-  TORCH_CHECK(status == cutlass::Status::kSuccess,
-              "This problem size is not supported by this Gemm implementation.");
+  TORCH_CHECK(
+      status == cutlass::Status::kSuccess,
+      "This problem size is not supported by this Gemm implementation: ",
+      cutlass::cutlassGetStatusString(status));
 
   status = gemm_op.initialize(arguments, workspace.data_ptr<uint8_t>());
   TORCH_CHECK(status == cutlass::Status::kSuccess,
-              "Failed to initialize cutlass gemm.");
+              "Failed to initialize cutlass gemm: ",
+              cutlass::cutlassGetStatusString(status));
 
   status = gemm_op(stream);
   TORCH_CHECK(status == cutlass::Status::kSuccess,
-              "Failed to execute cutlass gemm.");
+              "Failed to execute cutlass gemm: ",
+              cutlass::cutlassGetStatusString(status));
   return y;
 }
 
@@ -196,33 +219,54 @@ template <> struct acc_type<cutlass::bfloat16_t> { using type = float; };
 template <typename at_type> struct CutlassGemmLauncher {
   using scalar_t = typename cutlass_type<at_type>::type;
   using acc_t = typename acc_type<scalar_t>::type;
-  using Gemm = typename GemmWrapper<scalar_t, acc_t>::Gemm;
-  using GemmNoBias = typename GemmWrapper<scalar_t, acc_t>::GemmNoBias;
+  using GemmWrapper_ = GemmWrapper<scalar_t, acc_t>;
+  using Gemm = typename GemmWrapper_::Gemm;
+  using GemmNoBias = typename GemmWrapper_::GemmNoBias;
+  using GemmSmall = typename GemmWrapper_::GemmSmall;
+  using GemmNoBiasSmall = typename GemmWrapper_::GemmNoBiasSmall;
 
   static torch::Tensor launch(const torch::Tensor &input,
                               const torch::Tensor &weight,
                               const c10::optional<torch::Tensor> &bias,
                               float dq_scale) {
-    auto in_features = input.size(-1);
-    auto out_features = weight.size(0);
-    if (in_features % Gemm::kAlignmentA != 0 ||
-        in_features % Gemm::kAlignmentB != 0 ||
-        out_features % Gemm::kAlignmentC != 0) {
-      auto weight_ = input.scalar_type() == at::kFloat
-                         ? weight.dequantize()
-                         : weight.int_repr()
-                               .to(input.scalar_type())
-                               .mul_(weight.q_scale());
-      return cublas_lowp_linear(input, weight_, bias);
+    auto N = weight.size(0);
+    auto K = weight.size(1);
+    auto M = input.numel() / K;
+
+    bool use_small_kernel = M <= Gemm::ThreadblockShape::kM ||
+                            N <= Gemm::ThreadblockShape::kN ||
+                            K <= Gemm::ThreadblockShape::kK;
+
+    if (K % Gemm::kAlignmentA != 0 || K % Gemm::kAlignmentB != 0 ||
+        N % Gemm::kAlignmentC != 0) {
+      if (K % GemmSmall::kAlignmentA != 0 || K % GemmSmall::kAlignmentB != 0 ||
+          N % GemmSmall::kAlignmentC != 0) {
+        auto weight_ = input.scalar_type() == at::kFloat
+                           ? weight.dequantize()
+                           : weight.int_repr()
+                                 .to(input.scalar_type())
+                                 .mul_(weight.q_scale());
+        return cublas_lowp_linear(input, weight_, bias);
+      } else {
+        use_small_kernel = true;
+      }
     }
     auto input_ = input.contiguous();
     auto weight_ = weight.contiguous();
     if (bias.has_value()) {
       c10::optional<torch::Tensor> bias_;
       bias_.emplace(bias.value().contiguous());
-      return cutlass_gemm<Gemm>(input_, weight_, bias_, dq_scale);
+      if (use_small_kernel) {
+        return cutlass_gemm<GemmSmall>(input_, weight_, bias_, dq_scale);
+      } else {
+        return cutlass_gemm<Gemm>(input_, weight_, bias_, dq_scale);
+      }
     } else {
-      return cutlass_gemm<GemmNoBias>(input_, weight_, bias, dq_scale);
+      if (use_small_kernel) {
+        return cutlass_gemm<GemmNoBiasSmall>(input_, weight_, bias, dq_scale);
+      } else {
+        return cutlass_gemm<GemmNoBias>(input_, weight_, bias, dq_scale);
+      }
     }
   }
 };
@@ -255,11 +299,14 @@ cutlass_qlinear_dynamic(const torch::Tensor &input, const torch::Tensor &weight,
   torch::Tensor output;
   AT_DISPATCH_SWITCH(
       input.scalar_type(), "cutlass_qlinear_dynamic",
-      AT_DISPATCH_CASE(at::kHalf, [&] {
-        output = CutlassGemmLauncher<at::Half>::launch(input, weight, bias, weight.q_scale());
-      });
+      AT_DISPATCH_CASE(at::kHalf,
+                       [&] {
+                         output = CutlassGemmLauncher<at::Half>::launch(
+                             input, weight, bias, weight.q_scale());
+                       });
       AT_DISPATCH_CASE(at::kBFloat16, [&] {
-        output = CutlassGemmLauncher<at::BFloat16>::launch(input, weight, bias, weight.q_scale());
+        output = CutlassGemmLauncher<at::BFloat16>::launch(input, weight, bias,
+                                                           weight.q_scale());
       }));
   return output;
 }
