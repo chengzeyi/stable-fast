@@ -44,10 +44,7 @@ except ImportError:
 # If you meet problems related to it, you should disable it.
 config.enable_cuda_graph = True
 
-compiled_model = model
-compiled_model.unet.to(memory_format=torch.channels_last)
-compiled_model.unet = torch.compile(compiled_model.unet, mode='reduce-overhead')
-# compiled_model = compile(model, config)
+compiled_model = compile(model, config)
 
 kwarg_inputs = dict(
     prompt=
