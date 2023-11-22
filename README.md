@@ -125,7 +125,7 @@ Thanks for __@SuperSecureHuman__'s help, benchmarking on A100 PCIe 40GB is avail
 | UI Framework                        | Supported | Link                                                                    |
 | ----------------------------------- | --------- | ----------------------------------------------------------------------- |
 | AUTOMATIC1111                       | WIP       |                                                                         |
-| SD Next                             | WIP       |                                                                         |
+| SD Next                             | Yes       | [`SD Next`](https://github.com/vladmandic/automatic)                    |
 | ComfyUI                             | Yes       | [`ComfyUI_stable_fast`](https://github.com/gameltb/ComfyUI_stable_fast) |
 
 ## Installation
