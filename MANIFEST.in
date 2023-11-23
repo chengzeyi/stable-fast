@@ -1,0 +1,8 @@
+include MANIFEST.in
+include LICENSE
+include requirements.txt
+include version.txt
+recursive-include third_party *
+recursive-include sfast/csrc *
+prune */__pycache__
+global-exclude *.o *.so *.dylib *.a .git *.pyc *.swp

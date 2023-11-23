@@ -206,6 +206,7 @@ setup(
     "Stable Fast is an ultra lightweight performance optimization framework"
     " for Hugging Fase diffuser pipelines.",
     packages=find_packages(exclude=("configs", "tests*")),
+    # include submodules in third_party
     python_requires=">=3.7",
     install_requires=fetch_requirements(),
     extras_require={
