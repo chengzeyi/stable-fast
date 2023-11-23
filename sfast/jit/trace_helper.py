@@ -55,7 +55,7 @@ def lazy_trace(func, *, ts_compiler=None, **kwargs_):
                     traced_modules[key] = traced_module
         return traced_module(*args, **kwargs)
 
-    wrapper._traced_modules = traced_modules
+    wrapper._cached = traced_modules
 
     return wrapper
 

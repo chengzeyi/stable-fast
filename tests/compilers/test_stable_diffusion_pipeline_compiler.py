@@ -257,6 +257,7 @@ def benchmark_sd_model(
             # This is only for benchmarking purpose.
             # Patch the scheduler to force a synchronize to make the progress bar work
             # (But not accurate).
+            '''
             scheduler_step = model.scheduler.step
 
             def scheduler_step_(*args, **kwargs):
@@ -275,6 +276,7 @@ def benchmark_sd_model(
                 return ret
 
             model.image_processor.postprocess = image_processor_postprocess_
+            '''
 
             return model
 
