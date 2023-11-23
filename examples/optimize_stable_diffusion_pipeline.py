@@ -1,4 +1,5 @@
 import sys
+import time
 import torch
 from diffusers import (StableDiffusionPipeline,
                        EulerAncestralDiscreteScheduler)
@@ -63,7 +64,7 @@ compiled_model = compile(model, config)
 
 kwarg_inputs = dict(
     prompt=
-    '(masterpiece:1,2), best quality, masterpiece, best detail face, lineart, monochrome, a beautiful girl',
+    '(masterpiece:1,2), best quality, masterpiece, best detail face, a beautiful girl',
     # NOTE: If you use SDXL, you should use a higher resolution to improve the generation quality.
     height=512,
     width=512,
@@ -72,15 +73,18 @@ kwarg_inputs = dict(
 )
 
 # NOTE: Warm it up.
-# The first call will trigger compilation and might be very slow.
-# After the first call, it should be very fast.
-output_image = compiled_model(**kwarg_inputs).images[0]
+# The initial calls will trigger compilation and might be very slow.
+# After that, it should be very fast.
+for _ in range(3):
+    output_image = compiled_model(**kwarg_inputs).images[0]
 
-# Let's see the second call!
+# Let's see it!
+# Note: Progress bar might work incorrectly due to the async nature of CUDA.
+begin = time.time()
 output_image = compiled_model(**kwarg_inputs).images[0]
+print(f'Inference time: {time.time() - begin:.3f}s')
 
 # Let's view it in terminal!
-# Note: Progress bar might work incorrectly due to the async nature of CUDA.
 from sfast.utils.term_image import print_image
 
 print_image(output_image, max_width=80)

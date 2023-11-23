@@ -31,6 +31,8 @@ def make_dynamic_graphed_callable(callable):
                     cached_callables[key] = cached_callable
         return cached_callable(*args, **kwargs)
 
+    dynamic_graphed_callable._cached = cached_callables
+
     return dynamic_graphed_callable
 
 

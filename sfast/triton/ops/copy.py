@@ -7,8 +7,10 @@ from itertools import product
 # Stupid: https://github.com/openai/triton/issues/1589
 @eval('''triton.heuristics({
     'BLOCK_M': lambda kwargs: min(4096, triton.next_power_of_2(kwargs['size_inp_0'])),
-    'INPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_inp_0'] == 1,
-    'OUTPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_out_0'] == 1,
+    'BATCH_STRIDE_INP_IS_1': lambda kwargs: kwargs['batch_stride_inp'] == 1,
+    'STRIDE_INP_0_IS_1': lambda kwargs: kwargs['stride_inp_0'] == 1,
+    'BATCH_STRIDE_OUT_IS_1': lambda kwargs: kwargs['batch_stride_out'] == 1,
+    'STRIDE_OUT_0_IS_1': lambda kwargs: kwargs['stride_out_0'] == 1,
 })''')
 @triton.jit(do_not_specialize=[4])
 def copy_2d_kernel(
@@ -20,8 +22,10 @@ def copy_2d_kernel(
     stride_inp_0,
     batch_stride_out,
     stride_out_0,
-    INPUT_LAST_STRIDE_IS_1: tl.constexpr,
-    OUTPUT_LAST_STRIDE_IS_1: tl.constexpr,
+    BATCH_STRIDE_INP_IS_1: tl.constexpr,
+    STRIDE_INP_0_IS_1: tl.constexpr,
+    BATCH_STRIDE_OUT_IS_1: tl.constexpr,
+    STRIDE_OUT_0_IS_1: tl.constexpr,
     BLOCK_M: tl.constexpr,
 ):
     pid = tl.program_id(0)
@@ -29,10 +33,12 @@ def copy_2d_kernel(
     grid_m = tl.cdiv(size_inp_0, BLOCK_M)
     pid_m = pid
     rm = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
-    A = input_ptr + batch_stride_inp * pid_batch + \
-        rm * (1 if INPUT_LAST_STRIDE_IS_1 else stride_inp_0)
-    B = output_ptr + batch_stride_out * pid_batch + \
-        rm * (1 if OUTPUT_LAST_STRIDE_IS_1 else stride_out_0)
+    A = input_ptr + (1 if BATCH_STRIDE_INP_IS_1 else
+                     batch_stride_inp) * pid_batch + rm * (
+                         1 if STRIDE_INP_0_IS_1 else stride_inp_0)
+    B = output_ptr + (1 if BATCH_STRIDE_OUT_IS_1 else
+                      batch_stride_out) * pid_batch + rm * (
+                          1 if STRIDE_OUT_0_IS_1 else stride_out_0)
     mask = rm < size_inp_0
     a = tl.load(A, mask=mask)
     tl.store(B, a, mask=mask)
@@ -42,8 +48,12 @@ def copy_2d_kernel(
 @eval('''triton.heuristics({
     'BLOCK_M': lambda kwargs: min(64, triton.next_power_of_2(kwargs['size_inp_0'])),
     'BLOCK_N': lambda kwargs: min(64, triton.next_power_of_2(kwargs['size_inp_1'])),
-    'INPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_inp_1'] == 1,
-    'OUTPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_out_1'] == 1,
+    'BATCH_STRIDE_INP_IS_1': lambda kwargs: kwargs['batch_stride_inp'] == 1,
+    'STRIDE_INP_0_IS_1': lambda kwargs: kwargs['stride_inp_0'] == 1,
+    'STRIDE_INP_1_IS_1': lambda kwargs: kwargs['stride_inp_1'] == 1,
+    'BATCH_STRIDE_OUT_IS_1': lambda kwargs: kwargs['batch_stride_out'] == 1,
+    'STRIDE_OUT_0_IS_1': lambda kwargs: kwargs['stride_out_0'] == 1,
+    'STRIDE_OUT_1_IS_1': lambda kwargs: kwargs['stride_out_1'] == 1,
 })''')
 @triton.jit(do_not_specialize=[5])
 def copy_3d_kernel(
@@ -58,8 +68,12 @@ def copy_3d_kernel(
     batch_stride_out,
     stride_out_0,
     stride_out_1,
-    INPUT_LAST_STRIDE_IS_1: tl.constexpr,
-    OUTPUT_LAST_STRIDE_IS_1: tl.constexpr,
+    BATCH_STRIDE_INP_IS_1: tl.constexpr,
+    STRIDE_INP_0_IS_1: tl.constexpr,
+    STRIDE_INP_1_IS_1: tl.constexpr,
+    BATCH_STRIDE_OUT_IS_1: tl.constexpr,
+    STRIDE_OUT_0_IS_1: tl.constexpr,
+    STRIDE_OUT_1_IS_1: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
 ):
@@ -71,10 +85,16 @@ def copy_3d_kernel(
     pid_n = pid - pid_m * grid_n
     rm = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
     rn = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
-    A = input_ptr + batch_stride_inp * pid_batch + \
-        (rm[:, None] * stride_inp_0 + rn[None, :] * (1 if INPUT_LAST_STRIDE_IS_1 else stride_inp_1))
-    B = output_ptr + batch_stride_out * pid_batch + \
-        (rm[:, None] * stride_out_0 + rn[None, :] * (1 if OUTPUT_LAST_STRIDE_IS_1 else stride_out_1))
+    A = input_ptr + (
+        1 if BATCH_STRIDE_INP_IS_1 else batch_stride_inp) * pid_batch + (
+            rm[:, None] *
+            (1 if STRIDE_INP_0_IS_1 else stride_inp_0) + rn[None, :] *
+            (1 if STRIDE_INP_1_IS_1 else stride_inp_1))
+    B = output_ptr + (
+        1 if BATCH_STRIDE_OUT_IS_1 else batch_stride_out) * pid_batch + (
+            rm[:, None] *
+            (1 if STRIDE_OUT_0_IS_1 else stride_out_0) + rn[None, :] *
+            (1 if STRIDE_OUT_1_IS_1 else stride_out_1))
     mask = (rm < size_inp_0)[:, None] & (rn < size_inp_1)[None, :]
     a = tl.load(A, mask=mask)
     tl.store(B, a, mask=mask)
@@ -85,8 +105,14 @@ def copy_3d_kernel(
     'BLOCK_M': lambda kwargs: min(32, triton.next_power_of_2(kwargs['size_inp_0'])),
     'BLOCK_N': lambda kwargs: min(32, triton.next_power_of_2(kwargs['size_inp_1'])),
     'BLOCK_K': lambda kwargs: min(32, triton.next_power_of_2(kwargs['size_inp_2'])),
-    'INPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_inp_2'] == 1,
-    'OUTPUT_LAST_STRIDE_IS_1': lambda kwargs: kwargs['stride_out_2'] == 1,
+    'BATCH_STRIDE_INP_IS_1': lambda kwargs: kwargs['batch_stride_inp'] == 1,
+    'STRIDE_INP_0_IS_1': lambda kwargs: kwargs['stride_inp_0'] == 1,
+    'STRIDE_INP_1_IS_1': lambda kwargs: kwargs['stride_inp_1'] == 1,
+    'STRIDE_INP_2_IS_1': lambda kwargs: kwargs['stride_inp_2'] == 1,
+    'BATCH_STRIDE_OUT_IS_1': lambda kwargs: kwargs['batch_stride_out'] == 1,
+    'STRIDE_OUT_0_IS_1': lambda kwargs: kwargs['stride_out_0'] == 1,
+    'STRIDE_OUT_1_IS_1': lambda kwargs: kwargs['stride_out_1'] == 1,
+    'STRIDE_OUT_2_IS_1': lambda kwargs: kwargs['stride_out_2'] == 1,
 })''')
 @triton.jit(do_not_specialize=[6])
 def copy_4d_kernel(
@@ -104,8 +130,14 @@ def copy_4d_kernel(
     stride_out_0,
     stride_out_1,
     stride_out_2,
-    INPUT_LAST_STRIDE_IS_1: tl.constexpr,
-    OUTPUT_LAST_STRIDE_IS_1: tl.constexpr,
+    BATCH_STRIDE_INP_IS_1: tl.constexpr,
+    STRIDE_INP_0_IS_1: tl.constexpr,
+    STRIDE_INP_1_IS_1: tl.constexpr,
+    STRIDE_INP_2_IS_1: tl.constexpr,
+    BATCH_STRIDE_OUT_IS_1: tl.constexpr,
+    STRIDE_OUT_0_IS_1: tl.constexpr,
+    STRIDE_OUT_1_IS_1: tl.constexpr,
+    STRIDE_OUT_2_IS_1: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
     BLOCK_K: tl.constexpr,
@@ -122,12 +154,18 @@ def copy_4d_kernel(
     rm = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
     rn = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
     rk = pid_k * BLOCK_K + tl.arange(0, BLOCK_K)
-    A = input_ptr + batch_stride_inp * pid_batch + \
-        (rm[:, None, None] * stride_inp_0 + rn[None, :, None]
-         * stride_inp_1 + rk[None, None, :] * (1 if INPUT_LAST_STRIDE_IS_1 else stride_inp_2))
-    B = output_ptr + batch_stride_out * pid_batch + \
-        (rm[:, None, None] * stride_out_0 + rn[None, :, None]
-         * stride_out_1 + rk[None, None, :] * (1 if OUTPUT_LAST_STRIDE_IS_1 else stride_out_2))
+    A = input_ptr + (
+        1 if BATCH_STRIDE_INP_IS_1 else batch_stride_inp) * pid_batch + (
+            rm[:, None, None] *
+            (1 if STRIDE_INP_0_IS_1 else stride_inp_0) + rn[None, :, None] *
+            (1 if STRIDE_INP_1_IS_1 else stride_inp_1) + rk[None, None, :] *
+            (1 if STRIDE_INP_2_IS_1 else stride_inp_2))
+    B = output_ptr + (
+        1 if BATCH_STRIDE_OUT_IS_1 else batch_stride_out) * pid_batch + (
+            rm[:, None, None] *
+            (1 if STRIDE_OUT_0_IS_1 else stride_out_0) + rn[None, :, None] *
+            (1 if STRIDE_OUT_1_IS_1 else stride_out_1) + rk[None, None, :] *
+            (1 if STRIDE_OUT_2_IS_1 else stride_out_2))
     mask = (rm < size_inp_0)[:, None, None] & (
         rn < size_inp_1)[None, :, None] & (rk < size_inp_2)[None, None, :]
     a = tl.load(A, mask=mask)
@@ -159,59 +197,64 @@ def copy(dst, src):
         def grid(meta):
             return (triton.cdiv(sz0, meta['BLOCK_M']), bsz)
 
-        copy_2d_kernel[grid](dst,
-                             src,
-                             bsz,
-                             sz0,
-                             bss,
-                             ss0,
-                             bsd,
-                             sd0,
-                             )
+        copy_2d_kernel[grid](
+            dst,
+            src,
+            bsz,
+            sz0,
+            bss,
+            ss0,
+            bsd,
+            sd0,
+        )
     elif ndim == 3:
         bs, sz0, sz1 = dst_shape
         bsd, sd0, sd1 = dst_strides
         bss, ss0, ss1 = src_strides
 
         def grid(meta):
-            return (triton.cdiv(sz0, meta['BLOCK_M']) * triton.cdiv(sz1, meta['BLOCK_N']), bs)
+            return (triton.cdiv(sz0, meta['BLOCK_M']) *
+                    triton.cdiv(sz1, meta['BLOCK_N']), bs)
 
-        copy_3d_kernel[grid](dst,
-                             src,
-                             bs,
-                             sz0,
-                             sz1,
-                             bss,
-                             ss0,
-                             ss1,
-                             bsd,
-                             sd0,
-                             sd1,
-                             )
+        copy_3d_kernel[grid](
+            dst,
+            src,
+            bs,
+            sz0,
+            sz1,
+            bss,
+            ss0,
+            ss1,
+            bsd,
+            sd0,
+            sd1,
+        )
     elif ndim == 4:
         bs, sz0, sz1, sz2 = dst_shape
         bsd, sd0, sd1, sd2 = dst_strides
         bss, ss0, ss1, ss2 = src_strides
 
         def grid(meta):
-            return (triton.cdiv(sz0, meta['BLOCK_M']) * triton.cdiv(sz1, meta['BLOCK_N']) *
+            return (triton.cdiv(sz0, meta['BLOCK_M']) *
+                    triton.cdiv(sz1, meta['BLOCK_N']) *
                     triton.cdiv(sz2, meta['BLOCK_K']), bs)
 
-        copy_4d_kernel[grid](dst,
-                             src,
-                             bs,
-                             sz0,
-                             sz1,
-                             sz2,
-                             bss,
-                             ss0,
-                             ss1,
-                             ss2,
-                             bsd,
-                             sd0,
-                             sd1,
-                             sd2,
-                             )
+        copy_4d_kernel[grid](
+            dst,
+            src,
+            bs,
+            sz0,
+            sz1,
+            sz2,
+            bss,
+            ss0,
+            ss1,
+            ss2,
+            bsd,
+            sd0,
+            sd1,
+            sd2,
+        )
     else:
         raise NotImplementedError
 
