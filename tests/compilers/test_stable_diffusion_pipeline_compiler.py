@@ -6,6 +6,7 @@ import packaging.version
 import os
 import gc
 import glob
+import copy
 import cv2
 import PIL
 import torch
@@ -117,9 +118,13 @@ def test_benchmark_sd15_model_with_controlnet(sd15_model_path,
 
 
 def test_benchmark_sd21_model(sd21_model_path, skip_comparsion=False):
+    kwarg_inputs = copy.deepcopy(basic_kwarg_inputs)
+    kwarg_inputs['height'] = 768
+    kwarg_inputs['width'] = 768
+
     benchmark_sd_model(
         sd21_model_path,
-        kwarg_inputs=basic_kwarg_inputs,
+        kwarg_inputs=kwarg_inputs,
         skip_comparsion=skip_comparsion,
     )
 
@@ -131,9 +136,13 @@ def test_compile_sd21_model(sd21_model_path, skip_comparsion=True):
 def test_benchmark_sdxl_model(sdxl_model_path, skip_comparsion=False):
     from diffusers import StableDiffusionXLPipeline
 
+    kwarg_inputs = copy.deepcopy(basic_kwarg_inputs)
+    kwarg_inputs['height'] = 1024
+    kwarg_inputs['width'] = 1024
+
     benchmark_sd_model(
         sdxl_model_path,
-        kwarg_inputs=basic_kwarg_inputs,
+        kwarg_inputs=kwarg_inputs,
         model_class=StableDiffusionXLPipeline,
         skip_comparsion=skip_comparsion,
     )

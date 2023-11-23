@@ -96,9 +96,7 @@ def compile(m, config):
                 m.vae.decode = lazy_trace_(m.vae.decode)
             # For img2img
             if hasattr(m.vae, 'encoder'):
-                m.vae.encoder.forward = lazy_trace_(m.vae.encoder.forward)
-            if hasattr(m.vae, 'quant_conv'):
-                m.vae.quant_conv.forward = lazy_trace_(m.vae.quant_conv.forward)
+                m.vae.encode = lazy_trace_(m.vae.encode)
         if config.trace_scheduler:
             m.scheduler.scale_model_input = lazy_trace_(
                 m.scheduler.scale_model_input)
