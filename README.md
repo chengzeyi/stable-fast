@@ -49,8 +49,9 @@ But I still need to do some work to make it more stable and easy to use and prov
 
 ### Differences With Other Acceleration Libraries
 
-- __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves a high performance across many libraries. And it provides a very fast compilation speed with only a few seconds.
+- __Fast__: `stable-fast` is specialy optimized for __HuggingFace Diffusers__. It achieves a high performance across many libraries. And it provides a very fast compilation speed within only a few seconds. It is significantly faster than `torch.compile`, `TensorRT` and `AITemplate` in compilation time.
 - __Minimal__: `stable-fast` works as a plugin framework for `PyTorch`. It utilizes existing `PyTorch` functionality and infrastructures and is compatible with other acceleration techniques, as well as popular fine-tuning techniques and deployment solutions.
+- __Maximum Compatibility__: `stable-fast` is compatible with all kinds of `HuggingFace Diffusers` and `PyTorch` versions. It is also compatible with `ControlNet` and `LoRA`.
 
 ### Performance Comparison
 
@@ -119,7 +120,7 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 
 #### H100
 
-Thanks for __Consceleratus__'s help, I have tested speed on H100.
+Thanks for __@Consceleratus__'s help, I have tested speed on H100.
 
 Detailed benchmarking results will be available soon.
 
@@ -206,6 +207,8 @@ You might need to build `xformers` from source to make it compatible with your `
 ## Usage
 
 ### Optimize StableDiffusionPipeline
+
+`stable-fast` is able to optimize `StableDiffusionPipeline` and `StableDiffusionPipelineXL` directly.
 
 Refer to [examples/optimize_stable_diffusion_pipeline.py](examples/optimize_stable_diffusion_pipeline.py) for more details.
 
