@@ -143,6 +143,11 @@ def _modify_model(
 
     torch._C._jit_pass_inline(m.graph)
 
+    sfast._C._jit_pass_erase_scalar_tensors(m.graph)
+    sfast._C._jit_pass_eliminate_simple_arith(m.graph)
+
+    passes.jit_pass_optimize_gelu(m.graph)
+
     passes.jit_pass_remove_dropout(m.graph)
 
     passes.jit_pass_remove_contiguous(m.graph)
