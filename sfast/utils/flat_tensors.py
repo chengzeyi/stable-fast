@@ -14,6 +14,9 @@ def convert_to_flat_tensors(obj):
 
 # convert a tuple of tensors to an arbitrary object
 def convert_from_flat_tensors(tensors):
+    # for sfast._C._jit_pass_erase_scalar_tensors
+    tensors = tuple(t if isinstance(t, torch.Tensor) else torch.tensor([t])
+                    for t in tensors)
     return unflatten_tensors(tensors)[0]
 
 
@@ -138,9 +141,9 @@ def flatten_dict(obj):
     keys = list(obj.keys())
     keys.sort()
     size = len(keys)
-    return (tensor_from_int(size),
-            *itertools.chain.from_iterable(
-                itertools.chain(flatten_obj(key), flatten_obj(obj[key])) for key in keys))
+    return (tensor_from_int(size), *itertools.chain.from_iterable(
+        itertools.chain(flatten_obj(key), flatten_obj(obj[key]))
+        for key in keys))
 
 
 def flatten_dataclass(obj):

@@ -13,6 +13,7 @@
 #include "op_input_tensor_conversion.h"
 #include "python_operator.h"
 #include "scalar_tensor_erase.h"
+#include "simple_arith_elimination.h"
 
 namespace sfast {
 namespace jit {
@@ -20,6 +21,7 @@ namespace jit {
 using namespace torch::jit;
 
 void initJITBindings(py::module m) {
+  m.def("_jit_pass_eliminate_simple_arith", EliminateSimpleArith);
   m.def("_jit_pass_erase_scalar_tensors", EraseScalarTensors);
   m.def("_jit_pass_override_device_constants", OverrideDeviceConstants);
   m.def(

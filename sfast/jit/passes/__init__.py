@@ -22,6 +22,18 @@ graph(%1, %2, %3):
     return (%1)''', graph)
 
 
+def jit_pass_optimize_gelu(graph):
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2):
+    %x : Tensor = aten::gelu(%1, %2)
+    return (%x)''', '''
+graph(%1, %2):
+    %approx: str = prim::Constant[value="tanh"]()
+    %x : Tensor = aten::gelu(%1, %approx)
+    return (%x)''', graph)
+
+
 def jit_pass_lower_conv(graph):
     jit_pass_lower_conv1d(graph)
     jit_pass_lower_conv2d(graph)
