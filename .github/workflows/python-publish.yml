@@ -38,7 +38,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install build wheel setuptools torch==2.1.0
     - name: Build package
-      run: python -m build --sdist -n
+      run: WITH_CUDA=0 python -m build --sdist -n
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
       with:

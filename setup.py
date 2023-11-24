@@ -89,7 +89,7 @@ def get_extensions():
     # Skip the above useless check as we will always compile with CUDA support,
     # and the CI might be running on CPU-only machines.
     if os.getenv("WITH_CUDA", "1") != "0":
-        assert CUDA_HOME is not None, "Cannot find CUDA installation."
+        assert CUDA_HOME is not None, "Cannot find CUDA installation. If you want to compile without CUDA, set `WITH_CUDA=0`."
 
         cutlass_root = os.path.join(this_dir, "third_party", "cutlass")
         cutlass_include = os.path.join(cutlass_root, "include")

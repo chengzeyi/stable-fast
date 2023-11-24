@@ -19,7 +19,16 @@ from .utils.env import setup_environment
 
 setup_environment()
 
-import sfast._C as _C
+try:
+    import sfast._C as _C
+except ImportError:
+    print('''
+***ERROR IMPORTING sfast._C***
+Unable to load stable-fast C extension.
+Is is compatible with your PyTorch installation?
+Or is it compatible with your CUDA version?
+''')
+    raise
 
 # This line will be programatically read/write by setup.py.
 # Leave them at the bottom of this file and don't touch them.
