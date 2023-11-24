@@ -60,7 +60,7 @@ It is very hard to benchmark accurately. And preparing the environment for bench
 I have tested on some platforms before but the results may still be inaccurate.
 Note that when benchmarking, the progress bar showed by `tqdm` may be inaccurate because of the asynchronous nature of CUDA.
 To solve this problem, I have to add `torch.cuda.synchronize()` after every inference step, which will slow down the inference,
-so the results might not be very accurate and might be slower thant the actual performance.
+so the results might not be very accurate and might be slower than the actual performance.
 
 `stable-fast` is expected to work better on newer GPUs and newer CUDA versions.
 __On older GPUs, the performance increase might be limited.__
