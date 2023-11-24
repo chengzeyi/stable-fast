@@ -22,7 +22,7 @@ bool is_constant_value_of(Value *value, double target) {
     return constant_as<int64_t>(value) == target;
   } else if (type == TensorType::get()) {
     auto tensor = toIValue(value)->toTensor();
-    if (tensor.dim() == 0 and tensor.numel() == 1) {
+    if (tensor.dim() == 0 && tensor.numel() == 1) {
       auto v = tensor.item();
       return (v.isFloatingPoint() && v.toDouble() == target) ||
              (v.isIntegral(false) && v.toInt() == target);
