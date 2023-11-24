@@ -20,6 +20,14 @@ bool is_constant_value_of(Value *value, double target) {
     return constant_as<double>(value) == target;
   } else if (type == IntType::get()) {
     return constant_as<int64_t>(value) == target;
+  } else if (type == TensorType::get()) {
+    auto tensor = toIValue(value)->toTensor();
+    if (tensor.dim() == 0 && tensor.numel() == 1) {
+      auto v = tensor.item();
+      return (v.isFloatingPoint() && v.toDouble() == target) ||
+             (v.isIntegral(false) && v.toInt() == target);
+    }
+    return false;
   } else {
     return false;
   }
@@ -39,46 +47,46 @@ void EliminateSimpleArithOnBlock(Block *block) {
     }
     int input_idx = -1;
     switch (it->kind()) {
-      case aten::add: {
-        if (it->inputs().size() == 2) {
-          auto input0 = it->inputs()[0];
-          auto input1 = it->inputs()[1];
-          if (is_constant_value_of(input0, 0.0)) {
-            input_idx = 1;
-          } else if (is_constant_value_of(input1, 0.0)) {
-            input_idx = 0;
-          }
+    case aten::add: {
+      if (it->inputs().size() == 2) {
+        auto input0 = it->inputs()[0];
+        auto input1 = it->inputs()[1];
+        if (is_constant_value_of(input0, 0.0)) {
+          input_idx = 1;
+        } else if (is_constant_value_of(input1, 0.0)) {
+          input_idx = 0;
         }
-        break;
       }
-      case aten::sub: {
-        if (it->inputs().size() == 2) {
-          if (is_constant_value_of(it->inputs()[1], 0.0)) {
-            input_idx = 0;
-          }
+      break;
+    }
+    case aten::sub: {
+      if (it->inputs().size() == 2) {
+        if (is_constant_value_of(it->inputs()[1], 0.0)) {
+          input_idx = 0;
         }
-        break;
       }
-      case aten::mul: {
-        if (it->inputs().size() == 2) {
-          auto input0 = it->inputs()[0];
-          auto input1 = it->inputs()[1];
-          if (is_constant_value_of(input0, 1.0)) {
-            input_idx = 1;
-          } else if (is_constant_value_of(input1, 1.0)) {
-            input_idx = 0;
-          }
+      break;
+    }
+    case aten::mul: {
+      if (it->inputs().size() == 2) {
+        auto input0 = it->inputs()[0];
+        auto input1 = it->inputs()[1];
+        if (is_constant_value_of(input0, 1.0)) {
+          input_idx = 1;
+        } else if (is_constant_value_of(input1, 1.0)) {
+          input_idx = 0;
         }
-        break;
       }
-      case aten::div: {
-        if (it->inputs().size() == 2) {
-          if (is_constant_value_of(it->inputs()[1], 1.0)) {
-            input_idx = 0;
-          }
+      break;
+    }
+    case aten::div: {
+      if (it->inputs().size() == 2) {
+        if (is_constant_value_of(it->inputs()[1], 1.0)) {
+          input_idx = 0;
         }
-        break;
       }
+      break;
+    }
     }
     if (input_idx != -1) {
       WithInsertPoint guard(*it);
