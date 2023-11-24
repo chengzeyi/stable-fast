@@ -141,7 +141,10 @@ def _modify_model(
 
     torch._C._jit_pass_inline(m.graph)
 
-    sfast._C._jit_pass_erase_scalar_tensors(m.graph)
+    '''
+    RuntimeError: 0 INTERNAL ASSERT FAILED at "../torch/csrc/jit/ir/alias_analysis.cpp":616, please report a bug to PyTorch. We don't have an op for aten::to but it isn't a special case.  Argument types: int, Device, int, bool, bool, NoneType,
+    '''
+    # sfast._C._jit_pass_erase_scalar_tensors(m.graph)
     sfast._C._jit_pass_eliminate_simple_arith(m.graph)
 
     passes.jit_pass_optimize_gelu(m.graph)
