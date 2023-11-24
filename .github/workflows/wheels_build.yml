@@ -161,11 +161,11 @@ jobs:
       - run: echo "release version"
         if: ${{ !contains(steps.sfast_version.outputs.BUILD_VERSION, '.dev') }}
 
-      - name: Setup proper pytorch dependency in "requirements.txt"
-        run: |
-          sed -i '/torch/d' ./requirements.txt
-          echo "torch == ${{ inputs.torch_version }}" >> ./requirements.txt
-          cat ./requirements.txt
+      # - name: Setup proper pytorch dependency in "requirements.txt"
+      #   run: |
+      #     sed -i '/torch/d' ./requirements.txt
+      #     echo "torch == ${{ inputs.torch_version }}" >> ./requirements.txt
+      #     cat ./requirements.txt
 
       - if: runner.os == 'Windows'
         name: (Windows) Setup Runner
