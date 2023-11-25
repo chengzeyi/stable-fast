@@ -27,6 +27,15 @@ void initCUDNNConvolutionBindings(torch::Library &m) {
   m.def("cudnn_convolution_bias_tanh",
         dispatch(c10::DispatchKey::CompositeImplicitAutograd,
                  cudnn_convolution_bias_tanh));
+  m.def("cudnn_convolution_bias_add_sigmoid",
+        dispatch(c10::DispatchKey::CompositeImplicitAutograd,
+                 cudnn_convolution_bias_add_sigmoid));
+  m.def("cudnn_convolution_bias_add_relu",
+        dispatch(c10::DispatchKey::CompositeImplicitAutograd,
+                 cudnn_convolution_bias_add_relu));
+  m.def("cudnn_convolution_bias_add_tanh",
+        dispatch(c10::DispatchKey::CompositeImplicitAutograd,
+                 cudnn_convolution_bias_add_tanh));
 #endif
 }
 

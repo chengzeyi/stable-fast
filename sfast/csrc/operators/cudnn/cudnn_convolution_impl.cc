@@ -1467,5 +1467,48 @@ Tensor cudnn_convolution_bias_tanh(const Tensor &input_t,
       dilation, transposed, output_padding, groups, CUDNN_ACTIVATION_TANH);
 }
 
+Tensor cudnn_convolution_bias_add_sigmoid(const Tensor &input_t,
+                                         const Tensor &weight_t,
+                                         const c10::optional<Tensor> &bias_t,
+                                         const c10::optional<Tensor> &z_t,
+                                         const c10::optional<Scalar> &alpha,
+                                         IntArrayRef stride,
+                                         IntArrayRef padding,
+                                         IntArrayRef dilation, bool transposed,
+                                         IntArrayRef output_padding,
+                                         int64_t groups) {
+  return cudnn_convolution_bias_add_activation_with_fallback(
+      input_t, weight_t, bias_t, z_t, alpha, stride, padding, dilation,
+      transposed, output_padding, groups, CUDNN_ACTIVATION_SIGMOID);
+}
+
+Tensor cudnn_convolution_bias_add_relu(const Tensor &input_t,
+                                       const Tensor &weight_t,
+                                       const c10::optional<Tensor> &bias_t,
+                                       const c10::optional<Tensor> &z_t,
+                                       const c10::optional<Scalar> &alpha,
+                                       IntArrayRef stride, IntArrayRef padding,
+                                       IntArrayRef dilation, bool transposed,
+                                       IntArrayRef output_padding,
+                                       int64_t groups) {
+  return cudnn_convolution_bias_add_activation_with_fallback(
+      input_t, weight_t, bias_t, z_t, alpha, stride, padding, dilation,
+      transposed, output_padding, groups, CUDNN_ACTIVATION_RELU);
+}
+
+Tensor cudnn_convolution_bias_add_tanh(const Tensor &input_t,
+                                       const Tensor &weight_t,
+                                       const c10::optional<Tensor> &bias_t,
+                                       const c10::optional<Tensor> &z_t,
+                                       const c10::optional<Scalar> &alpha,
+                                       IntArrayRef stride, IntArrayRef padding,
+                                       IntArrayRef dilation, bool transposed,
+                                       IntArrayRef output_padding,
+                                       int64_t groups) {
+  return cudnn_convolution_bias_add_activation_with_fallback(
+      input_t, weight_t, bias_t, z_t, alpha, stride, padding, dilation,
+      transposed, output_padding, groups, CUDNN_ACTIVATION_TANH);
+}
+
 } // namespace operators
 } // namespace sfast

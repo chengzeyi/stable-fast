@@ -23,8 +23,8 @@ graph(%1, %2, %3):
 
 
 def jit_pass_optimize_gelu(graph):
-        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
-            '''
+    torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+        '''
 graph(%1, %2):
     %x : Tensor = aten::gelu(%1, %2)
     return (%x)''', '''
@@ -42,6 +42,10 @@ def jit_pass_lower_conv(graph):
 
 def jit_pass_optimize_cnn(graph):
     jit_pass_remove_conv_bias_followed_by_norm(graph)
+    # https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnConvolutionBiasActivationForward
+    jit_pass_fuse_conv_bias_add_sigmoid(graph)
+    jit_pass_fuse_conv_bias_add_relu(graph)
+    jit_pass_fuse_conv_bias_add_tanh(graph)
     jit_pass_fuse_conv_bias_sigmoid(graph)
     jit_pass_fuse_conv_bias_relu(graph)
     jit_pass_fuse_conv_bias_tanh(graph)
@@ -424,6 +428,147 @@ graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13):
     return (%y)''', '''
 graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13):
     %x : Tensor = sfast::cudnn_convolution_bias_tanh(%1, %2, %3, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+
+def jit_pass_fuse_conv_bias_add_sigmoid(graph):
+    if hasattr(torch.ops.sfast, 'cudnn_convolution_bias_add_sigmoid'):
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add(%x, %14, %15)
+    %z : Tensor = aten::sigmoid(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_sigmoid(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add_(%x, %14, %15)
+    %z : Tensor = aten::sigmoid_(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_sigmoid(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add(%14, %x, %15)
+    %z : Tensor = aten::sigmoid(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_sigmoid(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add_(%14, %x, %15)
+    %z : Tensor = aten::sigmoid_(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_sigmoid(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+
+def jit_pass_fuse_conv_bias_add_relu(graph):
+    if hasattr(torch.ops.sfast, 'cudnn_convolution_bias_add_relu'):
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add(%x, %14, %15)
+    %z : Tensor = aten::relu(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_relu(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add_(%x, %14, %15)
+    %z : Tensor = aten::relu_(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_relu(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add(%14, %x, %15)
+    %z : Tensor = aten::relu(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_relu(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add_(%14, %x, %15)
+    %z : Tensor = aten::relu_(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_relu(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+
+def jit_pass_fuse_conv_bias_add_tanh(graph):
+    if hasattr(torch.ops.sfast, 'cudnn_convolution_bias_add_tanh'):
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add(%x, %14, %15)
+    %z : Tensor = aten::tanh(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_tanh(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add_(%x, %14, %15)
+    %z : Tensor = aten::tanh_(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_tanh(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add(%14, %x, %15)
+    %z : Tensor = aten::tanh(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_tanh(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
+    return (%x)''', graph)
+
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %y : Tensor = aten::add_(%14, %x, %15)
+    %z : Tensor = aten::tanh_(%y)
+    return (%z)''', '''
+graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15):
+    %x : Tensor = sfast::cudnn_convolution_bias_add_tanh(%1, %2, %3, %14, %15, %4, %5, %6, %7, %8, %9)
     return (%x)''', graph)
 
 
