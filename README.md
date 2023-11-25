@@ -142,7 +142,7 @@ except ImportError:
     print('Triton not installed, skip')
 config.enable_cuda_graph = True
 
-compiled_model = compile(model, config)
+model = compile(model, config)
 
 kwarg_inputs = dict(
     prompt=
@@ -157,12 +157,12 @@ kwarg_inputs = dict(
 # The initial calls will trigger compilation and might be very slow.
 # After that, it should be very fast.
 for _ in range(3):
-    output_image = compiled_model(**kwarg_inputs).images[0]
+    output_image = model(**kwarg_inputs).images[0]
 
 # Let's see it!
 # Note: Progress bar might work incorrectly due to the async nature of CUDA.
 begin = time.time()
-output_image = compiled_model(**kwarg_inputs).images[0]
+output_image = model(**kwarg_inputs).images[0]
 print(f'Inference time: {time.time() - begin:.3f}s')
 
 # Let's view it in terminal!
