@@ -6,7 +6,7 @@
 
 `stable-fast` achieves SOTA inference performance on __ALL__ kinds of diffuser models.
 And unlike `TensorRT` or `AITemplate`, which takes dozens of minutes to compile a model, `stable-fast` only takes a few seconds to compile a model.
-`stable-fast` also supports `LoRA` and `ControlNet` out of the box.
+`stable-fast` also supports `dynamic shape`, `LoRA` and `ControlNet` out of the box.
 
 [![](https://mermaid.ink/img/pako:eNpFUk2PmzAQ_Ssjn4HYZCHAoVKl7aGHXnY5VF3vYcADWAUb2WabKMp_r0mq7cHWm-eR35uPK-utItaw86Wf0IW0o4DSBB1mAslavRAM1sFIhhwGbUawhkAvOBL80WGC12cQWZFAIfJzPBFw8IFWn8RMeGl_whOvuGTSnFM8aw9vkn2g0fOMEKzrJ8mSqHSHWW-XVc_0oL5-b2lZZwz_4paMt-6lhTrjmXhwPmA3UzqgD5K9S3N5aEi2RAHtqbdGecmAQ5p-gZxzLo00HTp4E1V9SkAUgsdbFFUCdS0i5OXpnSVsIbegVrE1V2lgdzjREp00ESp0v_eKbjEPt2BfL6ZnTXAbJWxbVXT8rHF0uLBmwNl_st-UjnV-krNFRTG8snBZ9yGM2of4ZTQ96HHnNzdHegph9c3hsD9nY2z61u2dOnit9plNH3V5KPOywvxI5emIxfGo-k7U1ZA_iUGduMiR3W4JW9H8sva_K7r7-fHYgPsi3P4C2QCpMQ?type=png)](https://mermaid.live/edit#pako:eNpFUk2PmzAQ_Ssjn4HYZCHAoVKl7aGHXnY5VF3vYcADWAUb2WabKMp_r0mq7cHWm-eR35uPK-utItaw86Wf0IW0o4DSBB1mAslavRAM1sFIhhwGbUawhkAvOBL80WGC12cQWZFAIfJzPBFw8IFWn8RMeGl_whOvuGTSnFM8aw9vkn2g0fOMEKzrJ8mSqHSHWW-XVc_0oL5-b2lZZwz_4paMt-6lhTrjmXhwPmA3UzqgD5K9S3N5aEi2RAHtqbdGecmAQ5p-gZxzLo00HTp4E1V9SkAUgsdbFFUCdS0i5OXpnSVsIbegVrE1V2lgdzjREp00ESp0v_eKbjEPt2BfL6ZnTXAbJWxbVXT8rHF0uLBmwNl_st-UjnV-krNFRTG8snBZ9yGM2of4ZTQ96HHnNzdHegph9c3hsD9nY2z61u2dOnit9plNH3V5KPOywvxI5emIxfGo-k7U1ZA_iUGduMiR3W4JW9H8sva_K7r7-fHYgPsi3P4C2QCpMQ)
 
