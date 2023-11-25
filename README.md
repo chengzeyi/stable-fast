@@ -81,6 +81,16 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested      | untested          |
 | __Stable Fast (with xformers & Triton)__ | __49.7 it/s__ | __52.5 it/s__ | __8.1 it/s__      |
 
+__IMPORTANT__
+
+My latest benchmarks show that, on my 4080 machine, for SD 1.5, 512x512, 20 steps, EulerA and TinyVAE:
+
+With `stable-fast` I get `426ms` to finish one image.
+
+With `TensorRT 9.0.1 with static batch and CUDA Graph` I get `425ms` to finish one image. [demo](https://github.com/NVIDIA/TensorRT/blob/5f422623e7f5bdc593b781695cbddda99124c9b8/demo/Diffusion/demo_txt2img.py)
+
+__So `stable-fast` is on par with TensorRT in terms of speed and provides more flexibility and compatibility and is totally open sourced!!!.__
+
 #### RTX 4090 (512x512, batch size 1, fp16, tcmalloc enabled)
 
 | Framework                                | SD 1.5        | SD 2.1         | SD 1.5 ControlNet |

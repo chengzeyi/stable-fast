@@ -55,7 +55,24 @@ def test_compile_sd15_model(sd15_model_path, skip_comparsion=True):
     test_benchmark_sd15_model(sd15_model_path, skip_comparsion=skip_comparsion)
 
 
-def test_benchmark_quantized_sd15_model(sd15_model_path, skip_comparsion=False):
+def test_benchmark_sd15_model_with_tiny_vae(sd15_model_path,
+                                            skip_comparsion=False):
+    benchmark_sd_model(
+        sd15_model_path,
+        kwarg_inputs=basic_kwarg_inputs,
+        skip_comparsion=skip_comparsion,
+        enable_tiny_vae=True,
+    )
+
+
+def test_compile_sd15_model_with_tiny_vae(sd15_model_path,
+                                          skip_comparsion=True):
+    test_benchmark_sd15_model_with_tiny_vae(sd15_model_path,
+                                            skip_comparsion=skip_comparsion)
+
+
+def test_benchmark_quantized_sd15_model(sd15_model_path,
+                                        skip_comparsion=False):
     benchmark_sd_model(
         sd15_model_path,
         kwarg_inputs=basic_kwarg_inputs,
@@ -65,7 +82,8 @@ def test_benchmark_quantized_sd15_model(sd15_model_path, skip_comparsion=False):
 
 
 def test_compile_quantized_sd15_model(sd15_model_path, skip_comparsion=True):
-    test_benchmark_quantized_sd15_model(sd15_model_path, skip_comparsion=skip_comparsion)
+    test_benchmark_quantized_sd15_model(sd15_model_path,
+                                        skip_comparsion=skip_comparsion)
 
 
 def test_benchmark_sd15_model_with_lora(sd15_model_path,
@@ -183,6 +201,7 @@ def benchmark_sd_model(
     lora_a_path=None,
     lora_b_path=None,
     quantize=False,
+    enable_tiny_vae=False,
 ):
     from diffusers import (
         StableDiffusionPipeline,
@@ -216,6 +235,11 @@ def benchmark_sd_model(
                 model.scheduler = scheduler_class.from_config(
                     model.scheduler.config)
 
+            if enable_tiny_vae:
+                from diffusers import AutoencoderTiny
+                model.vae = AutoencoderTiny.from_pretrained(
+                    'madebyollin/taesd', torch_dtype=torch.float16)
+
             model.safety_checker = None
             model.to(torch.device('cuda'))
 
@@ -225,10 +249,14 @@ def benchmark_sd_model(
                 f'Loaded model with {after_memory - before_memory} bytes allocated'
             )
             if quantize:
+
                 def replace_linear(m):
                     # Replace LoraCompatibleLinear with torch.nn.Linear
-                    new_m = torch.nn.Linear(m.in_features, m.out_features, bias=m.bias is not None).eval()
-                    new_m = new_m.to(device=m.weight.device, dtype=m.weight.dtype)
+                    new_m = torch.nn.Linear(m.in_features,
+                                            m.out_features,
+                                            bias=m.bias is not None).eval()
+                    new_m = new_m.to(device=m.weight.device,
+                                     dtype=m.weight.dtype)
                     new_m.weight.copy_(m.weight)
                     if m.bias is not None:
                         new_m.bias.copy_(m.bias)
@@ -244,12 +272,19 @@ def benchmark_sd_model(
                     return m
 
                 def quantize_unet(m):
-                    patch_module(m, lambda stack: isinstance(stack[-1][1], torch.nn.Linear), replace_linear)
-                    m = torch.quantization.quantize_dynamic(
-                        m, {torch.nn.Linear}, dtype=torch.qint8, inplace=True)
-                    patch_module(m, lambda stack: isinstance(stack[-1][1], torch.ao.nn.quantized.Linear), make_linear_compatible)
+                    patch_module(
+                        m, lambda stack: isinstance(stack[-1][1], torch.nn.
+                                                    Linear), replace_linear)
+                    m = torch.quantization.quantize_dynamic(m,
+                                                            {torch.nn.Linear},
+                                                            dtype=torch.qint8,
+                                                            inplace=True)
+                    patch_module(
+                        m, lambda stack: isinstance(
+                            stack[-1][1], torch.ao.nn.quantized.Linear),
+                        make_linear_compatible)
                     return m
-                
+
                 model.unet = quantize_unet(model.unet)
                 if hasattr(model, 'controlnet'):
                     model.controlnet = quantize_unet(model.controlnet)

@@ -44,6 +44,38 @@ Tensor cudnn_convolution_bias_tanh(const Tensor &input_t,
                                    IntArrayRef stride, IntArrayRef padding,
                                    IntArrayRef dilation, bool transposed,
                                    IntArrayRef output_padding, int64_t groups);
+
+Tensor cudnn_convolution_bias_add_sigmoid(const Tensor &input_t,
+                                          const Tensor &weight_t,
+                                          const c10::optional<Tensor> &bias_t,
+                                          const c10::optional<Tensor> &z_t,
+                                          const c10::optional<Scalar> &alpha,
+                                          IntArrayRef stride,
+                                          IntArrayRef padding,
+                                          IntArrayRef dilation,
+                                          bool transposed,
+                                          IntArrayRef output_padding,
+                                          int64_t groups);
+
+Tensor cudnn_convolution_bias_add_relu(const Tensor &input_t,
+                                       const Tensor &weight_t,
+                                       const c10::optional<Tensor> &bias_t,
+                                       const c10::optional<Tensor> &z_t,
+                                       const c10::optional<Scalar> &alpha,
+                                       IntArrayRef stride, IntArrayRef padding,
+                                       IntArrayRef dilation, bool transposed,
+                                       IntArrayRef output_padding,
+                                       int64_t groups);
+
+Tensor cudnn_convolution_bias_add_tanh(const Tensor &input_t,
+                                       const Tensor &weight_t,
+                                       const c10::optional<Tensor> &bias_t,
+                                       const c10::optional<Tensor> &z_t,
+                                       const c10::optional<Scalar> &alpha,
+                                       IntArrayRef stride, IntArrayRef padding,
+                                       IntArrayRef dilation, bool transposed,
+                                       IntArrayRef output_padding,
+                                       int64_t groups);
 #endif
 
 void initCUDNNConvolutionBindings(torch::Library &m);
