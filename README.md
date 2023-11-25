@@ -9,21 +9,12 @@ And unlike `TensorRT` and `AITemplate`, which takes dozens of minutes to compile
 `stable-fast` also supports `LoRA` and `ControlNet` out of the box.
 
 ```mermaid
-gantt
-    title milliseconds for generating one image with SD 1.5, 512x512, 50 steps, EulerA, on RTX 4080
-    dateFormat  x
-    axisFormat %L
+xychart-beta
+title "milliseconds for generating one image with SD 1.5, 512x512, 50 steps, EulerA, on RTX 4080"
+x-axis ["vanilla torch", "torch.compile", "AITemplate", "TensorRT 9.0.1", "stable-fast"]
+y-axis "milliseconds" 0 --> 2000
 
-    section vanilla torch
-    1897 : 0, 1897
-    section torch.compile
-    1510 : 0, 1510
-    section AITemplate
-    1158 : 0, 1158
-    section TensorRT 9.0.1
-    991  : 0, 991
-    section stable-fast
-    1067 : 0, 1067
+bar [1897, 1510, 1158, 991, 1067]
 ```
 
 - [🚀Stable Fast](#stable-fast)
