@@ -103,7 +103,7 @@ def compile(m, config):
                 if enable_cuda_graph:
                     m.vae.decode = make_dynamic_graphed_callable(m.vae.decode)
             # For img2img
-            if hasattr(m.vae, 'encoder'):
+            if hasattr(m.vae, 'encode'):
                 m.vae.encode = lazy_trace_(m.vae.encode)
                 if enable_cuda_graph:
                     m.vae.encode = make_dynamic_graphed_callable(

@@ -3,6 +3,29 @@
 [![wheels](https://github.com/chengzeyi/stable-fast/actions/workflows/wheels.yml/badge.svg?branch=main)](https://github.com/chengzeyi/stable-fast/actions/workflows/wheels.yml)
 [![Upload Python Package](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml/badge.svg)](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml)
 
+
+`stable-fast` achieves SOTA inference performance on __ALL__ kinds of diffuser models.
+And unlike `TensorRT` and `AITemplate`, which takes dozens of minutes to compile a model, `stable-fast` only takes a few seconds to compile a model.
+`stable-fast` also supports `LoRA` and `ControlNet` out of the box.
+
+```mermaid
+gantt
+    title milliseconds for generating one image with SD 1.5, 512x512, 50 steps, EulerA, on RTX 4080
+    dateFormat  x
+    axisFormat %L
+
+    section vanilla torch
+    1897 : 0, 1897
+    section torch.compile
+    1510 : 0, 1510
+    section AITemplate
+    1158 : 0, 1158
+    section TensorRT 9.0.1
+    991  : 0, 991
+    section stable-fast
+    1067 : 0, 1067
+```
+
 - [🚀Stable Fast](#stable-fast)
   - [Introduction](#introduction)
     - [What is this?](#what-is-this)
@@ -269,17 +292,8 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | AUTO1111 WebUI                           | 17.2 it/s     | 15.2 it/s     | 3.6 it/s          |
 | AUTO1111 WebUI (with SDPA)               | 24.5 it/s     | 26.1 it/s     | 4.3 it/s          |
 | TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested      | untested          |
+| TensorRT Official Demo                   | 52.6 it/s     | untested      | untested          |
 | __Stable Fast (with xformers & Triton)__ | __49.7 it/s__ | __52.5 it/s__ | __8.1 it/s__      |
-
-__IMPORTANT__
-
-My latest benchmarks show that, on my 4080 machine, for SD 1.5, 512x512, 20 steps, EulerA and TinyVAE:
-
-With `stable-fast` I get `426ms` to finish one image.
-
-With `TensorRT 9.0.1 with static batch and CUDA Graph` I get `425ms` to finish one image. [demo](https://github.com/NVIDIA/TensorRT/blob/5f422623e7f5bdc593b781695cbddda99124c9b8/demo/Diffusion/demo_txt2img.py)
-
-__So `stable-fast` is on par with TensorRT in terms of speed and provides more flexibility and compatibility and is totally open sourced!!!.__
 
 ### RTX 4090 (512x512, batch size 1, fp16, tcmalloc enabled)
 
