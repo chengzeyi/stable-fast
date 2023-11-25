@@ -140,6 +140,7 @@ try:
     config.enable_triton = True
 except ImportError:
     print('Triton not installed, skip')
+# CUDA Graph is suggested for small batch sizes and small resolutions to reduce CPU overhead.
 config.enable_cuda_graph = True
 
 model = compile(model, config)
