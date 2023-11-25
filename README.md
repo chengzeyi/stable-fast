@@ -85,9 +85,9 @@ __IMPORTANT__
 
 My latest benchmarks show that, on my 4080 machine, for SD 1.5, 512x512, 20 steps, EulerA and TinyVAE:
 
-With `stable-fast` I get 426ms to finish one image.
+With `stable-fast` I get `426ms` to finish one image.
 
-With `TensorRT 9.0.1 with static batch and CUDA Graph` I get 425ms to finish one image. [demo](https://github.com/NVIDIA/TensorRT/blob/5f422623e7f5bdc593b781695cbddda99124c9b8/demo/Diffusion/demo_txt2img.py)
+With `TensorRT 9.0.1 with static batch and CUDA Graph` I get `425ms` to finish one image. [demo](https://github.com/NVIDIA/TensorRT/blob/5f422623e7f5bdc593b781695cbddda99124c9b8/demo/Diffusion/demo_txt2img.py)
 
 __So `stable-fast` is on par with TensorRT in terms of speed and provides more flexibility and compatibility and is totally open sourced!!!.__
 
