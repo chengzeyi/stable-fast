@@ -69,6 +69,12 @@ class CompilationConfig:
 
 
 def compile(m, config):
+    # attribute `device` is not generally available
+    device = m.device if hasattr(m, 'device') else torch.device(
+        'cuda' if torch.cuda.is_available() else 'cpu')
+
+    enable_cuda_graph = config.enable_cuda_graph and device.type == 'cuda'
+
     m.unet = compile_unet(m.unet, config)
     if hasattr(m, 'controlnet'):
         m.controlnet = compile_unet(m.controlnet, config)
@@ -94,9 +100,14 @@ def compile(m, config):
             """
             if hasattr(m.vae, 'decode'):
                 m.vae.decode = lazy_trace_(m.vae.decode)
+                if enable_cuda_graph:
+                    m.vae.decode = make_dynamic_graphed_callable(m.vae.decode)
             # For img2img
             if hasattr(m.vae, 'encoder'):
                 m.vae.encode = lazy_trace_(m.vae.encode)
+                if enable_cuda_graph:
+                    m.vae.encode = make_dynamic_graphed_callable(
+                        m.vae.encode)
         if config.trace_scheduler:
             m.scheduler.scale_model_input = lazy_trace_(
                 m.scheduler.scale_model_input)
