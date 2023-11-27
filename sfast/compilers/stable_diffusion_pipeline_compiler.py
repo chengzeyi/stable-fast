@@ -100,18 +100,19 @@ def compile(m, config):
             """
             if hasattr(m.vae, 'decode'):
                 m.vae.decode = lazy_trace_(m.vae.decode)
-                if enable_cuda_graph:
-                    m.vae.decode = make_dynamic_graphed_callable(m.vae.decode)
             # For img2img
             if hasattr(m.vae, 'encode'):
                 m.vae.encode = lazy_trace_(m.vae.encode)
-                if enable_cuda_graph:
-                    m.vae.encode = make_dynamic_graphed_callable(
-                        m.vae.encode)
         if config.trace_scheduler:
             m.scheduler.scale_model_input = lazy_trace_(
                 m.scheduler.scale_model_input)
             m.scheduler.step = lazy_trace_(m.scheduler.step)
+
+    if enable_cuda_graph:
+        if hasattr(m.vae, 'decode'):
+            m.vae.decode = make_dynamic_graphed_callable(m.vae.decode)
+        if hasattr(m.vae, 'encode'):
+            m.vae.encode = make_dynamic_graphed_callable(m.vae.encode)
 
     return m
 
@@ -151,7 +152,6 @@ def _modify_model(
         from sfast.jit.passes import triton_passes
 
     torch._C._jit_pass_inline(m.graph)
-
     '''
     RuntimeError: 0 INTERNAL ASSERT FAILED at "../torch/csrc/jit/ir/alias_analysis.cpp":616, please report a bug to PyTorch. We don't have an op for aten::to but it isn't a special case.  Argument types: int, Device, int, bool, bool, NoneType,
     '''
