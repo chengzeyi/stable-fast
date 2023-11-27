@@ -2,6 +2,7 @@ import logging
 import functools
 import threading
 import copy
+import dataclasses
 import torch
 import sfast
 
@@ -114,16 +115,15 @@ def make_graphed_callable(callable,
         static_outputs = shadow_copy(static_outputs)
     del tmp_graph, static_inputs_, static_kwarg_inputs_
 
-    def make_graphed_function(callable, execution_env, fwd_graph,
-                              static_inputs, static_kwarg_inputs,
-                              static_outputs, training):
+    def make_graphed_function(deps, execution_env, fwd_graph, static_inputs,
+                              static_kwarg_inputs, static_outputs, training):
 
         class _GraphedModule(torch.nn.Module):
 
             def __init__(self):
                 super(_GraphedModule, self).__init__()
-                # Hold a reference to the callable so it doesn't get GC'd
-                self.callable = callable
+                # Hold a reference to the deps so that they don't get GCed
+                self.deps = deps
                 self.train(training)
 
             def forward(self, *inputs, **kwarg_inputs):
@@ -145,7 +145,20 @@ def make_graphed_callable(callable,
 
         return functionalized
 
-    return make_graphed_function(callable,
+    def convert_parameter_to_tensor(x):
+        if isinstance(x, torch.nn.Parameter):
+            return x.data
+        return x
+
+    deps = [callable]
+    if isinstance(callable, torch.nn.Module):
+        deps.extend(map(convert_parameter_to_tensor, callable.parameters()))
+    elif hasattr(callable, '__self__') and isinstance(callable.__self__,
+                                                      torch.nn.Module):
+        deps.extend(
+            map(convert_parameter_to_tensor, callable.__self__.parameters()))
+
+    return make_graphed_function(deps,
                                  execution_env,
                                  fwd_graph,
                                  static_inputs,
@@ -217,6 +230,10 @@ def tree_copy_(dest, src):
         assert len(dest) == len(src)
         for x, y in zip(dest, src):
             tree_copy_(x, y)
+    elif dataclasses.is_dataclass(dest):
+        assert len(dest) == len(src)
+        for field in dataclasses.fields(dest):
+            tree_copy_(getattr(dest, field.name), getattr(src, field.name))
     elif isinstance(dest, dict):
         assert len(dest) == len(src)
         for k in dest:
@@ -230,6 +247,11 @@ def tree_copy(src):
         return src.clone()
     elif isinstance(src, (list, tuple)):
         return type(src)(tree_copy(x) for x in src)
+    elif dataclasses.is_dataclass(src):
+        return type(src)(**{
+            field.name: tree_copy(getattr(src, field.name))
+            for field in dataclasses.fields(src)
+        })
     elif isinstance(src, dict):
         return type(src)((k, tree_copy(v)) for k, v in src.items())
     else:
@@ -242,6 +264,11 @@ def shadow_copy(obj):
             obj) if obj.device.type == 'cuda' else obj
     elif isinstance(obj, (list, tuple)):
         return type(obj)(shadow_copy(x) for x in obj)
+    elif dataclasses.is_dataclass(obj):
+        return type(obj)(**{
+            field.name: shadow_copy(getattr(obj, field.name))
+            for field in dataclasses.fields(obj)
+        })
     elif isinstance(obj, dict):
         return type(obj)((k, shadow_copy(v)) for k, v in obj.items())
     else:
@@ -257,6 +284,12 @@ def get_cuda_device_from_tensors(x):
     elif isinstance(x, (list, tuple)):
         for y in x:
             device = get_cuda_device_from_tensors(y)
+            if device is not None:
+                return device
+        return None
+    elif dataclasses.is_dataclass(x):
+        for k in dataclasses.fields(x):
+            device = get_cuda_device_from_tensors(getattr(x, k))
             if device is not None:
                 return device
         return None
