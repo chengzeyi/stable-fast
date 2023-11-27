@@ -24,11 +24,11 @@ def fetch_requirements():
 
 
 def get_version():
+    this_dir = path.dirname(path.abspath(__file__))
     if os.getenv("BUILD_VERSION"):  # In CI
         version = os.getenv("BUILD_VERSION")
     else:
-        version_file_path = path.join(path.abspath(path.dirname(__file__)),
-                                      "version.txt")
+        version_file_path = path.join(this_dir, "version.txt")
         version = open(version_file_path, "r").readlines()[0].strip()
 
     # The following is used to build release packages.
@@ -41,8 +41,7 @@ def get_version():
         date_str = datetime.today().strftime("%y%m%d")
         version = version + ".dev" + date_str
 
-    init_py_path = path.join(path.abspath(path.dirname(__file__)), "sfast",
-                             "__init__.py")
+    init_py_path = path.join(this_dir, "src", "sfast", "__init__.py")
     init_py = open(init_py_path, "r").readlines()
     new_init_py = [l for l in init_py if not l.startswith("__version__")]
     new_init_py.append('__version__ = "{}"\n'.format(version))
@@ -53,7 +52,8 @@ def get_version():
 
 def get_cuda_version(cuda_dir) -> int:
     nvcc_bin = "nvcc" if cuda_dir is None else cuda_dir + "/bin/nvcc"
-    raw_output = subprocess.check_output([nvcc_bin, "-V"], universal_newlines=True)
+    raw_output = subprocess.check_output([nvcc_bin, "-V"],
+                                         universal_newlines=True)
     output = raw_output.split()
     release_idx = output.index("release") + 1
     release = output[release_idx].split(".")
@@ -66,7 +66,7 @@ def get_cuda_version(cuda_dir) -> int:
 
 def get_extensions():
     this_dir = path.dirname(path.abspath(__file__))
-    extensions_dir = path.join(this_dir, "sfast", "csrc")
+    extensions_dir = path.join(this_dir, "src", "sfast", "csrc")
     include_dirs = [extensions_dir]
 
     sources = glob.glob(path.join(extensions_dir, "**", "*.cpp"),
@@ -139,7 +139,7 @@ def get_extensions():
                 "-Xcompiler",
                 "/Zc:preprocessor",
                 "-Xcompiler",
-                "/Zc:__cplusplus", # cannot call non-constexpr function "cutlass::const_min"
+                "/Zc:__cplusplus",  # cannot call non-constexpr function "cutlass::const_min"
             ]
 
         nvcc_flags_env = os.getenv("NVCC_FLAGS", "")
@@ -205,7 +205,10 @@ setup(
     description=
     "Stable Fast is an ultra lightweight performance optimization framework"
     " for Hugging Fase diffuser pipelines.",
-    packages=find_packages(exclude=("configs", "tests*")),
+    package_dir={
+        '': 'src',
+    },
+    packages=find_packages(where='src'),
     # include submodules in third_party
     python_requires=">=3.7",
     install_requires=fetch_requirements(),

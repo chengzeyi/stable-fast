@@ -1,7 +1,6 @@
 import logging
 import functools
 import threading
-import copy
 import dataclasses
 import torch
 import sfast
@@ -73,8 +72,8 @@ def make_graphed_callable(callable,
     torch.cuda.synchronize()
     with torch.cuda.stream(torch.cuda.Stream(device=execution_env.device)):
         for _ in range(3):
-            callable(*copy.deepcopy(example_inputs),
-                     **copy.deepcopy(example_kwarg_inputs))
+            callable(*tree_copy(example_inputs),
+                     **tree_copy(example_kwarg_inputs))
     torch.cuda.synchronize()
 
     if is_default_allocator:
@@ -86,8 +85,8 @@ def make_graphed_callable(callable,
                 with torch.cuda.graph(tmp_graph,
                                       pool=execution_env.mempool,
                                       stream=execution_env.stream):
-                    static_inputs_ = copy.deepcopy(example_inputs)
-                    static_kwarg_inputs_ = copy.deepcopy(example_kwarg_inputs)
+                    static_inputs_ = tree_copy(example_inputs)
+                    static_kwarg_inputs_ = tree_copy(example_kwarg_inputs)
 
         static_inputs = shadow_copy(static_inputs_)
         static_kwarg_inputs = shadow_copy(static_kwarg_inputs_)
@@ -96,8 +95,8 @@ def make_graphed_callable(callable,
         static_inputs_ = None
         static_kwarg_inputs_ = None
 
-        static_inputs = copy.deepcopy(example_inputs)
-        static_kwarg_inputs = copy.deepcopy(example_kwarg_inputs)
+        static_inputs = tree_copy(example_inputs)
+        static_kwarg_inputs = tree_copy(example_kwarg_inputs)
 
     fwd_graph = torch.cuda.CUDAGraph()
 
@@ -129,7 +128,7 @@ def make_graphed_callable(callable,
             def forward(self, *inputs, **kwarg_inputs):
                 with execution_env.lock:
                     outputs = self._forward(*inputs, **kwarg_inputs)
-                    outputs = copy.deepcopy(outputs)
+                    outputs = tree_copy(outputs)
                 return outputs
 
             def _forward(self, *inputs, **kwarg_inputs):
