@@ -1,10 +1,10 @@
 import logging
 import functools
 import threading
-import copy
 import torch
 from sfast.utils.flat_tensors import (convert_to_flat_tensors,
                                       convert_from_flat_tensors)
+from sfast.utils.copy import tree_copy
 from .utils import better_trace
 
 logger = logging.getLogger()
@@ -19,7 +19,7 @@ def trace_with_kwargs(func,
     if example_kwarg_inputs is None:
         example_kwarg_inputs = {}
     pos_args = convert_to_flat_tensors(
-        (copy.deepcopy(example_inputs), copy.deepcopy(example_kwarg_inputs)))
+        (tree_copy(example_inputs), tree_copy(example_kwarg_inputs)))
     traced_module = better_trace(TraceablePosArgOnlyModuleWrapper(func),
                                  pos_args, **kwargs)
     training = getattr(func, 'training', False) if isinstance(
