@@ -100,9 +100,10 @@ def compile(m, config):
             """
             if hasattr(m.vae, 'decode'):
                 m.vae.decode = lazy_trace_(m.vae.decode)
+            # Incompatible with AutoencoderKLOutput's latent_dist of type DiagonalGaussianDistribution
             # For img2img
-            if hasattr(m.vae, 'encode'):
-                m.vae.encode = lazy_trace_(m.vae.encode)
+            # if hasattr(m.vae, 'encode'):
+            #     m.vae.encode = lazy_trace_(m.vae.encode)
         if config.trace_scheduler:
             m.scheduler.scale_model_input = lazy_trace_(
                 m.scheduler.scale_model_input)
@@ -111,8 +112,8 @@ def compile(m, config):
     if enable_cuda_graph:
         if hasattr(m.vae, 'decode'):
             m.vae.decode = make_dynamic_graphed_callable(m.vae.decode)
-        if hasattr(m.vae, 'encode'):
-            m.vae.encode = make_dynamic_graphed_callable(m.vae.encode)
+        # if hasattr(m.vae, 'encode'):
+        #     m.vae.encode = make_dynamic_graphed_callable(m.vae.encode)
 
     return m
 

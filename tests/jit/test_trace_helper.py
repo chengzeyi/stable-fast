@@ -22,7 +22,7 @@ class ConvBiasAddActivation(torch.nn.Module):
         x = self.act(x)
         if beta_gamma is not None:
             x = x.add(beta_gamma[0], alpha=beta_gamma[1])
-        return x
+        return x if generator is None else x, torch.Generator()
 
 
 def test_trace_with_kwargs():
@@ -71,14 +71,15 @@ def test_lazy_trace():
         model = ConvBiasAddActivation(activation_cls=torch.nn.ReLU)
         model.eval()
 
-        model = lazy_trace(model)
-
         x = torch.ones(1, 1, 256, 256)
         y = torch.ones(1, 1, 254, 254)
         args = (x, )
         kwargs = dict(y=y, alpha=0.5, beta_gamma=(1, 0.5))
 
         out = model(*args, **kwargs)
+
+        model = lazy_trace(model)
+
         traced_out = model(*args, **kwargs)
 
         torch.testing.assert_allclose(out, traced_out)
@@ -89,8 +90,6 @@ def test_lazy_trace_with_generator():
         model = ConvBiasAddActivation(activation_cls=torch.nn.ReLU)
         model.eval()
 
-        model = lazy_trace(model)
-
         x = torch.ones(1, 1, 256, 256)
         y = torch.ones(1, 1, 254, 254)
         args = (x, )
@@ -99,7 +98,11 @@ def test_lazy_trace_with_generator():
                       beta_gamma=(1, 0.5),
                       generator=torch.Generator())
 
-        out = model(*args, **kwargs)
-        traced_out = model(*args, **kwargs)
+        out, g = model(*args, **kwargs)
+
+        model = lazy_trace(model, check_trace=False, strict=False)
+
+        traced_out, traced_g = model(*args, **kwargs)
+        # print(tuple(model._cached.values())[0].module.inlined_graph)
 
         torch.testing.assert_allclose(out, traced_out)

@@ -246,12 +246,44 @@ def unflatten_unknown(tensors, start):
     return restore_object_from_tensor(tensors[start]), start + 1
 
 
+class ObjectTensor(torch.Tensor):
+    _obj = None
+
+    @staticmethod
+    def __new__(cls, x, obj=None, *args, **kwargs):
+        return super().__new__(cls, x, *args, **kwargs)
+
+    def __init__(self, x, obj=None):
+        self._obj = obj
+
+    def clone(self, *args, **kwargs):
+        return ObjectTensor(super().clone(*args, **kwargs), self._obj)
+
+    def __deepcopy__(self, memo):
+        return ObjectTensor(super().__deepcopy__(memo),
+                            self._obj.__deepcopy__(memo))
+
+    def to(self, *args, **kwargs):
+        return ObjectTensor(super().to(*args, **kwargs), self._obj)
+
+    def __repr__(self):
+        return "ObjectTensor({})".format(self._obj)
+
+    def set_value(self, obj):
+        self._obj = obj
+
+    def get_value(self):
+        return self._obj
+
+
 def save_object_reference_in_tensor(obj):
-    return torch.tensor([id(obj)], dtype=torch.int64)
+    t = ObjectTensor([0], obj)
+    return t
 
 
 def restore_object_from_tensor(t):
-    return ctypes.cast(t.item(), ctypes.py_object).value
+    assert isinstance(t, ObjectTensor)
+    return t.get_value()
 
 
 # class ObjectStorationHelper(torch.autograd.Function):
