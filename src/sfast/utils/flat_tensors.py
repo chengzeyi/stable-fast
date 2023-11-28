@@ -246,31 +246,36 @@ def unflatten_unknown(tensors, start):
     return restore_object_from_tensor(tensors[start]), start + 1
 
 
-class ObjectStorationHelper(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, obj):
-        obj_id = id(obj)
-        return torch.tensor([obj_id], dtype=torch.int64)
-
-    @staticmethod
-    def backward(ctx, grad):
-        return None
+def save_object_reference_in_tensor(obj):
+    return torch.tensor([id(obj)], dtype=torch.int64)
 
 
-save_object_reference_in_tensor = ObjectStorationHelper.apply
+def restore_object_from_tensor(t):
+    return ctypes.cast(t.item(), ctypes.py_object).value
 
 
-class ObjectRestorationHelper(torch.autograd.Function):
+# class ObjectStorationHelper(torch.autograd.Function):
 
-    @staticmethod
-    def forward(ctx, t):
-        obj_id = t.item()
-        return ctypes.cast(obj_id, ctypes.py_object).value
+#     @staticmethod
+#     def forward(ctx, obj):
+#         obj_id = id(obj)
+#         return torch.tensor([obj_id], dtype=torch.int64)
 
-    @staticmethod
-    def backward(ctx, grad):
-        return None
+#     @staticmethod
+#     def backward(ctx, grad):
+#         return None
 
+# save_object_reference_in_tensor = ObjectStorationHelper.apply
 
-restore_object_from_tensor = ObjectRestorationHelper.apply
+# class ObjectRestorationHelper(torch.autograd.Function):
+
+#     @staticmethod
+#     def forward(ctx, t):
+#         obj_id = t.item()
+#         return ctypes.cast(obj_id, ctypes.py_object).value
+
+#     @staticmethod
+#     def backward(ctx, grad):
+#         return None
+
+# restore_object_from_tensor = ObjectRestorationHelper.apply

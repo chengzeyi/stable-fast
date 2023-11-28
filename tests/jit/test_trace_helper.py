@@ -15,7 +15,7 @@ class ConvBiasAddActivation(torch.nn.Module):
         self.act = activation_cls(
         ) if activation_cls is not None else torch.nn.Identity()
 
-    def forward(self, x, y=None, alpha=1.0, beta_gamma=None):
+    def forward(self, x, y=None, alpha=1.0, beta_gamma=None, generator=None):
         x = self.conv(x)
         if y is not None:
             x = x.add(y, alpha=alpha)
@@ -77,6 +77,27 @@ def test_lazy_trace():
         y = torch.ones(1, 1, 254, 254)
         args = (x, )
         kwargs = dict(y=y, alpha=0.5, beta_gamma=(1, 0.5))
+
+        out = model(*args, **kwargs)
+        traced_out = model(*args, **kwargs)
+
+        torch.testing.assert_allclose(out, traced_out)
+
+
+def test_lazy_trace_with_generator():
+    with torch.no_grad():
+        model = ConvBiasAddActivation(activation_cls=torch.nn.ReLU)
+        model.eval()
+
+        model = lazy_trace(model)
+
+        x = torch.ones(1, 1, 256, 256)
+        y = torch.ones(1, 1, 254, 254)
+        args = (x, )
+        kwargs = dict(y=y,
+                      alpha=0.5,
+                      beta_gamma=(1, 0.5),
+                      generator=torch.Generator())
 
         out = model(*args, **kwargs)
         traced_out = model(*args, **kwargs)
