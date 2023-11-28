@@ -223,9 +223,6 @@ setup(
             "opencv-python",
             "numpy",
         ],
-        "torch": [
-            "torch>=1.12.0",
-        ],
         "diffusers": [
             "diffusers>=0.19.0",
             "transformers",
