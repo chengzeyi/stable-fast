@@ -1,7 +1,6 @@
 import itertools
 import functools
 import dataclasses
-import ctypes
 import torch
 
 is_tracing = torch._C._is_tracing
@@ -267,7 +266,7 @@ class ObjectTensor(torch.Tensor):
         return ObjectTensor(super().to(*args, **kwargs), self._obj)
 
     def __repr__(self):
-        return "ObjectTensor({})".format(self._obj)
+        return 'ObjectTensor({})'.format(self._obj)
 
     def set_value(self, obj):
         self._obj = obj
