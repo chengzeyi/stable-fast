@@ -2,8 +2,7 @@ import logging
 import functools
 import threading
 import torch
-from sfast.utils.flat_tensors import (convert_to_flat_tensors,
-                                      convert_from_flat_tensors)
+from sfast.utils import flat_tensors
 from sfast.utils.copy import tree_copy
 from .utils import better_trace
 
@@ -18,7 +17,7 @@ def trace_with_kwargs(func,
         example_inputs = tuple()
     if example_kwarg_inputs is None:
         example_kwarg_inputs = {}
-    pos_args = convert_to_flat_tensors(
+    pos_args = flat_tensors.flattern(
         (tree_copy(example_inputs), tree_copy(example_kwarg_inputs)))
     traced_module = better_trace(TraceablePosArgOnlyModuleWrapper(func),
                                  pos_args, **kwargs)
@@ -110,9 +109,12 @@ class TracedPosArgOnlyModuleWrapper(torch.nn.Module):
         self.train(training)
 
     def forward(self, *args, **kwargs):
-        outputs = self.module(*convert_to_flat_tensors((args, kwargs)))
-        unflat_outputs = convert_from_flat_tensors(outputs)
+        outputs = self.module(*self.convert_inputs(*args, **kwargs))
+        unflat_outputs = flat_tensors.unflattern(outputs)
         return unflat_outputs
+
+    def convert_inputs(self, *args, **kwargs):
+        return flat_tensors.flattern((args, kwargs))
 
 
 class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
@@ -125,7 +127,7 @@ class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
         self.train(training)
 
     def forward(self, *args):
-        orig_args, orig_kwargs = convert_from_flat_tensors(args)
+        orig_args, orig_kwargs = flat_tensors.unflattern(args)
         outputs = self.module(*orig_args, **orig_kwargs)
-        flat_outputs = convert_to_flat_tensors(outputs)
+        flat_outputs = flat_tensors.flattern(outputs)
         return flat_outputs

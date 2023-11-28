@@ -8,12 +8,12 @@ is_tracing = torch._C._is_tracing
 
 
 # convert an arbitrary object to a tuple of tensors
-def convert_to_flat_tensors(obj):
+def flattern(obj):
     return flatten_obj(obj)
 
 
 # convert a tuple of tensors to an arbitrary object
-def convert_from_flat_tensors(tensors):
+def unflattern(tensors):
     # for sfast._C._jit_pass_erase_scalar_tensors
     tensors = tuple(t if isinstance(t, torch.Tensor) else torch.tensor([t])
                     for t in tensors)
