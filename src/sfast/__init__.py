@@ -25,7 +25,7 @@ except ImportError:
     print('''
 ***ERROR IMPORTING sfast._C***
 Unable to load stable-fast C extension.
-Is is compatible with your PyTorch installation?
+Is it compatible with your PyTorch installation?
 Or is it compatible with your CUDA version?
 ''')
     raise

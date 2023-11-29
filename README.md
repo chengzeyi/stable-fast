@@ -8,7 +8,13 @@
 And unlike `TensorRT` or `AITemplate`, which takes dozens of minutes to compile a model, `stable-fast` only takes a few seconds to compile a model.
 `stable-fast` also supports `dynamic shape`, `LoRA` and `ControlNet` out of the box.
 
-[![](https://mermaid.ink/img/pako:eNpFUk2PmzAQ_SsjS1EuQGyyEOBQqdL20EMvuxyqrvcwwACWwEbYbBMh_ntNUu0ebL15Hvm9-VhZbRpiBTscVqWVK2A9up5GOhZwbM1M1h032A4Hqa-3usfZhRU5lNopNxBIVqqRwCdCR5pmdEp3YDSBGrEj-KtcD6_PIKIkgETEV3884GAdTTbwmfBS_oYnnnHJvESIV2XhTbIP1GoYEJyZ616ywCvdYVSbcVIDPajvP0sapwHd_7gkbc38UkIe8Ug8OOuwGihs0TrJ3qW-PTQkG72AslQb3VjJgEMYfoOYcy611BXO8Cay_BKASAT3t0iyAPJceMjTyzsL2EjziKrxzVulht3h3jjJCg8rtLRXtPk8XJx5vemaFW5eKGDL1HjHzwq7GUdWtDjYT_ZHo3ydn-RgsCEfrszdpn1MnbLOf-lNt6rb-WUePN07N9nidNqfo843fan2Tp2savaZ9R95ekrjNMP4TOnljMn53NSVyLM2fhJtc-EiRrZtAZtQ_zHmyxXd_fx67Mh9VbZ_e8-0Qg?type=png)](https://mermaid.live/edit#pako:eNpFUk2PmzAQ_SsjS1EuQGyyEOBQqdL20EMvuxyqrvcwwACWwEbYbBMh_ntNUu0ebL15Hvm9-VhZbRpiBTscVqWVK2A9up5GOhZwbM1M1h032A4Hqa-3usfZhRU5lNopNxBIVqqRwCdCR5pmdEp3YDSBGrEj-KtcD6_PIKIkgETEV3884GAdTTbwmfBS_oYnnnHJvESIV2XhTbIP1GoYEJyZ616ywCvdYVSbcVIDPajvP0sapwHd_7gkbc38UkIe8Ug8OOuwGihs0TrJ3qW-PTQkG72AslQb3VjJgEMYfoOYcy611BXO8Cay_BKASAT3t0iyAPJceMjTyzsL2EjziKrxzVulht3h3jjJCg8rtLRXtPk8XJx5vemaFW5eKGDL1HjHzwq7GUdWtDjYT_ZHo3ydn-RgsCEfrszdpn1MnbLOf-lNt6rb-WUePN07N9nidNqfo843fan2Tp2savaZ9R95ekrjNMP4TOnljMn53NSVyLM2fhJtc-EiRrZtAZtQ_zHmyxXd_fx67Mh9VbZ_e8-0Qg)
+[![](https://mermaid.ink/img/pako:eNpFUk2PmzAQ_SsjS1EuQGyyJMChUqXtoYdedjlUXe9hgAEsgY1ss00U8d9rkmr3YOvN88jvzceNNaYlVrLd7qa08iXc9n6gifYl7Dtjyfn9CutuJ_Xl2gxofVyTR6m98iOBZJWaCEIi9KTJole6B6MJ1IQ9wV_lB3h9BpFkEWQivYQTAAfnaXZRyISX6jc88ZxLFiRivCgHb5J9oFbjiOCNbQbJoqB0h0ljplmN9KC-_6xomkf0_-OKtDP2pYIi4Yl4cM5jPVLcofOSvUt9fWhINgUB5agxunWSAYc4_gYp51xqqWu08Cby4hyByAQPt8jyCIpCBMjT4p1FbCI7oWpD825Sw-Zwa5xkZYA1OtoqWkMeLt68XnXDSm8Xitgyt8Hxs8Le4sTKDkf3yf5oVajzkxwNthTCG_PXeRtTr5wPXwbTneo3frFjoAfvZ1ceDttz0oemL_XWqYNT7Taz4aM4HU7pKcf0SKfzEbPjsW1qUeRd-iS69sxFimxdIzaj_mPMlyu6-_n12JH7qqz_AHnTtEA?type=png)](https://mermaid.live/edit#pako:eNpFUk2PmzAQ_SsjS1EuQGyyJMChUqXtoYdedjlUXe9hgAEsgY1ss00U8d9rkmr3YOvN88jvzceNNaYlVrLd7qa08iXc9n6gifYl7Dtjyfn9CutuJ_Xl2gxofVyTR6m98iOBZJWaCEIi9KTJole6B6MJ1IQ9wV_lB3h9BpFkEWQivYQTAAfnaXZRyISX6jc88ZxLFiRivCgHb5J9oFbjiOCNbQbJoqB0h0ljplmN9KC-_6xomkf0_-OKtDP2pYIi4Yl4cM5jPVLcofOSvUt9fWhINgUB5agxunWSAYc4_gYp51xqqWu08Cby4hyByAQPt8jyCIpCBMjT4p1FbCI7oWpD825Sw-Zwa5xkZYA1OtoqWkMeLt68XnXDSm8Xitgyt8Hxs8Le4sTKDkf3yf5oVajzkxwNthTCG_PXeRtTr5wPXwbTneo3frFjoAfvZ1ceDttz0oemL_XWqYNT7Taz4aM4HU7pKcf0SKfzEbPjsW1qUeRd-iS69sxFimxdIzaj_mPMlyu6-_n12JH7qqz_AHnTtEA)
+
+- vanilla torch: 1897 ms
+- torch.compile: 1510 ms
+- AITemplate: 1158 ms
+- TensorRT: 991 ms
+- __stable-fast: 1029 ms__
 
 - [🚀Stable Fast](#stable-fast)
   - [Introduction](#introduction)
@@ -277,7 +283,7 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | AUTO1111 WebUI (with SDPA)               | 24.5 it/s     | 26.1 it/s     | 4.3 it/s          |
 | TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested      | untested          |
 | TensorRT Official Demo                   | 52.6 it/s     | untested      | untested          |
-| __Stable Fast (with xformers & Triton)__ | __49.7 it/s__ | __52.5 it/s__ | __8.1 it/s__      |
+| __Stable Fast (with xformers & Triton)__ | __50.5 it/s__ | __53.3 it/s__ | __8.3 it/s__      |
 
 ### RTX 4090 (512x512, batch size 1, fp16, tcmalloc enabled)
 

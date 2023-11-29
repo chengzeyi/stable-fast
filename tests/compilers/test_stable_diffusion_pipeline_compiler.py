@@ -23,7 +23,7 @@ logger = logging.getLogger()
 
 basic_kwarg_inputs = dict(
     prompt=
-    '(masterpiece:1,2), best quality, masterpiece, best detail face, realistic, unreal engine, a beautiful girl',
+    '(masterpiece:1,2), best quality, masterpiece, best detailed face, realistic, unreal engine, a beautiful girl',
     height=512,
     width=512,
     num_inference_steps=30,
@@ -155,8 +155,8 @@ def test_benchmark_sdxl_model(sdxl_model_path, skip_comparsion=False):
     from diffusers import StableDiffusionXLPipeline
 
     kwarg_inputs = copy.deepcopy(basic_kwarg_inputs)
-    kwarg_inputs['height'] = 1024
-    kwarg_inputs['width'] = 1024
+    kwarg_inputs['height'] = 768
+    kwarg_inputs['width'] = 768
 
     benchmark_sd_model(
         sdxl_model_path,
@@ -168,6 +168,28 @@ def test_benchmark_sdxl_model(sdxl_model_path, skip_comparsion=False):
 
 def test_compile_sdxl_model(sdxl_model_path, skip_comparsion=True):
     test_benchmark_sdxl_model(sdxl_model_path, skip_comparsion=skip_comparsion)
+
+
+def test_benchmark_quantized_sdxl_model(sdxl_model_path,
+                                        skip_comparsion=False):
+    from diffusers import StableDiffusionXLPipeline
+
+    kwarg_inputs = copy.deepcopy(basic_kwarg_inputs)
+    kwarg_inputs['height'] = 768
+    kwarg_inputs['width'] = 768
+
+    benchmark_sd_model(
+        sdxl_model_path,
+        kwarg_inputs=kwarg_inputs,
+        model_class=StableDiffusionXLPipeline,
+        skip_comparsion=skip_comparsion,
+        quantize=True,
+    )
+
+
+def test_compile_quantized_sdxl_model(sdxl_model_path, skip_comparsion=True):
+    test_benchmark_quantized_sdxl_model(sdxl_model_path,
+                                        skip_comparsion=skip_comparsion)
 
 
 def test_compile_sd15_model_with_controlnet(sd15_model_path,

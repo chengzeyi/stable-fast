@@ -62,7 +62,7 @@ model = compile(model, config)
 
 kwarg_inputs = dict(
     prompt=
-    '(masterpiece:1,2), best quality, masterpiece, best detail face, a beautiful girl',
+    '(masterpiece:1,2), best quality, masterpiece, best detailed face, realistic, unreal engine, a beautiful girl',
     # NOTE: If you use SDXL, you should use a higher resolution to improve the generation quality.
     height=512,
     width=512,
