@@ -16,7 +16,7 @@ def _welford_combine(mean_1, m2_1, weight_1, mean_2, m2_2, weight_2):
     delta = mean_2 - mean_1
     new_weight = weight_1 + weight_2
     # w2_over_w = weight_2 / new_weight
-    w2_over_w = weight_2 / (new_weight + 1e-10)
+    w2_over_w = tl.where(new_weight == 0.0, 0.0, weight_2 / new_weight)
     return (
         mean_1 + delta * w2_over_w,
         m2_1 + m2_2 + delta * delta * weight_1 * w2_over_w,
@@ -55,11 +55,8 @@ def group_norm_4d_forward_kernel(
         x = tl.load(X + r, mask=r < GROUP_SIZE).to(tl.float32)
         m2_ = tl.zeros((BLOCK_SIZE, ), dtype=tl.float32)
         weight_ = (r < GROUP_SIZE).to(tl.float32)
-        if off == 0:
-            _mean, _m2, _weight = x, m2_, weight_
-        else:
-            _mean, _m2, _weight = _welford_combine(_mean, _m2, _weight, x, m2_,
-                                                   weight_)
+        _mean, _m2, _weight = _welford_combine(_mean, _m2, _weight, x, m2_,
+                                               weight_)
     mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, _welford_combine)
     var = m2 / weight
     rstd = 1. / tl.sqrt(var + eps)
@@ -109,7 +106,8 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
                        },
                        name=f'{kernel.__name__}_{act.__name__}')
     kernel = triton.heuristics({
-        'BLOCK_SIZE': lambda kwargs: 4096,
+        'BLOCK_SIZE':
+        lambda kwargs: min(4096, triton.next_power_of_2(kwargs['HxW'])),
     })(triton.jit(kernel))
     return kernel
 
@@ -120,7 +118,9 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
     lambda kwargs: triton.next_power_of_2(kwargs['C'] // kwargs['groups']),
     'BLOCK_SIZE':
     lambda kwargs: max(
-        1, 4096 // (triton.next_power_of_2(kwargs['C'] // kwargs['groups']))),
+        1, min(triton.next_power_of_2(kwargs['HxW']),
+               4096 // (triton.next_power_of_2(kwargs['C'] // kwargs['groups']))
+               )),
 })''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel(
@@ -153,21 +153,113 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel(
         weight_ = mask.to(tl.float32)
         x = tl.load(X + (r * C)[:, None] + row[None, :],
                     mask=mask).to(tl.float32)
-        if off == 0:
-            _mean, _m2, _weight = x, m2_, weight_
-        else:
-            _mean, _m2, _weight = _welford_combine(_mean, _m2, _weight, x, m2_,
-                                                   weight_)
+        _mean, _m2, _weight = _welford_combine(_mean, _m2, _weight, x, m2_,
+                                               weight_)
     _mean = tl.view(_mean, (BLOCK_SIZE * ROW_SIZE, ))
     _m2 = tl.view(_m2, (BLOCK_SIZE * ROW_SIZE, ))
     _weight = tl.view(_weight, (BLOCK_SIZE * ROW_SIZE, ))
     mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, _welford_combine)
     var = m2 / weight
     rstd = 1. / tl.sqrt(var + eps)
-    if mean_ptr is not None:
-        tl.store(mean_ptr + pid_batch * groups + group, mean)
-    if rstd_ptr is not None:
-        tl.store(rstd_ptr + pid_batch * groups + group, rstd)
+    offset = pid_batch * groups + group
+    tl.store(mean_ptr + offset, mean)
+    tl.store(rstd_ptr + offset, rstd)
+
+
+# Stupid: https://github.com/openai/triton/issues/1589
+@eval('''triton.heuristics({
+    'ROW_SIZE':
+    lambda kwargs: triton.next_power_of_2(kwargs['C'] // kwargs['groups']),
+    'BLOCK_SIZE':
+    lambda kwargs: max(
+        1, min(triton.next_power_of_2(kwargs['cluster_size']),
+               4096 // (triton.next_power_of_2(kwargs['C'] // kwargs['groups']))
+               )),
+})''')
+@triton.jit
+def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1(
+    input_ptr,
+    N,
+    C,
+    HxW,
+    groups,
+    cluster_size,
+    cluster_num,
+    cluster_mean_ptr,
+    cluster_m2_ptr,
+    cluster_weight_ptr,
+    ROW_SIZE: tl.constexpr,
+    BLOCK_SIZE: tl.constexpr,
+):
+    group = tl.program_id(0)
+    cluster = tl.program_id(1)
+    pid_batch = tl.program_id(2)
+
+    C_G = C // groups
+
+    offset = pid_batch * C * HxW + group * C_G
+    X = input_ptr + offset
+    _mean = tl.zeros((BLOCK_SIZE, ROW_SIZE), dtype=tl.float32)
+    _m2 = tl.zeros((BLOCK_SIZE, ROW_SIZE), dtype=tl.float32)
+    _weight = tl.zeros((BLOCK_SIZE, ROW_SIZE), dtype=tl.float32)
+    row = tl.arange(0, ROW_SIZE)
+    start = cluster * cluster_size
+    end = start + cluster_size
+    end = min(end, HxW)
+    for off in range(start, end, BLOCK_SIZE):
+        r = off + tl.arange(0, BLOCK_SIZE)
+        m2_ = tl.zeros((BLOCK_SIZE, ROW_SIZE), dtype=tl.float32)
+        mask = (r < end)[:, None] & (row[None, :] < C_G)
+        weight_ = mask.to(tl.float32)
+        x = tl.load(X + (r * C)[:, None] + row[None, :],
+                    mask=mask).to(tl.float32)
+        _mean, _m2, _weight = _welford_combine(_mean, _m2, _weight, x, m2_,
+                                               weight_)
+    _mean = tl.view(_mean, (BLOCK_SIZE * ROW_SIZE, ))
+    _m2 = tl.view(_m2, (BLOCK_SIZE * ROW_SIZE, ))
+    _weight = tl.view(_weight, (BLOCK_SIZE * ROW_SIZE, ))
+    mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, _welford_combine)
+    # var = m2 / weight
+    # rstd = 1. / tl.sqrt(var + eps)
+    offset = pid_batch * groups * cluster_num + group * cluster_num + cluster
+    tl.store(cluster_mean_ptr + offset, mean)
+    tl.store(cluster_m2_ptr + offset, m2)
+    tl.store(cluster_weight_ptr + offset, weight)
+
+
+@eval('''triton.heuristics({
+    'BLOCK_SIZE':
+    lambda kwargs: triton.next_power_of_2(kwargs['cluster_num']),
+})''')
+@triton.jit
+def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_2(
+    cluster_mean_ptr,
+    cluster_m2_ptr,
+    cluster_weight_ptr,
+    N,
+    groups,
+    cluster_num,
+    eps,
+    mean_ptr,
+    rstd_ptr,
+    BLOCK_SIZE: tl.constexpr,
+):
+    group = tl.program_id(0)
+    pid_batch = tl.program_id(1)
+
+    block = tl.arange(0, BLOCK_SIZE)
+    mask = block < cluster_num
+    offset = pid_batch * groups * cluster_num + group * cluster_num + block
+    cluster_mean = tl.load(cluster_mean_ptr + offset, mask=mask)
+    cluster_m2 = tl.load(cluster_m2_ptr + offset, mask=mask)
+    cluster_weight = tl.load(cluster_weight_ptr + offset, mask=mask)
+    mean, m2, weight = tl.reduce((cluster_mean, cluster_m2, cluster_weight), 0,
+                                 _welford_combine)
+    var = m2 / weight
+    rstd = 1. / tl.sqrt(var + eps)
+    offset = pid_batch * groups + group
+    tl.store(mean_ptr + offset, mean)
+    tl.store(rstd_ptr + offset, rstd)
 
 
 def group_norm_4d_channels_last_forward_apply_kernel(
@@ -237,7 +329,10 @@ def create_group_norm_4d_channels_last_forward_apply_kernel(
         'ROW_SIZE':
         lambda kwargs: triton.next_power_of_2(kwargs['C']),
         'BLOCK_SIZE':
-        lambda kwargs: max(1, 4096 // triton.next_power_of_2(kwargs['C'])),
+        lambda kwargs: max(
+            1,
+            min(triton.next_power_of_2(kwargs['HxW']), 4096 // triton.
+                next_power_of_2(kwargs['C']))),
     })(triton.jit(kernel))
     return kernel
 
@@ -273,6 +368,28 @@ def create_group_norm_forward(act=activation.identity):
             bias = bias.contiguous()
         memory_format = suggest_memory_format(input)
         if memory_format == torch.channels_last:
+            input = input.contiguous(memory_format=torch.channels_last)
+
+            # cluster_num = 32
+            # cluster_size = (H * W + cluster_num - 1) // cluster_num
+
+            # mean_cluster = torch.empty((N, num_groups, cluster_num),
+            #                            dtype=torch.float32,
+            #                            device=input.device)
+            # m2_cluster = torch.empty((N, num_groups, cluster_num),
+            #                          dtype=torch.float32,
+            #                          device=input.device)
+            # weight_cluster = torch.empty((N, num_groups, cluster_num),
+            #                              dtype=torch.float32,
+            #                              device=input.device)
+
+            # def grid(meta):
+            #     return (num_groups, cluster_num, N)
+
+            # group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1[
+            #     grid](input, N, C, H * W, num_groups, cluster_size,
+            #           cluster_num, mean_cluster, m2_cluster, weight_cluster)
+
             mean = torch.empty((
                 N,
                 num_groups,
@@ -286,14 +403,22 @@ def create_group_norm_forward(act=activation.identity):
                                dtype=input.dtype,
                                device=input.device)
 
-            input = input.contiguous(memory_format=torch.channels_last)
-            output = torch.empty_like(input)
+            # def grid(meta):
+            #     return (num_groups, N)
+
+            # group_norm_4d_channels_last_forward_collect_stats_kernel_stage_2[
+            #     grid](mean_cluster, m2_cluster, weight_cluster, N, num_groups,
+            #           cluster_num, eps, mean, rstd)
+
+            # del mean_cluster, m2_cluster, weight_cluster
 
             def grid(meta):
                 return (num_groups, N)
 
             group_norm_4d_channels_last_forward_collect_stats_kernel[grid](
                 input, N, C, H * W, num_groups, eps, mean, rstd)
+
+            output = torch.empty_like(input)
 
             def grid(meta):
                 return (triton.cdiv(H * W, meta['BLOCK_SIZE']), N)
