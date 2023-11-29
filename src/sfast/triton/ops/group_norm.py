@@ -196,27 +196,25 @@ def group_norm_4d_channels_last_forward_apply_kernel(
     group_row = tl.arange(0, ROW_SIZE)
     group_row = group_row // C_G
     group_mask = group_row < groups
-    mean = tl.load(mean_ptr + pid_batch * groups + group_row,
-                   mask=group_mask).to(tl.float32)
-    rstd = tl.load(rstd_ptr + pid_batch * groups + group_row,
-                   mask=group_mask).to(tl.float32)
+    mean = tl.load(mean_ptr + pid_batch * groups + group_row, mask=group_mask)
+    rstd = tl.load(rstd_ptr + pid_batch * groups + group_row, mask=group_mask)
     row = tl.arange(0, ROW_SIZE)
     mask = row < C
     if gamma_ptr is None:
-        gamma = tl.full((ROW_SIZE, ), 1., dtype=tl.float32)
+        gamma = tl.full((ROW_SIZE, ), 1., dtype=mean.dtype)
     else:
-        gamma = tl.load(gamma_ptr + row, mask=mask).to(tl.float32)
+        gamma = tl.load(gamma_ptr + row, mask=mask)
     if beta_ptr is None:
-        beta = tl.zeros((ROW_SIZE, ), dtype=tl.float32)
+        beta = tl.zeros((ROW_SIZE, ), dtype=mean.dtype)
     else:
-        beta = tl.load(beta_ptr + row, mask=mask).to(tl.float32)
+        beta = tl.load(beta_ptr + row, mask=mask)
     a = rstd * gamma
     b = beta - a * mean
     a = a[None, :]
     b = b[None, :]
     r = hw + tl.arange(0, BLOCK_SIZE)
     x = tl.load(X + (r * C)[:, None] + row[None, :],
-                mask=(r < HxW)[:, None] & mask[None, :]).to(tl.float32)
+                mask=(r < HxW)[:, None] & mask[None, :])
     x = a * x + b
     x = act(x)
     tl.store(Y + (r * C)[:, None] + row[None, :],
