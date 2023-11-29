@@ -16,8 +16,7 @@ def _welford_combine(mean_1, m2_1, weight_1, mean_2, m2_2, weight_2):
     delta = mean_2 - mean_1
     new_weight = weight_1 + weight_2
     # w2_over_w = weight_2 / new_weight
-    w2_over_w = (weight_2 + (new_weight == 0.).to(tl.float32)) * (
-        1. / (new_weight + (new_weight == 0.).to(tl.float32)))
+    w2_over_w = weight_2 / (new_weight + 1e-10)
     return (
         mean_1 + delta * w2_over_w,
         m2_1 + m2_2 + delta * delta * weight_1 * w2_over_w,
@@ -187,38 +186,42 @@ def group_norm_4d_channels_last_forward_apply_kernel(
     BLOCK_SIZE: tl.constexpr,
 ):
     hw = tl.program_id(0) * BLOCK_SIZE
-    group = tl.program_id(1)
-    pid_batch = tl.program_id(2)
+    pid_batch = tl.program_id(1)
 
     C_G = C // groups
 
     offset = pid_batch * C * HxW
     X = input_ptr + offset
     Y = output_ptr + offset
-    mean = tl.load(mean_ptr + pid_batch * groups + group).to(tl.float32)
-    rstd = tl.load(rstd_ptr + pid_batch * groups + group).to(tl.float32)
+    group_row = tl.arange(0, ROW_SIZE)
+    group_row = group_row // C_G
+    group_mask = group_row < groups
+    mean = tl.load(mean_ptr + pid_batch * groups + group_row,
+                   mask=group_mask).to(tl.float32)
+    rstd = tl.load(rstd_ptr + pid_batch * groups + group_row,
+                   mask=group_mask).to(tl.float32)
     row = tl.arange(0, ROW_SIZE)
-    ch = group * C_G + row
+    mask = row < C
     if gamma_ptr is None:
         gamma = tl.full((ROW_SIZE, ), 1., dtype=tl.float32)
     else:
-        gamma = tl.load(gamma_ptr + ch, mask=row < C_G).to(tl.float32)
+        gamma = tl.load(gamma_ptr + row, mask=mask).to(tl.float32)
     if beta_ptr is None:
         beta = tl.zeros((ROW_SIZE, ), dtype=tl.float32)
     else:
-        beta = tl.load(beta_ptr + ch, mask=ch < C).to(tl.float32)
+        beta = tl.load(beta_ptr + row, mask=mask).to(tl.float32)
     a = rstd * gamma
     b = beta - a * mean
     a = a[None, :]
     b = b[None, :]
     r = hw + tl.arange(0, BLOCK_SIZE)
-    x = tl.load(X + (r * C)[:, None] + ch[None, :],
-                mask=(r < HxW)[:, None] & (row < C_G)[None, :]).to(tl.float32)
+    x = tl.load(X + (r * C)[:, None] + row[None, :],
+                mask=(r < HxW)[:, None] & mask[None, :]).to(tl.float32)
     x = a * x + b
     x = act(x)
-    tl.store(Y + (r * C)[:, None] + ch[None, :],
+    tl.store(Y + (r * C)[:, None] + row[None, :],
              x,
-             mask=(r < HxW)[:, None] & (row < C_G)[None, :])
+             mask=(r < HxW)[:, None] & mask[None, :])
 
 
 def create_group_norm_4d_channels_last_forward_apply_kernel(
@@ -234,11 +237,9 @@ def create_group_norm_4d_channels_last_forward_apply_kernel(
                        name=f'{kernel.__name__}_{act.__name__}')
     kernel = triton.heuristics({
         'ROW_SIZE':
-        lambda kwargs: triton.next_power_of_2(kwargs['C'] // kwargs['groups']),
+        lambda kwargs: triton.next_power_of_2(kwargs['C']),
         'BLOCK_SIZE':
-        lambda kwargs: max(
-            1, 4096 //
-            (triton.next_power_of_2(kwargs['C'] // kwargs['groups']))),
+        lambda kwargs: max(1, 4096 // triton.next_power_of_2(kwargs['C'])),
     })(triton.jit(kernel))
     return kernel
 
@@ -297,7 +298,7 @@ def create_group_norm_forward(act=activation.identity):
                 input, N, C, H * W, num_groups, eps, mean, rstd)
 
             def grid(meta):
-                return (triton.cdiv(H * W, meta['BLOCK_SIZE']), num_groups, N)
+                return (triton.cdiv(H * W, meta['BLOCK_SIZE']), N)
 
             group_norm_4d_channels_last_forward_apply_kernel[grid](
                 input, weight, bias, mean, rstd, N, C, H * W, num_groups, eps,
