@@ -10,11 +10,9 @@ And unlike `TensorRT` or `AITemplate`, which takes dozens of minutes to compile 
 
 [![](https://mermaid.ink/img/pako:eNpFUk2PmzAQ_SsjS1EuQGyyJMChUqXtoYdedjlUXe9hgAEsgY1ss00U8d9rkmr3YOvN88jvzceNNaYlVrLd7qa08iXc9n6gifYl7Dtjyfn9CutuJ_Xl2gxofVyTR6m98iOBZJWaCEIi9KTJole6B6MJ1IQ9wV_lB3h9BpFkEWQivYQTAAfnaXZRyISX6jc88ZxLFiRivCgHb5J9oFbjiOCNbQbJoqB0h0ljplmN9KC-_6xomkf0_-OKtDP2pYIi4Yl4cM5jPVLcofOSvUt9fWhINgUB5agxunWSAYc4_gYp51xqqWu08Cby4hyByAQPt8jyCIpCBMjT4p1FbCI7oWpD825Sw-Zwa5xkZYA1OtoqWkMeLt68XnXDSm8Xitgyt8Hxs8Le4sTKDkf3yf5oVajzkxwNthTCG_PXeRtTr5wPXwbTneo3frFjoAfvZ1ceDttz0oemL_XWqYNT7Taz4aM4HU7pKcf0SKfzEbPjsW1qUeRd-iS69sxFimxdIzaj_mPMlyu6-_n12JH7qqz_AHnTtEA?type=png)](https://mermaid.live/edit#pako:eNpFUk2PmzAQ_SsjS1EuQGyyJMChUqXtoYdedjlUXe9hgAEsgY1ss00U8d9rkmr3YOvN88jvzceNNaYlVrLd7qa08iXc9n6gifYl7Dtjyfn9CutuJ_Xl2gxofVyTR6m98iOBZJWaCEIi9KTJole6B6MJ1IQ9wV_lB3h9BpFkEWQivYQTAAfnaXZRyISX6jc88ZxLFiRivCgHb5J9oFbjiOCNbQbJoqB0h0ljplmN9KC-_6xomkf0_-OKtDP2pYIi4Yl4cM5jPVLcofOSvUt9fWhINgUB5agxunWSAYc4_gYp51xqqWu08Cby4hyByAQPt8jyCIpCBMjT4p1FbCI7oWpD825Sw-Zwa5xkZYA1OtoqWkMeLt68XnXDSm8Xitgyt8Hxs8Le4sTKDkf3yf5oVajzkxwNthTCG_PXeRtTr5wPXwbTneo3frFjoAfvZ1ceDttz0oemL_XWqYNT7Taz4aM4HU7pKcf0SKfzEbPjsW1qUeRd-iS69sxFimxdIzaj_mPMlyu6-_n12JH7qqz_AHnTtEA)
 
-- vanilla torch: 1897 ms
-- torch.compile: 1510 ms
-- AITemplate: 1158 ms
-- TensorRT: 991 ms
-- __stable-fast: 1029 ms__
+| Framework | vanilla torch | torch.compile | AITemplate | TensorRT | __stable-fast__ |
+| --------- | ------------- | ------------- | ---------- | -------- | --------------- |
+| Time      | 1897 ms       | 1510 ms       | 1158 ms    | 991 ms   | __1029 ms__     |
 
 - [🚀Stable Fast](#stable-fast)
   - [Introduction](#introduction)
