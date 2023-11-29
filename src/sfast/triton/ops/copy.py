@@ -12,6 +12,9 @@ from itertools import product
     'BATCH_STRIDE_OUT_IS_1': lambda kwargs: kwargs['batch_stride_out'] == 1,
     'STRIDE_OUT_0_IS_1': lambda kwargs: kwargs['stride_out_0'] == 1,
 })''')
+@eval('''triton.heuristics({
+    'num_warps': lambda kwargs: max(1, min(16, kwargs['BLOCK_M'] // 32)),
+})''')
 @triton.jit(do_not_specialize=[4])
 def copy_2d_kernel(
     output_ptr,
@@ -54,6 +57,9 @@ def copy_2d_kernel(
     'BATCH_STRIDE_OUT_IS_1': lambda kwargs: kwargs['batch_stride_out'] == 1,
     'STRIDE_OUT_0_IS_1': lambda kwargs: kwargs['stride_out_0'] == 1,
     'STRIDE_OUT_1_IS_1': lambda kwargs: kwargs['stride_out_1'] == 1,
+})''')
+@eval('''triton.heuristics({
+    'num_warps': lambda kwargs: max(1, min(16, kwargs['BLOCK_M'] * kwargs['BLOCK_N'] // 32)),
 })''')
 @triton.jit(do_not_specialize=[5])
 def copy_3d_kernel(
@@ -113,6 +119,9 @@ def copy_3d_kernel(
     'STRIDE_OUT_0_IS_1': lambda kwargs: kwargs['stride_out_0'] == 1,
     'STRIDE_OUT_1_IS_1': lambda kwargs: kwargs['stride_out_1'] == 1,
     'STRIDE_OUT_2_IS_1': lambda kwargs: kwargs['stride_out_2'] == 1,
+})''')
+@eval('''triton.heuristics({
+    'num_warps': lambda kwargs: max(1, min(16, kwargs['BLOCK_M'] * kwargs['BLOCK_N'] * kwargs['BLOCK_K'] // 32)),
 })''')
 @triton.jit(do_not_specialize=[6])
 def copy_4d_kernel(

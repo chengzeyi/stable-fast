@@ -108,7 +108,10 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
     kernel = triton.heuristics({
         'BLOCK_SIZE':
         lambda kwargs: min(4096, triton.next_power_of_2(kwargs['HxW'])),
-    })(triton.jit(kernel))
+    })(triton.heuristics({
+        'num_warps':
+        lambda kwargs: max(1, min(16, kwargs['HxW'] // 32)),
+    })(triton.jit(kernel)))
     return kernel
 
 
@@ -121,6 +124,10 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
         1, min(triton.next_power_of_2(kwargs['HxW']),
                4096 // (triton.next_power_of_2(kwargs['C'] // kwargs['groups']))
                )),
+})''')
+@eval('''triton.heuristics({
+    'num_warps':
+    lambda kwargs: max(1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 32)),
 })''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel(
@@ -176,6 +183,10 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel(
                4096 // (triton.next_power_of_2(kwargs['C'] // kwargs['groups']))
                )),
 })''')
+@eval('''triton.heuristics({
+    'num_warps':
+    lambda kwargs: max(1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 32)),
+})''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1(
     input_ptr,
@@ -230,6 +241,10 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1(
 @eval('''triton.heuristics({
     'BLOCK_SIZE':
     lambda kwargs: triton.next_power_of_2(kwargs['cluster_num']),
+})''')
+@eval('''triton.heuristics({
+    'num_warps':
+    lambda kwargs: max(1, min(16, kwargs['BLOCK_SIZE'] // 32)),
 })''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_2(
@@ -333,7 +348,11 @@ def create_group_norm_4d_channels_last_forward_apply_kernel(
             1,
             min(triton.next_power_of_2(kwargs['HxW']), 4096 // triton.
                 next_power_of_2(kwargs['C']))),
-    })(triton.jit(kernel))
+    })(triton.heuristics({
+        'num_warps':
+        lambda kwargs: max(
+            1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 32)),
+    })(triton.jit(kernel)))
     return kernel
 
 
