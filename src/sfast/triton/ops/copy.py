@@ -15,7 +15,7 @@ from itertools import product
 @eval('''triton.heuristics({
     'num_warps': lambda kwargs: max(1, min(16, kwargs['BLOCK_M'] // 32)),
 })''')
-@triton.jit(do_not_specialize=[4])
+@triton.jit
 def copy_2d_kernel(
     output_ptr,
     input_ptr,
@@ -61,7 +61,7 @@ def copy_2d_kernel(
 @eval('''triton.heuristics({
     'num_warps': lambda kwargs: max(1, min(16, kwargs['BLOCK_M'] * kwargs['BLOCK_N'] // 32)),
 })''')
-@triton.jit(do_not_specialize=[5])
+@triton.jit
 def copy_3d_kernel(
     output_ptr,
     input_ptr,
@@ -123,7 +123,7 @@ def copy_3d_kernel(
 @eval('''triton.heuristics({
     'num_warps': lambda kwargs: max(1, min(16, kwargs['BLOCK_M'] * kwargs['BLOCK_N'] * kwargs['BLOCK_K'] // 32)),
 })''')
-@triton.jit(do_not_specialize=[6])
+@triton.jit
 def copy_4d_kernel(
     output_ptr,
     input_ptr,

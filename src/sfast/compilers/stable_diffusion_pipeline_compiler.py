@@ -132,7 +132,10 @@ def compile_unet(m, config):
         m.to(memory_format=config.memory_format)
 
     if config.enable_jit:
-        lazy_trace_ = _build_lazy_trace(config, enable_triton_reshape=True)
+        lazy_trace_ = _build_lazy_trace(
+            config,
+            enable_triton_reshape=True,
+        )
         m.forward = lazy_trace_(m.forward)
 
     if enable_cuda_graph:
