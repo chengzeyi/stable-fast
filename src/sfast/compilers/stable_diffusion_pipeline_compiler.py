@@ -251,6 +251,11 @@ def _enable_xformers(m):
 
     if hasattr(m, 'enable_xformers_memory_efficient_attention'):
         m.enable_xformers_memory_efficient_attention()
+
+        if isinstance(m, torch.nn.Module):
+            from sfast.libs.diffusers.xformers_attention import patch_all_attention_modules
+
+            patch_all_attention_modules(m)
     else:
         logger.warning(
             'enable_xformers_memory_efficient_attention() is not available.'
