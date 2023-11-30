@@ -6,12 +6,18 @@ Dynamic code generation is usually the cause for slow compilation.
 You could disable features related to it to speed up compilation.
 But this might slow down your inference.
 
-Disable JIT optimized execution.
+Disable JIT optimized execution (fusion).
 
 ```python
 # Wrap your code in this context manager
 with torch.jit.optimized_execution(False):
     # Do your things
+```
+
+Or disable it globally.
+
+```python
+torch.jit.set_fusion_strategy([('STATIC', 2), ('DYNAMIC', 2)]
 ```
 
 Disable Triton.
