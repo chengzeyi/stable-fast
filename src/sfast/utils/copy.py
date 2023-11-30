@@ -19,7 +19,7 @@ def tree_copy_(dest, src):
         for k in dest:
             tree_copy_(dest[k], src[k])
     else:
-        assert dest == src
+        assert type(dest) == type(src)
 
 
 def tree_copy(src):
