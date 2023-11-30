@@ -88,7 +88,12 @@ def compile(m, config):
     if config.enable_jit:
         lazy_trace_ = _build_lazy_trace(config)
 
-        m.text_encoder.forward = lazy_trace_(m.text_encoder.forward)
+        # SVD doesn't have a text encoder
+        if hasattr(m, 'text_encoder'):
+            m.text_encoder.forward = lazy_trace_(m.text_encoder.forward)
+        else:
+            # TODO: optimize image encoder
+            pass
         if (not packaging.version.parse('2.0.0') <= packaging.version.parse(
                 torch.__version__) < packaging.version.parse('2.1.0')):
             """
