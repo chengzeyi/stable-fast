@@ -120,6 +120,10 @@ def compile(m, config):
         # if hasattr(m.vae, 'encode'):
         #     m.vae.encode = make_dynamic_graphed_callable(m.vae.encode)
 
+    if hasattr(m, 'image_processor'):
+        from sfast.libs.diffusers.image_processor import patch_image_prcessor
+        patch_image_prcessor(m.image_processor)
+
     return m
 
 
@@ -252,8 +256,7 @@ def _build_lazy_trace(config, enable_triton_reshape=False):
 
 def _enable_xformers(m):
     from xformers import ops
-    from sfast.utils.xformers_attention import (
-        xformers_memory_efficient_attention, )
+    from sfast.libs.xformers.xformers_attention import xformers_memory_efficient_attention
 
     ops.memory_efficient_attention = xformers_memory_efficient_attention
 
