@@ -86,3 +86,15 @@ graph(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled):
 graph(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled):
     %y : Tensor = sfast_triton::group_norm_silu(%input, %num_groups, %weight, %bias, %eps)
     return (%y)''', graph)
+
+
+def jit_pass_optimize_layer_norm(graph):
+    if hasattr(torch.ops.sfast_triton, 'layer_norm'):
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%input, %normalized_shape, %weight, %bias, %eps, %cudnn_enabled):
+    %output : Tensor = aten::layer_norm(%input, %normalized_shape, %weight, %bias, %eps, %cudnn_enabled)
+    return (%output)''', '''
+graph(%input, %normalized_shape, %weight, %bias, %eps, %cudnn_enabled):
+    %output : Tensor = sfast_triton::layer_norm(%input, %normalized_shape, %weight, %bias, %eps)
+    return (%output)''', graph)

@@ -3,6 +3,7 @@ import sfast
 from sfast.utils.custom_python_operator import register_custom_python_operator
 from .ops.copy import copy
 from .ops.group_norm import (group_norm_forward, group_norm_silu_forward)
+from .ops.layer_norm import LayerNorm as TritonLayerNorm
 from .ops.conv import conv_forward
 
 aten = torch.ops.aten
@@ -62,7 +63,8 @@ def constuct_triton_clone_torch_op():
 
 clone = constuct_triton_clone_torch_op()
 register_custom_python_operator(
-    'sfast_triton::clone(Tensor a, MemoryFormat memory_format) -> Tensor', clone)
+    'sfast_triton::clone(Tensor a, MemoryFormat memory_format) -> Tensor',
+    clone)
 
 
 def construct_triton_reshape_torch_op():
@@ -161,7 +163,7 @@ def construct_triton_group_norm_torch_op():
 
 group_norm = construct_triton_group_norm_torch_op()
 register_custom_python_operator(
-    'sfast_triton::group_norm(Tensor input, int num_groups, Tensor weight, Tensor bias, float eps) -> Tensor',
+    'sfast_triton::group_norm(Tensor input, int num_groups, Tensor? weight, Tensor? bias, float eps) -> Tensor',
     group_norm)
 
 
@@ -228,8 +230,25 @@ def construct_triton_group_norm_silu_torch_op():
 
 group_norm_silu = construct_triton_group_norm_silu_torch_op()
 register_custom_python_operator(
-    'sfast_triton::group_norm_silu(Tensor input, int num_groups, Tensor weight, Tensor bias, float eps) -> Tensor',
+    'sfast_triton::group_norm_silu(Tensor input, int num_groups, Tensor? weight, Tensor? bias, float eps) -> Tensor',
     group_norm_silu)
+
+
+def construct_triton_layer_norm_torch_op():
+
+    def layer_norm(input, normalized_shape, weight=None, bias=None, eps=1e-05):
+        if input.device.type != 'cuda':
+            return aten.layer_norm(input, normalized_shape, weight, bias, eps)
+        return TritonLayerNorm.apply(input, normalized_shape, weight, bias,
+                                     eps)
+
+    return layer_norm
+
+
+layer_norm = construct_triton_layer_norm_torch_op()
+register_custom_python_operator(
+    'sfast_triton::layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> Tensor',
+    layer_norm)
 
 
 def construct__convolution_torch_op():

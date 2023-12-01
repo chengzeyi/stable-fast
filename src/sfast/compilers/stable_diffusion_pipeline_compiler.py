@@ -143,7 +143,8 @@ def compile_unet(m, config):
     if config.enable_jit:
         lazy_trace_ = _build_lazy_trace(
             config,
-            enable_triton_reshape=True,
+            enable_triton_reshape=enable_cuda_graph,
+            enable_triton_layer_norm=enable_cuda_graph,
         )
         m.forward = lazy_trace_(m.forward)
 
@@ -159,6 +160,7 @@ def _modify_model(
     prefer_lowp_gemm=True,
     enable_triton=False,
     enable_triton_reshape=False,
+    enable_triton_layer_norm=False,
     memory_format=None,
 ):
     if enable_triton:
@@ -185,6 +187,9 @@ def _modify_model(
 
         triton_passes.jit_pass_fuse_group_norm_silu(m.graph)
         triton_passes.jit_pass_optimize_group_norm(m.graph)
+
+        # if enable_triton_layer_norm:
+        #     triton_passes.jit_pass_optimize_layer_norm(m.graph)
 
     passes.jit_pass_optimize_linear(m.graph)
 
@@ -225,13 +230,16 @@ def _ts_compiler(
     return m
 
 
-def _build_lazy_trace(config, enable_triton_reshape=False):
+def _build_lazy_trace(config,
+                      enable_triton_reshape=False,
+                      enable_triton_layer_norm=False):
     modify_model = functools.partial(
         _modify_model,
         enable_cnn_optimization=config.enable_cnn_optimization,
         prefer_lowp_gemm=config.prefer_lowp_gemm,
         enable_triton=config.enable_triton,
         enable_triton_reshape=enable_triton_reshape,
+        enable_triton_layer_norm=enable_triton_layer_norm,
         memory_format=config.memory_format,
     )
 
