@@ -1,4 +1,5 @@
 import logging
+import inspect
 import functools
 import threading
 import torch
@@ -48,8 +49,14 @@ def lazy_trace(func, *, ts_compiler=None, **kwargs_):
                     traced_m, call_helper = trace_with_kwargs(
                         module_to_be_traced, args, kwargs, **kwargs_)
                     if ts_compiler is not None:
-                        traced_m = ts_compiler(traced_m, call_helper, args,
-                                               kwargs)
+                        if 'call_helper' in inspect.signature(
+                                ts_compiler).parameters:
+                            traced_m = ts_compiler(traced_m, call_helper, args,
+                                                   kwargs)
+                        else:
+                            converted_args = call_helper(
+                                traced_m).convert_inputs(args, kwargs)
+                            traced_m = ts_compiler(traced_m, converted_args)
                     traced_module = call_helper(traced_m)
                     traced_modules[key] = traced_module
         return traced_module(*args, **kwargs)
@@ -109,11 +116,11 @@ class TracedPosArgOnlyModuleWrapper(torch.nn.Module):
         self.train(training)
 
     def forward(self, *args, **kwargs):
-        outputs = self.module(*self.convert_inputs(*args, **kwargs))
+        outputs = self.module(*self.convert_inputs(args, kwargs))
         unflat_outputs = flat_tensors.unflattern(outputs)
         return unflat_outputs
 
-    def convert_inputs(self, *args, **kwargs):
+    def convert_inputs(self, args, kwargs):
         return flat_tensors.flattern((args, kwargs))
 
 

@@ -205,9 +205,7 @@ def _modify_model(
 
 def _ts_compiler(
     m,
-    call_helper,
     inputs,
-    kwarg_inputs,
     modify_model_fn=None,
     freeze=False,
     preserve_parameters=False,
