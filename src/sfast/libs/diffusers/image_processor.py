@@ -66,6 +66,11 @@ def postprocess(
     #     return self.numpy_to_pil(image)
 
 
+@torch.jit.script
+def _pt_to_numpy_pre(images):
+    return images.permute(0, 2, 3, 1).contiguous().float().cpu()
+
+
 @staticmethod
 def pt_to_numpy(images: torch.FloatTensor) -> np.ndarray:
     """
@@ -73,7 +78,14 @@ def pt_to_numpy(images: torch.FloatTensor) -> np.ndarray:
     """
     # images = images.cpu().permute(0, 2, 3, 1).float().numpy()
     # return images
-    return images.permute(0, 2, 3, 1).contiguous().float().cpu().numpy()
+    return _pt_to_numpy_pre(images).numpy()
+
+
+@torch.jit.script
+def _pt_to_pil_pre(images):
+    return images.permute(
+        0, 2, 3,
+        1).contiguous().float().mul(255).round().to(dtype=torch.uint8).cpu()
 
 
 @staticmethod
@@ -84,9 +96,7 @@ def pt_to_pil(images: np.ndarray) -> PIL.Image.Image:
     if images.ndim == 3:
         images = images[None, ...]
     # images = (images * 255).round().astype("uint8")
-    images = images.permute(0, 2, 3,
-                            1).contiguous().float().mul(255).round().to(
-                                dtype=torch.uint8).cpu().numpy()
+    images = _pt_to_pil_pre(images).numpy()
     if images.shape[-1] == 1:
         # special case for grayscale (single channel) images
         pil_images = [

@@ -115,6 +115,9 @@ def compile(m, config):
             m.scheduler.step = lazy_trace_(m.scheduler.step)
 
     if enable_cuda_graph:
+        if hasattr(m, 'text_encoder'):
+            m.text_encoder.forward = make_dynamic_graphed_callable(
+                m.text_encoder.forward)
         if hasattr(m.vae, 'decode'):
             m.vae.decode = make_dynamic_graphed_callable(m.vae.decode)
         # if hasattr(m.vae, 'encode'):
@@ -188,8 +191,8 @@ def _modify_model(
         triton_passes.jit_pass_fuse_group_norm_silu(m.graph)
         triton_passes.jit_pass_optimize_group_norm(m.graph)
 
-        # if enable_triton_layer_norm:
-        #     triton_passes.jit_pass_optimize_layer_norm(m.graph)
+        if enable_triton_layer_norm:
+            triton_passes.jit_pass_optimize_layer_norm(m.graph)
 
     passes.jit_pass_optimize_linear(m.graph)
 
