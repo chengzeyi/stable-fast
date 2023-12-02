@@ -219,7 +219,7 @@ def hash_arg(arg):
         return tuple(
             sorted(((hash_arg(k), hash_arg(v)) for k, v in arg.items()),
                    key=lambda x: x[0]))
-    return None
+    return type(arg)
 
 
 def get_cuda_device_from_tensors(x):
