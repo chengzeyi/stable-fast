@@ -35,6 +35,8 @@ class CompilationConfig:
             However, if parameters are not preserved, LoRA cannot be switched dynamically.
         enable_cnn_optimization:
             Whether to enable CNN optimization by fusion.
+        enable_fused_linear_geglu:
+            Whether to enable fused Linear-GEGLU kernel.
         prefer_lowp_gemm:
             Whether to prefer low-precision GEMM and a series of fusion optimizations.
             This will make the model faster, but may cause numerical issues.
@@ -61,6 +63,7 @@ class CompilationConfig:
         enable_jit_freeze: bool = True
         preserve_parameters: bool = True
         enable_cnn_optimization: bool = True
+        enable_fused_linear_geglu = True
         prefer_lowp_gemm: bool = True
         enable_xformers: bool = False
         enable_cuda_graph: bool = False
@@ -160,6 +163,7 @@ def compile_unet(m, config):
 def _modify_model(
     m,
     enable_cnn_optimization=True,
+    enable_fused_linear_geglu=True,
     prefer_lowp_gemm=True,
     enable_triton=False,
     enable_triton_reshape=False,
@@ -191,8 +195,11 @@ def _modify_model(
         triton_passes.jit_pass_fuse_group_norm_silu(m.graph)
         triton_passes.jit_pass_optimize_group_norm(m.graph)
 
-        if enable_triton_layer_norm:
-            triton_passes.jit_pass_optimize_layer_norm(m.graph)
+        # if enable_triton_layer_norm:
+        #     triton_passes.jit_pass_optimize_layer_norm(m.graph)
+
+    if enable_fused_linear_geglu:
+        passes.jit_pass_fuse_linear_geglu(m.graph)
 
     passes.jit_pass_optimize_linear(m.graph)
 
@@ -239,6 +246,7 @@ def _build_lazy_trace(config,
     modify_model = functools.partial(
         _modify_model,
         enable_cnn_optimization=config.enable_cnn_optimization,
+        enable_fused_linear_geglu=config.enable_fused_linear_geglu,
         prefer_lowp_gemm=config.prefer_lowp_gemm,
         enable_triton=config.enable_triton,
         enable_triton_reshape=enable_triton_reshape,

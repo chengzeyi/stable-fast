@@ -634,3 +634,19 @@ graph(%1, %2, %3, %4):
 graph(%1, %2, %3, %4):
     %y : Tensor = sfast::linear_gelu(%1, %2, %3)
     return (%y)''', graph)
+
+
+def jit_pass_fuse_linear_geglu(graph):
+    if hasattr(torch.ops.sfast, 'cutlass_linear_geglu_unified'):
+        torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+            '''
+graph(%input, %weight, %bias, %chunks, %dim, %approximate):
+    %x : Tensor = aten::linear(%input, %weight, %bias)
+    %y : Tensor[] = aten::chunk(%x, %chunks, %dim)
+    %hidden_states: Tensor, %gate : Tensor = prim::ListUnpack(%y)
+    %z : Tensor = aten::gelu(%gate, %approximate)
+    %output : Tensor = aten::mul(%hidden_states, %z)
+    return (%output)''', '''
+graph(%input, %weight, %bias, %chunks, %dim, %approximate):
+    %output : Tensor = sfast::cutlass_linear_geglu_unified(%input, %weight, %bias)
+    return (%output)''', graph)

@@ -5,6 +5,7 @@
 #include "operators/cudnn/cudnn_convolution.h"
 #include "operators/cublas/cublas_gemm.h"
 #include "operators/cutlass/cutlass_qlinear.h"
+#include "operators/cutlass/cutlass_dual_linear.h"
 #include "operators/fused_linear.h"
 
 using namespace sfast;
@@ -18,5 +19,6 @@ TORCH_LIBRARY(sfast, m) {
   operators::initCUDNNConvolutionBindings(m);
   operators::initCUBLASGEMMBindings(m);
   operators::initCutlassQLinearBindings(m);
+  operators::initCutlassDualLinearBindings(m);
   operators::initFusedLinearBindings(m);
 }

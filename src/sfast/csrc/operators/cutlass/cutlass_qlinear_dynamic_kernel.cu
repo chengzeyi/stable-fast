@@ -42,9 +42,12 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
       cutlass::gemm::GemmShape<64, 64, 64>, cutlass::gemm::GemmShape<16, 8, 16>,
       cutlass::epilogue::thread::LinearCombination<
           ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
-          ElementAccumulator, ElementComputeEpilogue>,
+          ElementAccumulator, ElementComputeEpilogue,
+          cutlass::epilogue::thread::ScaleType::NoBetaScaling>,
       cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
-      8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
+      128 / cutlass::sizeof_bits<ElementA>::value,
+      128 / cutlass::sizeof_bits<ElementB>::value,
+      cutlass::arch::OpMultiplyAddMixedInputUpcast,
       cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
 
   using GemmNoBias = cutlass::gemm::device::GemmUniversal<
@@ -57,7 +60,9 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
           ElementAccumulator, ElementComputeEpilogue,
           cutlass::epilogue::thread::ScaleType::OnlyAlphaScaling>,
       cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
-      8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
+      128 / cutlass::sizeof_bits<ElementA>::value,
+      128 / cutlass::sizeof_bits<ElementB>::value,
+      cutlass::arch::OpMultiplyAddMixedInputUpcast,
       cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
 
   using GemmSmall = cutlass::gemm::device::GemmUniversal<
@@ -67,9 +72,12 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
       cutlass::gemm::GemmShape<32, 32, 32>, cutlass::gemm::GemmShape<16, 8, 16>,
       cutlass::epilogue::thread::LinearCombination<
           ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
-          ElementAccumulator, ElementComputeEpilogue>,
+          ElementAccumulator, ElementComputeEpilogue,
+          cutlass::epilogue::thread::ScaleType::NoBetaScaling>,
       cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
-      8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
+      128 / cutlass::sizeof_bits<ElementA>::value,
+      128 / cutlass::sizeof_bits<ElementB>::value,
+      cutlass::arch::OpMultiplyAddMixedInputUpcast,
       cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
 
   using GemmNoBiasSmall = cutlass::gemm::device::GemmUniversal<
@@ -82,7 +90,9 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
           ElementAccumulator, ElementComputeEpilogue,
           cutlass::epilogue::thread::ScaleType::OnlyAlphaScaling>,
       cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
-      8, 16, cutlass::arch::OpMultiplyAddMixedInputUpcast,
+      128 / cutlass::sizeof_bits<ElementA>::value,
+      128 / cutlass::sizeof_bits<ElementB>::value,
+      cutlass::arch::OpMultiplyAddMixedInputUpcast,
       cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
 };
 } // namespace sm80_space
@@ -137,6 +147,9 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
       reinterpret_cast<ElementComputeEpilogue *>(
           bias.has_value() ? bias.value().data_ptr() : nullptr),
       LayoutOutput(N));
+
+  input_ref.stride(0) = input.stride(-2);
+  weight_ref.stride(0) = weight.stride(0);
   bias_ref.stride(0) = 0;
 
   torch::Tensor y;
@@ -158,7 +171,8 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
       problem_size, // <- problem size of matrix multiplication
       1,
       {ElementComputeEpilogue(dq_scale),
-       ElementComputeEpilogue(1.0)}, // <- tuple of alpha and beta
+       ElementComputeEpilogue(
+           bias.has_value() ? 1.0 : 0.0)}, // <- tuple of alpha and beta
       input_ref.data(),
       weight_ref.data(),
       bias_ref.data(),
@@ -177,9 +191,6 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
       torch::empty({static_cast<int64_t>(workspace_size)},
                    torch::dtype(torch::kUInt8).device(input.device()));
 
-  torch::DeviceGuard device_guard(input.device());
-  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
-
   cutlass::Status status;
   Gemm gemm_op;
 
@@ -193,6 +204,9 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
   TORCH_CHECK(status == cutlass::Status::kSuccess,
               "Failed to initialize cutlass gemm: ",
               cutlass::cutlassGetStatusString(status));
+
+  torch::DeviceGuard device_guard(input.device());
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
   status = gemm_op(stream);
   TORCH_CHECK(status == cutlass::Status::kSuccess,
@@ -293,7 +307,7 @@ cutlass_qlinear_dynamic(const torch::Tensor &input, const torch::Tensor &weight,
         input.scalar_type() == at::kFloat
             ? weight.dequantize()
             : weight.int_repr().to(input.scalar_type()).mul_(weight.q_scale());
-    return at::linear(input, weight_, bias);
+    return cublas_lowp_linear(input, weight_, bias);
   }
 
   torch::Tensor output;

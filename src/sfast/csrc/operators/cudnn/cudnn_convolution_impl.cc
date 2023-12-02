@@ -1209,9 +1209,9 @@ Tensor cudnn_convolution_bias_add_activation_with_fallback_forward(
     IntArrayRef padding, IntArrayRef dilation, bool transposed,
     IntArrayRef output_padding, int64_t groups,
     cudnnActivationMode_t activation_mode = CUDNN_ACTIVATION_IDENTITY) {
-  bool need_backward = GradMode::is_enabled() &&
-                       (input_t.requires_grad() || weight_t.requires_grad() ||
-                        (bias_t.has_value() && bias_t.value().requires_grad()));
+  // bool need_backward = GradMode::is_enabled() &&
+  //                      (input_t.requires_grad() || weight_t.requires_grad() ||
+  //                       (bias_t.has_value() && bias_t.value().requires_grad()));
   ConvBackend backend =
       select_conv_backend(input_t, weight_t, bias_t, stride, padding, dilation,
                           transposed, output_padding, groups);

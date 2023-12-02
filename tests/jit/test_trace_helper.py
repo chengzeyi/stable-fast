@@ -42,7 +42,7 @@ def test_trace_with_kwargs():
         out = model(*args, **kwargs)
         traced_out = traced_model(*args, **kwargs)
 
-        torch.testing.assert_allclose(out, traced_out)
+        torch.testing.assert_close(out, traced_out)
 
     model = ConvBiasAddActivation(activation_cls=torch.nn.ReLU)
 
@@ -59,10 +59,10 @@ def test_trace_with_kwargs():
     traced_out = call_helper(traced_model)(*args, **kwargs)
     traced_out.sum().backward()
 
-    torch.testing.assert_allclose(traced_out, out)
-    torch.testing.assert_allclose(traced_model.module.conv.weight.grad,
+    torch.testing.assert_close(traced_out, out)
+    torch.testing.assert_close(traced_model.module.conv.weight.grad,
                                   model.conv.weight.grad)
-    torch.testing.assert_allclose(traced_model.module.conv.bias.grad,
+    torch.testing.assert_close(traced_model.module.conv.bias.grad,
                                   model.conv.bias.grad)
 
 
@@ -82,7 +82,7 @@ def test_lazy_trace():
 
         traced_out = model(*args, **kwargs)
 
-        torch.testing.assert_allclose(out, traced_out)
+        torch.testing.assert_close(out, traced_out)
 
 
 def test_lazy_trace_with_generator():
@@ -105,4 +105,4 @@ def test_lazy_trace_with_generator():
         traced_out, traced_g = model(*args, **kwargs)
         # print(tuple(model._cached.values())[0].module.inlined_graph)
 
-        torch.testing.assert_allclose(out, traced_out)
+        torch.testing.assert_close(out, traced_out)

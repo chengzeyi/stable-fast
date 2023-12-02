@@ -57,7 +57,8 @@ def _layer_norm_fwd_fused(
     B,  # pointer to the biases
     Mean,  # pointer to the mean
     Rstd,  # pointer to the 1/std
-    stride,  # how much to increase the pointer when moving by 1 row
+    stride: tl.
+    constexpr,  # how much to increase the pointer when moving by 1 row
     N: tl.constexpr,  # number of columns in X
     eps,  # epsilon to avoid division by zero
     BLOCK_SIZE: tl.constexpr,
@@ -179,8 +180,9 @@ def _layer_norm_bwd_dx_fused(
         Mean,  # pointer to the mean
         Rstd,  # pointer to the 1/std
         Lock,  # pointer to the lock
-        stride,  # how much to increase the pointer when moving by 1 row
-        N,  # number of columns in X
+        stride: tl.
+    constexpr,  # how much to increase the pointer when moving by 1 row
+        N: tl.constexpr,  # number of columns in X
         eps,  # epsilon to avoid division by zero
         GROUP_SIZE_M: tl.constexpr,
         BLOCK_SIZE_N: tl.constexpr):

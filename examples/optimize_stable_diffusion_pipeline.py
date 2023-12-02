@@ -6,6 +6,10 @@ from diffusers import (StableDiffusionPipeline,
 from sfast.compilers.stable_diffusion_pipeline_compiler import (
     compile, CompilationConfig)
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 
 def load_model():
     # NOTE:
@@ -66,7 +70,7 @@ kwarg_inputs = dict(
     # NOTE: If you use SDXL, you should use a higher resolution to improve the generation quality.
     height=512,
     width=512,
-    num_inference_steps=30,
+    num_inference_steps=50,
     num_images_per_prompt=1,
 )
 

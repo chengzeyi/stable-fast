@@ -101,6 +101,8 @@ def get_extensions():
         cutlass_tools_util_include = os.path.join(cutlass_root, "tools",
                                                   "util", "include")
         include_dirs.append(cutlass_tools_util_include)
+        cutlass_examples_dual_gemm = os.path.join(cutlass_root, "examples", "45_dual_gemm")
+        include_dirs.append(cutlass_examples_dual_gemm)
 
         extension = CUDAExtension
         sources += source_cuda

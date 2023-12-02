@@ -8,11 +8,13 @@
 And unlike `TensorRT` or `AITemplate`, which takes dozens of minutes to compile a model, `stable-fast` only takes a few seconds to compile a model.
 `stable-fast` also supports `dynamic shape`, `LoRA` and `ControlNet` out of the box.
 
-[![](https://mermaid.ink/img/pako:eNpFUk2PmzAQ_SsjS1EuQGyyJMChUqXtoYdedjlUXe9hgAEsgY1ss00U8d9rkmr3YOvN88jvzceNNaYlVrLd7qa08iXc9n6gifYl7Dtjyfn9CutuJ_Xl2gxofVyTR6m98iOBZJWaCEIi9KTJole6B6MJ1IQ9wV_lB3h9BpFkEWQivYQTAAfnaXZRyISX6jc88ZxLFiRivCgHb5J9oFbjiOCNbQbJoqB0h0ljplmN9KC-_6xomkf0_-OKtDP2pYIi4Yl4cM5jPVLcofOSvUt9fWhINgUB5agxunWSAYc4_gYp51xqqWu08Cby4hyByAQPt8jyCIpCBMjT4p1FbCI7oWpD825Sw-Zwa5xkZYA1OtoqWkMeLt68XnXDSm8Xitgyt8Hxs8Le4sTKDkf3yf5oVajzkxwNthTCG_PXeRtTr5wPXwbTneo3frFjoAfvZ1ceDttz0oemL_XWqYNT7Taz4aM4HU7pKcf0SKfzEbPjsW1qUeRd-iS69sxFimxdIzaj_mPMlyu6-_n12JH7qqz_AHnTtEA?type=png)](https://mermaid.live/edit#pako:eNpFUk2PmzAQ_SsjS1EuQGyyJMChUqXtoYdedjlUXe9hgAEsgY1ss00U8d9rkmr3YOvN88jvzceNNaYlVrLd7qa08iXc9n6gifYl7Dtjyfn9CutuJ_Xl2gxofVyTR6m98iOBZJWaCEIi9KTJole6B6MJ1IQ9wV_lB3h9BpFkEWQivYQTAAfnaXZRyISX6jc88ZxLFiRivCgHb5J9oFbjiOCNbQbJoqB0h0ljplmN9KC-_6xomkf0_-OKtDP2pYIi4Yl4cM5jPVLcofOSvUt9fWhINgUB5agxunWSAYc4_gYp51xqqWu08Cby4hyByAQPt8jyCIpCBMjT4p1FbCI7oWpD825Sw-Zwa5xkZYA1OtoqWkMeLt68XnXDSm8Xitgyt8Hxs8Le4sTKDkf3yf5oVajzkxwNthTCG_PXeRtTr5wPXwbTneo3frFjoAfvZ1ceDttz0oemL_XWqYNT7Taz4aM4HU7pKcf0SKfzEbPjsW1qUeRd-iS69sxFimxdIzaj_mPMlyu6-_n12JH7qqz_AHnTtEA)
+[![](https://mermaid.ink/img/pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGX3RyqrvcwwACWwEbY7CZC_HtNqLYHj948j_zezHhhlamJFexwWJRWroDl6Doa6FjAsTETWXdcYT0cpL7dqw4nF5bkUGqnXE8g2VUNBL4QWtI0oVO6BaMJ1IAtwadyHbw-g4jSAFIR3_zxgIN1NNrAV8LL9Tc88YxL5iVCvCkLb5J9oFZ9j-DMVHWSBV7pAaPKDKPqaae-_7zSMPbo_uVeuOnN555cSVszvVwhj3gkds46LHsKG7ROsnep77ugZINXU5Yqo2srGXAIw28Qc86llrrECd5Ell8CEKngPoo085HzJIA8FxsU6TsL2EDTgKr281ykhs30NkvJCg9LtLQ1ufo6nJ15veuKFW6aKWDzWPsmnhW2Ew6saLC3X-yPWvnWv8jeYE0-XZi7j9vmWmWdf9Jbb1S78fPUe7pzbrTF6bRdR63fw1xuwztZVW9r7D7y8-kcnzOMEzpfEkyTpK5KkWdN_CSa-sJFjGxdAzai_mPMf1f08PNr_zaP37P-BVvguY0?type=png)](https://mermaid.live/edit#pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGX3RyqrvcwwACWwEbY7CZC_HtNqLYHj948j_zezHhhlamJFexwWJRWroDl6Doa6FjAsTETWXdcYT0cpL7dqw4nF5bkUGqnXE8g2VUNBL4QWtI0oVO6BaMJ1IAtwadyHbw-g4jSAFIR3_zxgIN1NNrAV8LL9Tc88YxL5iVCvCkLb5J9oFZ9j-DMVHWSBV7pAaPKDKPqaae-_7zSMPbo_uVeuOnN555cSVszvVwhj3gkds46LHsKG7ROsnep77ugZINXU5Yqo2srGXAIw28Qc86llrrECd5Ell8CEKngPoo085HzJIA8FxsU6TsL2EDTgKr281ykhs30NkvJCg9LtLQ1ufo6nJ15veuKFW6aKWDzWPsmnhW2Ew6saLC3X-yPWvnWv8jeYE0-XZi7j9vmWmWdf9Jbb1S78fPUe7pzbrTF6bRdR63fw1xuwztZVW9r7D7y8-kcnzOMEzpfEkyTpK5KkWdN_CSa-sJFjGxdAzai_mPMf1f08PNr_zaP37P-BVvguY0)
 
-| Framework | vanilla torch | torch.compile | AITemplate | TensorRT | __stable-fast__ |
-| --------- | ------------- | ------------- | ---------- | -------- | --------------- |
-| Time      | 1897 ms       | 1510 ms       | 1158 ms    | 991 ms   | __1029 ms__     |
+| Framework | torch   | torch.compile | AIT    | oneflow | TensorRT | __stable-fast__ |
+| --------- | ------- | ------------- | ------ | ------- | -------- | --------------- |
+| Time      | 1897 ms | 1510 ms       | 1158   | 1003 ms | 991 ms   | __1015 ms__     |
+
+__NOTE__: During benchmarking, `TensorRT` is tested with `static batch size` and `CUDA Graph enabled` while `stable-fast` is running with full dynamic shape.
 
 - [🚀Stable Fast](#stable-fast)
   - [Introduction](#introduction)
@@ -48,6 +50,7 @@ __NOTE__: `stable-fast` is currently only in beta stage and is prone to be buggy
 
 - __CUDNN Convolution Fusion__: `stable-fast` implements a series of fully-functional and fully-compatible CUDNN convolution fusion operators for all kinds of combinations of `Conv + Bias + Add + Act` computation patterns.
 - __Low Precision & Fused GEMM__: `stable-fast` implements a series of fused GEMM operators that compute with `fp16` precision, which is fast than PyTorch's defaults (read & write with `fp16` while compute with `fp32`).
+- __Fused Linear GEGLU__: `stable-fast` is able to fuse `GEGLU(x, W, V, b, c) = GELU(xW + b) ⊗ (xV + c)` into one CUDA kernel.
 - __NHWC & Fused GroupNorm__: `stable-fast` implements a highly optimized fused NHWC `GroupNorm + GELU` operator with OpenAI's `Triton`, which eliminates the need of memory format permutation operators.
 - __Fully Traced Model__: `stable-fast` improves the `torch.jit.trace` interface to make it more proper for tracing complex models. Nearly every part of `StableDiffusionPipeline` can be traced and converted to __TorchScript__. It is more stable than `torch.compile` and has a significantly lower CPU overhead than `torch.compile` and supports __ControlNet__ and __LoRA__.
 - __CUDA Graph__: `stable-fast` can capture the UNet structure into CUDA Graph format, which can reduce the CPU overhead when the batch size is small.
@@ -276,7 +279,7 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | Vanilla PyTorch (2.1.0+cu118)            | 29.5 it/s     | 32.4 it/s     | 4.6 it/s          |
 | torch.compile (2.1.0+cu118, NHWC UNet)   | 40.0 it/s     | 44.0 it/s     | 6.1 it/s          |
 | AITemplate                               | 44.2 it/s     | untested      | untested          |
-| OneFlow                                  | 50.3 it/s     | untested      | untested          |
+| OneFlow                                  | 53.6 it/s     | untested      | untested          |
 | AUTO1111 WebUI                           | 17.2 it/s     | 15.2 it/s     | 3.6 it/s          |
 | AUTO1111 WebUI (with SDPA)               | 24.5 it/s     | 26.1 it/s     | 4.3 it/s          |
 | TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested      | untested          |
