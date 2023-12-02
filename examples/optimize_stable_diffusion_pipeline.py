@@ -70,7 +70,7 @@ kwarg_inputs = dict(
     # NOTE: If you use SDXL, you should use a higher resolution to improve the generation quality.
     height=512,
     width=512,
-    num_inference_steps=50,
+    num_inference_steps=30,
     num_images_per_prompt=1,
 )
 
