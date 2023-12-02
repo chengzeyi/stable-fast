@@ -52,7 +52,7 @@ env:
   # TORCH_CUDA_ARCH_LIST: "5.0+PTX 6.0 6.1 7.0 7.5 8.0+PTX"
   # Feature 'f16 arithemetic and compare instructions' requires .target sm_53 or higher
   TORCH_CUDA_ARCH_LIST: "6.0 6.1 7.0 7.5 8.0+PTX"
-  MAX_JOBS: 4
+  MAX_JOBS: 2
   DISTUTILS_USE_SDK: 1 # otherwise distutils will complain on windows about multiple versions of msvc
   SFAST_APPEND_VERSION: 1
   TWINE_USERNAME: __token__
