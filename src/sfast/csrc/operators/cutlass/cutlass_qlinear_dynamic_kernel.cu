@@ -191,6 +191,9 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
       torch::empty({static_cast<int64_t>(workspace_size)},
                    torch::dtype(torch::kUInt8).device(input.device()));
 
+  torch::DeviceGuard device_guard(input.device());
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+
   cutlass::Status status;
   Gemm gemm_op;
 
@@ -204,9 +207,6 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
   TORCH_CHECK(status == cutlass::Status::kSuccess,
               "Failed to initialize cutlass gemm: ",
               cutlass::cutlassGetStatusString(status));
-
-  torch::DeviceGuard device_guard(input.device());
-  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
   status = gemm_op(stream);
   TORCH_CHECK(status == cutlass::Status::kSuccess,
