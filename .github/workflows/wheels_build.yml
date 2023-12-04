@@ -140,7 +140,7 @@ jobs:
           which pip
           echo "PY=$(which python)" >> ${GITHUB_ENV}
           echo "PATH=$PATH" >> ${GITHUB_ENV}
-          echo "MAX_JOBS=3" >> ${GITHUB_ENV}
+          # echo "MAX_JOBS=2" >> ${GITHUB_ENV}
 
       - name: Define version
         id: sfast_version
