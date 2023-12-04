@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument('--batch', type=int, default=1)
     parser.add_argument('--height', type=int, default=512)
     parser.add_argument('--width', type=int, default=512)
+    parser.add_argument('--no-optimize', action='store_true')
     return parser.parse_args()
 
 
@@ -81,7 +82,8 @@ def main():
     model = load_model(args.model,
                        scheduler=args.scheduler,
                        custom_pipeline=args.custom_pipeline)
-    model = compile_model(model)
+    if not args.no_optimize:
+        model = compile_model(model)
 
     def get_kwarg_inputs():
         kwarg_inputs = dict(
