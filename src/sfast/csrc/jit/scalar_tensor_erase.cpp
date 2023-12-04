@@ -27,7 +27,7 @@ void EraseScalarTensorsOnBlock(Block *block) {
       // remove zero dim tensor constants, replacing with number equivalent
       if (it->output()->type()->isSubtypeOf(TensorType::get())) {
         auto t = toIValue(it->output())->toTensor();
-        if (t.dim() == 0 || t.numel() == 1) {
+        if (t.dim() == 0) {
           // c10::ScalarType dtype = c10::typeMetaToScalarType(t.dtype());
           at::Scalar s = t.item();
           WithInsertPoint guard(*it);

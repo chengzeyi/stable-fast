@@ -33,6 +33,10 @@ def better_trace(func, *args, **kwargs):
 
 @functools.wraps(torch.jit.freeze)
 def better_freeze(script_module, *args, **kwargs):
+    if not kwargs.get("preserve_parameters", False):
+        torch._C._jit_pass_inline(script_module.graph)
+        sfast._C._jit_pass_fix_frozen_conv_folding(script_module.graph)
+
     freeze = torch.jit.freeze
     if (
         "preserve_parameters" in kwargs

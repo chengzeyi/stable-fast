@@ -31,7 +31,7 @@ basic_kwarg_inputs = dict(
 
 
 def display_image(image):
-    print_image(image, max_width=120)
+    print_image(image, max_width=80)
 
 
 def get_images_from_path(path):

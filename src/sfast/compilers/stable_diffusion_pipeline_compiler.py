@@ -62,8 +62,8 @@ class CompilationConfig:
         enable_jit: bool = True
         enable_jit_freeze: bool = True
         preserve_parameters: bool = True
-        enable_cnn_optimization: bool = True
-        enable_fused_linear_geglu = True
+        enable_cnn_optimization: bool = gpu_device.device_has_tensor_core()
+        enable_fused_linear_geglu: bool = gpu_device.device_has_tensor_core()
         prefer_lowp_gemm: bool = True
         enable_xformers: bool = False
         enable_cuda_graph: bool = False
@@ -195,8 +195,8 @@ def _modify_model(
         triton_passes.jit_pass_fuse_group_norm_silu(m.graph)
         triton_passes.jit_pass_optimize_group_norm(m.graph)
 
-        # if enable_triton_layer_norm:
-        #     triton_passes.jit_pass_optimize_layer_norm(m.graph)
+        if enable_triton_layer_norm:
+            triton_passes.jit_pass_optimize_layer_norm(m.graph)
 
     if enable_fused_linear_geglu:
         passes.jit_pass_fuse_linear_geglu(m.graph)

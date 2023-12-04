@@ -30,11 +30,6 @@ In doing so, you will learn about:
 # Let’s first take a look at the forward pass implementation.
 
 import torch
-try:
-    from torch._prims_common import suggest_memory_format
-except ImportError:
-    from sfast.utils.memory_format import suggest_memory_format
-
 import triton
 import triton.language as tl
 from .utils import _welford_combine
@@ -91,13 +86,13 @@ def _layer_norm_fwd_fused(
     mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, _welford_combine)
     var = m2 / weight
     rstd = 1 / tl.sqrt(var + eps)
+    mean = mean.to(x.dtype)
+    rstd = rstd.to(x.dtype)
     # Write mean / rstd
     if Mean is not None:
         tl.store(Mean + row, mean)
     if Rstd is not None:
         tl.store(Rstd + row, rstd)
-    mean = mean.to(x.dtype)
-    rstd = rstd.to(x.dtype)
     # Normalize and apply linear transformation
     if BLOCK_SIZE >= N:
         cols = tl.arange(0, BLOCK_SIZE)

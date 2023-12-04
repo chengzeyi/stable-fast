@@ -10,6 +10,7 @@
 
 #include "compilation_unit.h"
 #include "device_constant_override.h"
+#include "frozen_conv_folding_fix.h"
 #include "op_input_tensor_conversion.h"
 #include "python_operator.h"
 #include "scalar_tensor_erase.h"
@@ -23,6 +24,7 @@ using namespace torch::jit;
 void initJITBindings(py::module m) {
   m.def("_jit_pass_eliminate_simple_arith", EliminateSimpleArith);
   m.def("_jit_pass_erase_scalar_tensors", EraseScalarTensors);
+  m.def("_jit_pass_fix_frozen_conv_folding", FixFrozenConvFolding);
   m.def("_jit_pass_override_device_constants", OverrideDeviceConstants);
   m.def(
       "_jit_pass_convert_op_input_tensors",

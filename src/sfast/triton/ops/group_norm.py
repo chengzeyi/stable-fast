@@ -98,7 +98,7 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
         lambda kwargs: min(4096, triton.next_power_of_2(kwargs['HxW'])),
     })(triton.heuristics({
         'num_warps':
-        lambda kwargs: max(1, min(16, kwargs['HxW'] // 32)),
+        lambda kwargs: max(1, min(16, kwargs['HxW'] // 128)),
     })(triton.jit(kernel)))
     return kernel
 
@@ -115,7 +115,7 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
 })''')
 @eval('''triton.heuristics({
     'num_warps':
-    lambda kwargs: max(1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 32)),
+    lambda kwargs: max(1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 128)),
 })''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel(
@@ -173,7 +173,7 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel(
 })''')
 @eval('''triton.heuristics({
     'num_warps':
-    lambda kwargs: max(1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 32)),
+    lambda kwargs: max(1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 128)),
 })''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1(
@@ -232,7 +232,7 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1(
 })''')
 @eval('''triton.heuristics({
     'num_warps':
-    lambda kwargs: max(1, min(16, kwargs['BLOCK_SIZE'] // 32)),
+    lambda kwargs: max(1, min(16, kwargs['BLOCK_SIZE'] // 128)),
 })''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_2(
@@ -339,7 +339,7 @@ def create_group_norm_4d_channels_last_forward_apply_kernel(
     })(triton.heuristics({
         'num_warps':
         lambda kwargs: max(
-            1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 32)),
+            1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 128)),
     })(triton.jit(kernel)))
     return kernel
 

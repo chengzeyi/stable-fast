@@ -18,11 +18,11 @@ class GEGLU(nn.Module):
         dim_out (`int`): The number of channels in the output.
     """
 
-    def __init__(self, dim_in: int, dim_out: int):
+    def __init__(self, dim_in: int, dim_out: int, bias=True):
         super().__init__()
         linear_cls = nn.Linear
 
-        self.proj = linear_cls(dim_in, dim_out * 2)
+        self.proj = linear_cls(dim_in, dim_out * 2, bias=bias)
 
     def gelu(self, gate: torch.Tensor) -> torch.Tensor:
         if gate.device.type != "mps":
@@ -41,12 +41,14 @@ class GEGLU(nn.Module):
 
 @pytest.mark.parametrize('dtype',
                          [torch.float32, torch.float16, torch.bfloat16])
+@pytest.mark.parametrize('bias', [False, True])
 @pytest.mark.parametrize('in_features', [4, 8, 16])
 @pytest.mark.parametrize('out_features', [4, 8, 16])
 @pytest.mark.parametrize('N', [4, 16])
-def test_geglu(dtype, in_features, out_features, N):
+def test_geglu(dtype, bias, in_features, out_features, N):
     with torch.no_grad():
-        m = GEGLU(in_features, out_features).cuda().to(dtype=dtype).eval()
+        m = GEGLU(in_features, out_features,
+                  bias=bias).cuda().to(dtype=dtype).eval()
         x = torch.randn(N, in_features).cuda().to(dtype=dtype)
         out = m(x)
         out_opt = m(x, enable_opt=True)
@@ -55,26 +57,30 @@ def test_geglu(dtype, in_features, out_features, N):
 
 
 @pytest.mark.parametrize('dtype', [torch.float16, torch.bfloat16])
-@pytest.mark.parametrize('in_features', [256, 512, 1024])
+@pytest.mark.parametrize('bias', [False, True])
+@pytest.mark.parametrize('in_features', [512, 1024])
 @pytest.mark.parametrize('out_features', [512, 1024])
 @pytest.mark.parametrize('N', [1, 16, 10000])
-def test_benchmark_geglu(dtype, in_features, out_features, N):
+def test_benchmark_geglu(dtype, bias, in_features, out_features, N):
     with torch.no_grad():
-        m = GEGLU(in_features, out_features).cuda().to(dtype=dtype).eval()
+        m = GEGLU(in_features, out_features,
+                  bias=bias).cuda().to(dtype=dtype).eval()
         x = torch.randn(N, in_features).cuda().to(dtype=dtype)
         out = m(x)
         out_opt = m(x, enable_opt=True)
 
         torch.testing.assert_close(out_opt, out, rtol=2e-2, atol=2e-2)
 
+        torch.cuda.synchronize()
         start = time.time()
         for _ in range(1000):
             out = m(x)
-        end = time.time()
-        print(f"GEGLU: {end - start}")
+        torch.cuda.synchronize()
+        logger.info(f'cost={time.time() - start}')
 
+        torch.cuda.synchronize()
         start = time.time()
         for _ in range(1000):
             out_opt = m(x, enable_opt=True)
-        end = time.time()
-        print(f"GEGLU_OPT: {end - start}")
+        torch.cuda.synchronize()
+        logger.info(f'cost={time.time() - start}')
