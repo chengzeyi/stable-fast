@@ -38,20 +38,16 @@ def test_linear_dynamic(dtype, bias, in_features, out_features, N):
         x_cuda = x.cuda().to(dtype=dtype)
         out_cuda = m_q_cuda(x_cuda)
 
-        logger.info(f'bias={bias}, dtype={dtype}')
-        logger.info(f'out={out}')
-        logger.info(f'out_cuda={out_cuda}')
+        torch.testing.assert_close(out_cuda, out, rtol=3e-2, atol=3e-2)
 
 
 @pytest.mark.parametrize('dtype', [torch.float16, torch.bfloat16])
 @pytest.mark.parametrize('bias', [False, True])
-@pytest.mark.parametrize('in_features', [256, 512, 1024])
+@pytest.mark.parametrize('in_features', [512, 1024])
 @pytest.mark.parametrize('out_features', [512, 1024])
 @pytest.mark.parametrize('N', [1, 16, 10000])
 def test_benchmark_linear_dynamic(dtype, bias, in_features, out_features, N):
     with torch.no_grad():
-        logger.info(f'bias={bias}, dtype={dtype}, in_features={in_features}, out_features={out_features}, N={N}')
-
         m = LinearModule(in_features, out_features, bias=bias).cuda().to(dtype=dtype).eval()
         m_q = torch.quantization.quantize_dynamic(m, {torch.nn.Linear},
                                                   dtype=torch.qint8)
@@ -68,6 +64,6 @@ def test_benchmark_linear_dynamic(dtype, bias, in_features, out_features, N):
         torch.cuda.synchronize()
         start = time.time()
         for _ in range(100):
-            out = m_q(x)
+            out_q = m_q(x)
         torch.cuda.synchronize()
         logger.info(f'cost={time.time() - start}')

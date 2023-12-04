@@ -237,7 +237,7 @@ register_custom_python_operator(
 def construct_triton_layer_norm_torch_op():
 
     def layer_norm(input, normalized_shape, weight=None, bias=None, eps=1e-05):
-        if input.device.type != 'cuda':
+        if input.device.type != 'cuda' or not input.is_contiguous():
             return aten.layer_norm(input, normalized_shape, weight, bias, eps)
         return TritonLayerNorm.apply(input, normalized_shape, weight, bias,
                                      eps)
