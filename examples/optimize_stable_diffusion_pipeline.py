@@ -12,6 +12,7 @@ def parse_args():
     parser.add_argument('--model',
                         type=str,
                         default='runwayml/stable-diffusion-v1-5')
+    parser.add_argument('--variant', type=str, default=None)
     parser.add_argument('--custom-pipeline', type=str, default=None)
     parser.add_argument('--scheduler',
                         type=str,
@@ -30,10 +31,12 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_model(model, scheduler=None, custom_pipeline=None):
+def load_model(model, scheduler=None, custom_pipeline=None, variant=None):
     extra_kwargs = {}
     if custom_pipeline is not None:
         extra_kwargs['custom_pipeline'] = custom_pipeline
+    if variant is not None:
+        extra_kwargs['variant'] = variant
     model = DiffusionPipeline.from_pretrained(model,
                                               torch_dtype=torch.float16,
                                               **extra_kwargs)
@@ -79,9 +82,12 @@ def compile_model(model):
 
 def main():
     args = parse_args()
-    model = load_model(args.model,
-                       scheduler=args.scheduler,
-                       custom_pipeline=args.custom_pipeline)
+    model = load_model(
+        args.model,
+        scheduler=args.scheduler,
+        custom_pipeline=args.custom_pipeline,
+        variant=args.variant,
+    )
     if not args.no_optimize:
         model = compile_model(model)
 
