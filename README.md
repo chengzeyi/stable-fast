@@ -3,6 +3,7 @@
 [![wheels](https://github.com/chengzeyi/stable-fast/actions/workflows/wheels.yml/badge.svg?branch=main)](https://github.com/chengzeyi/stable-fast/actions/workflows/wheels.yml)
 [![Upload Python Package](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml/badge.svg)](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chengzeyi/stable-fast-colab/blob/main/stable_fast_colab.ipynb)
+
 [Discord Channel](https://discord.gg/kQFvfzM4SJ)
 
 `stable-fast` achieves SOTA inference performance on __ALL__ kinds of diffuser models.
@@ -374,4 +375,4 @@ Thanks for __@SuperSecureHuman__'s help, benchmarking on A100 PCIe 40GB is avail
 
 Refer to [doc/troubleshooting.md](doc/troubleshooting.md) for more details.
 
-And you can join the [__Discord Channel__](https://discord.gg/kQFvfzM4SJ) to ask for help.
+And you can join the [Discord Channel](https://discord.gg/kQFvfzM4SJ) to ask for help.
