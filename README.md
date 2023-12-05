@@ -191,6 +191,8 @@ print_image(output_image, max_width=80)
 
 Refer to [examples/optimize_stable_diffusion_pipeline.py](examples/optimize_stable_diffusion_pipeline.py) for more details.
 
+You can check this Colab to see how it works on T4 GPU: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chengzeyi/stable-fast-colab/blob/main/stable_fast_colab.ipynb)
+
 ### Optimize LCM Pipeline
 
 `stable-fast` is able to optimize the newest `latent consistency model` pipeline and achieve a significant speedup.
