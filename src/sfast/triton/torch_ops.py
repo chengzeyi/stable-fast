@@ -119,8 +119,10 @@ def construct_triton_group_norm_torch_op():
                     weight = weight.contiguous()
                 if bias is not None:
                     bias = bias.contiguous()
+                N, C = input.shape[:2]
+                HxW = input.numel() // (N * C)
                 output, mean, rstd = aten.native_group_norm(
-                    input, num_groups, weight, bias, eps)
+                    input, weight, bias, N, C, HxW, num_groups, eps)
             else:
                 grad_mode_enabled = torch.is_grad_enabled()
                 output, mean, rstd = group_norm_forward(
@@ -180,8 +182,10 @@ def construct_triton_group_norm_silu_torch_op():
                     weight = weight.contiguous()
                 if bias is not None:
                     bias = bias.contiguous()
+                N, C = input.shape[:2]
+                HxW = input.numel() // (N * C)
                 output, mean, rstd = aten.native_group_norm(
-                    input, num_groups, weight, bias, eps)
+                    input, weight, bias, N, C, HxW, num_groups, eps)
                 output = aten.silu(output)
             else:
                 grad_mode_enabled = torch.is_grad_enabled()
