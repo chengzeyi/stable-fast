@@ -53,8 +53,8 @@ __NOTE__: `stable-fast` is currently only in beta stage and is prone to be buggy
 - __Fused Linear GEGLU__: `stable-fast` is able to fuse `GEGLU(x, W, V, b, c) = GELU(xW + b) ⊗ (xV + c)` into one CUDA kernel.
 - __NHWC & Fused GroupNorm__: `stable-fast` implements a highly optimized fused NHWC `GroupNorm + GELU` operator with OpenAI's `Triton`, which eliminates the need of memory format permutation operators.
 - __Fully Traced Model__: `stable-fast` improves the `torch.jit.trace` interface to make it more proper for tracing complex models. Nearly every part of `StableDiffusionPipeline` can be traced and converted to __TorchScript__. It is more stable than `torch.compile` and has a significantly lower CPU overhead than `torch.compile` and supports __ControlNet__ and __LoRA__.
-- __CUDA Graph__: `stable-fast` can capture the UNet structure into CUDA Graph format, which can reduce the CPU overhead when the batch size is small.
-- __Fused Multihead Attention__: `stable-fast` just uses xformers and make it compatible with __TorchScript__.
+- __CUDA Graph__: `stable-fast` can capture the `UNet`, `VAE` and `TextEncoder` into CUDA Graph format, which can reduce the CPU overhead when the batch size is small. This implemention also supports dynamic shape.
+- __Fused Multihead Attention__: `stable-fast` just uses xformers and makes it compatible with __TorchScript__.
 
 My next goal is to keep `stable-fast` as one of the fastest inference optimization frameworks for `diffusers` and also
 provide both speedup and VRAM reduction for `transformers`.
@@ -94,15 +94,16 @@ pip3 install --index-url https://download.pytorch.org/whl/cu121 'diffusers>=0.19
 # https://developer.nvidia.com/cudnn
 # https://developer.nvidia.com/cublas
 
-# Install PyTorch with CUDA and other packages at first
-pip3 install 'torch>=1.12.0' 'diffusers>=0.19.3' 'xformers>=0.0.20' 'triton>=2.1.0'
+# Install PyTorch with CUDA and other packages at first.
 # Windows user: Triton might be not available, you could skip it.
+# NOTE: 'wheel' is required or you will meet `No module named 'torch'` error when building.
+pip3 install wheel 'torch>=1.12.0' 'diffusers>=0.19.3' 'xformers>=0.0.20' 'triton>=2.1.0'
 
-# (Optional) Makes the build much faster
+# (Optional) Makes the build much faster.
 pip3 install ninja
 
-# Set TORCH_CUDA_ARCH_LIST if running and building on different GPU types
-# You can also install the latest stable release from PyPI
+# Set TORCH_CUDA_ARCH_LIST if running and building on different GPU types.
+# You can also install the latest stable release from PyPI.
 # pip3 install -v -U stable-fast
 pip3 install -v -U git+https://github.com/chengzeyi/stable-fast.git@main#egg=stable-fast
 # (this can take dozens of minutes)
@@ -346,14 +347,27 @@ Thanks for __@SuperSecureHuman__'s help, benchmarking on A100 PCIe 40GB is avail
 | Hugging Face Diffusers (1.5/2.1/XL) | Yes       |
 | With ControlNet                     | Yes       |
 | With LoRA                           | Yes       |
-| Dynamic Shape                       | Yes       |
 | Latent Consistency Model            | Yes       |
+| SDXL Turbo                          | Yes       |
+
+| Functionality                       | Supported |
+| ----------------------------------- | --------- |
+| Dynamic Shape                       | Yes       |
+| Text to Image                       | Yes       |
+| Image to Image                      | Yes       |
+| Image Inpainting                    | Yes       |
 
 | UI Framework                        | Supported | Link                                                                    |
 | ----------------------------------- | --------- | ----------------------------------------------------------------------- |
 | AUTOMATIC1111                       | WIP       |                                                                         |
 | SD Next                             | Yes       | [`SD Next`](https://github.com/vladmandic/automatic)                    |
 | ComfyUI                             | Yes       | [`ComfyUI_stable_fast`](https://github.com/gameltb/ComfyUI_stable_fast) |
+
+| Operating System                    | Supported |
+| ----------------------------------- | --------- |
+| Linux                               | Yes       |
+| Windows                             | Yes       |
+| Windows WSL                         | Yes       |
 
 ## Troubleshooting
 

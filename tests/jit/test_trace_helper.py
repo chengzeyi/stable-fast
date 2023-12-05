@@ -22,7 +22,7 @@ class ConvBiasAddActivation(torch.nn.Module):
         x = self.act(x)
         if beta_gamma is not None:
             x = x.add(beta_gamma[0], alpha=beta_gamma[1])
-        return x if generator is None else x, torch.Generator()
+        return x if generator is None else (x, torch.Generator())
 
 
 def test_trace_with_kwargs():
