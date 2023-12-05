@@ -11,5 +11,5 @@ def device_has_tensor_core():
 def device_has_capability(major, minor):
     if torch.cuda.is_available():
         major_, minor_ = torch.cuda.get_device_capability()
-        return (major, minor) >= (major_, minor_)
+        return (major_, minor_) >= (major, minor)
     return False
