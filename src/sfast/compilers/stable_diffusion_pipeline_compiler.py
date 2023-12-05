@@ -63,7 +63,8 @@ class CompilationConfig:
         enable_jit_freeze: bool = True
         preserve_parameters: bool = True
         enable_cnn_optimization: bool = gpu_device.device_has_tensor_core()
-        enable_fused_linear_geglu: bool = gpu_device.device_has_tensor_core()
+        enable_fused_linear_geglu: bool = gpu_device.device_has_capability(
+            8, 0)
         prefer_lowp_gemm: bool = True
         enable_xformers: bool = False
         enable_cuda_graph: bool = False
