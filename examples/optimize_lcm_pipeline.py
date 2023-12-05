@@ -12,6 +12,7 @@ def parse_args():
     parser.add_argument('--model',
                         type=str,
                         default='SimianLuo/LCM_Dreamshaper_v7')
+    parser.add_argument('--variant', type=str, default=None)
     parser.add_argument('--custom-pipeline',
                         type=str,
                         default='latent_consistency_txt2img')
@@ -20,8 +21,7 @@ def parse_args():
     parser.add_argument(
         '--prompt',
         default=
-        'best quality, realistic, unreal engine, 4K, a beautiful girl with'
-    )
+        'best quality, realistic, unreal engine, 4K, a beautiful girl with')
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--warmups', type=int, default=3)
     parser.add_argument('--batch', type=int, default=1)
@@ -31,10 +31,12 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_model(model_name, scheduler=None, custom_pipeline=None):
+def load_model(model_name, scheduler=None, custom_pipeline=None, variant=None):
     extra_kwargs = {}
     if custom_pipeline is not None:
         extra_kwargs['custom_pipeline'] = custom_pipeline
+    if variant is not None:
+        extra_kwargs['variant'] = variant
     model = DiffusionPipeline.from_pretrained(model_name,
                                               torch_dtype=torch.float16,
                                               **extra_kwargs)
@@ -80,9 +82,12 @@ def compile_model(model):
 
 def main():
     args = parse_args()
-    model = load_model(args.model,
-                       scheduler=args.scheduler,
-                       custom_pipeline=args.custom_pipeline)
+    model = load_model(
+        args.model,
+        scheduler=args.scheduler,
+        custom_pipeline=args.custom_pipeline,
+        variant=args.variant,
+    )
     if not args.no_optimize:
         model = compile_model(model)
 

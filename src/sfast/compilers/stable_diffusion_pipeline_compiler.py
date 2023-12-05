@@ -93,11 +93,10 @@ def compile(m, config):
         lazy_trace_ = _build_lazy_trace(config)
 
         # SVD doesn't have a text encoder
-        if hasattr(m, 'text_encoder'):
+        if getattr(m, 'text_encoder', None) is not None:
             m.text_encoder.forward = lazy_trace_(m.text_encoder.forward)
-        else:
-            # TODO: optimize image encoder
-            pass
+        if getattr(m, 'text_encoder_2', None) is not None:
+            m.text_encoder_2.forward = lazy_trace_(m.text_encoder_2.forward)
         if (not packaging.version.parse('2.0.0') <= packaging.version.parse(
                 torch.__version__) < packaging.version.parse('2.1.0')):
             """
@@ -119,9 +118,12 @@ def compile(m, config):
             m.scheduler.step = lazy_trace_(m.scheduler.step)
 
     if enable_cuda_graph:
-        if hasattr(m, 'text_encoder'):
+        if getattr(m, 'text_encoder', None) is not None:
             m.text_encoder.forward = make_dynamic_graphed_callable(
                 m.text_encoder.forward)
+        if getattr(m, 'text_encoder_2', None) is not None:
+            m.text_encoder_2.forward = make_dynamic_graphed_callable(
+                m.text_encoder_2.forward)
         if hasattr(m.vae, 'decode'):
             m.vae.decode = make_dynamic_graphed_callable(m.vae.decode)
         # if hasattr(m.vae, 'encode'):
