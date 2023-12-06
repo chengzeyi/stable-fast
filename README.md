@@ -197,8 +197,8 @@ You can check this Colab to see how it works on T4 GPU: [![Open In Colab](https:
 
 `stable-fast` is able to optimize the newest `latent consistency model` pipeline and achieve a significant speedup.
 
-Refer to [examples/optimize_lcm_pipeline.py](examples/optimize_lcm_lora.py) for more details about how to optimize Normal SD model with LCM LoRA.
-Refer to [examples/optimize_lcm_pipeline.py](examples/optimize_lcm_pipeline.py) for more details about how to optimize the full LCM model.
+Refer to [examples/optimize_lcm_pipeline.py](examples/optimize_lcm_lora.py) for more details about how to optimize normal SD model with LCM LoRA.
+Refer to [examples/optimize_lcm_pipeline.py](examples/optimize_lcm_pipeline.py) for more details about how to optimize the standalone LCM model.
 
 ### Dynamically Switch LoRA
 
