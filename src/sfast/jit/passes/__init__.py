@@ -22,7 +22,7 @@ graph(%1, %2, %3):
     return (%1)''', graph)
 
 
-def jit_pass_optimize_gelu(graph):
+def jit_pass_prefer_tanh_approx_gelu(graph):
     torch._C._jit_pass_custom_pattern_based_rewrite_graph(
         '''
 graph(%1, %2):
