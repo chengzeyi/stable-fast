@@ -1,16 +1,16 @@
-MODEL = 'SimianLuo/LCM_Dreamshaper_v7'
+MODEL = 'runwayml/stable-diffusion-v1-5'
 VARIANT = None
-CUSTOM_PIPELINE = 'latent_consistency_txt2img'
-SCHEDULER = 'EulerAncestralDiscreteScheduler'
-LORA = None
+CUSTOM_PIPELINE = None
+SCHEDULER = 'LCMScheduler'
+LORA = 'latent-consistency/lcm-lora-sdv1-5'
 STEPS = 4
 PROMPT = 'best quality, realistic, unreal engine, 4K, a beautiful girl'
 SEED = None
 WARMUPS = 3
 BATCH = 1
-HEIGHT = 768
-WIDTH = 768
-EXTRA_CALL_KWARGS = None
+HEIGHT = 512
+WIDTH = 512
+EXTRA_CALL_KWARGS = '{"guidance_scale": 0.0}'
 
 from sfast.compilers.stable_diffusion_pipeline_compiler import (
     compile, CompilationConfig)

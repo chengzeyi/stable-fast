@@ -1,37 +1,53 @@
-import time
-import argparse
-import importlib
-import torch
-from diffusers import DiffusionPipeline
+MODEL = 'runwayml/stable-diffusion-v1-5'
+VARIANT = None
+CUSTOM_PIPELINE = None
+SCHEDULER = 'EulerAncestralDiscreteScheduler'
+LORA = None
+STEPS = 30
+PROMPT = 'best quality, realistic, unreal engine, 4K, a beautiful girl'
+SEED = None
+WARMUPS = 3
+BATCH = 1
+HEIGHT = 512
+WIDTH = 512
+EXTRA_CALL_KWARGS = None
+
 from sfast.compilers.stable_diffusion_pipeline_compiler import (
     compile, CompilationConfig)
+from diffusers import DiffusionPipeline
+import torch
+import json
+import importlib
+import argparse
+import time
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model',
+    parser.add_argument('--model', type=str, default=MODEL)
+    parser.add_argument('--variant', type=str, default=VARIANT)
+    parser.add_argument('--custom-pipeline', type=str, default=CUSTOM_PIPELINE)
+    parser.add_argument('--scheduler', type=str, default=SCHEDULER)
+    parser.add_argument('--lora', type=str, default=LORA)
+    parser.add_argument('--steps', type=int, default=STEPS)
+    parser.add_argument('--prompt', type=str, default=PROMPT)
+    parser.add_argument('--seed', type=int, default=SEED)
+    parser.add_argument('--warmups', type=int, default=WARMUPS)
+    parser.add_argument('--batch', type=int, default=BATCH)
+    parser.add_argument('--height', type=int, default=HEIGHT)
+    parser.add_argument('--width', type=int, default=WIDTH)
+    parser.add_argument('--extra-call-kwargs',
                         type=str,
-                        default='runwayml/stable-diffusion-v1-5')
-    parser.add_argument('--variant', type=str, default=None)
-    parser.add_argument('--custom-pipeline', type=str, default=None)
-    parser.add_argument('--scheduler',
-                        type=str,
-                        default='EulerAncestralDiscreteScheduler')
-    parser.add_argument('--steps', type=int, default=30)
-    parser.add_argument(
-        '--prompt',
-        default=
-        'best quality, realistic, unreal engine, 4K, a beautiful girl with')
-    parser.add_argument('--seed', type=int, default=None)
-    parser.add_argument('--warmups', type=int, default=3)
-    parser.add_argument('--batch', type=int, default=1)
-    parser.add_argument('--height', type=int, default=512)
-    parser.add_argument('--width', type=int, default=512)
+                        default=EXTRA_CALL_KWARGS)
     parser.add_argument('--no-optimize', action='store_true')
     return parser.parse_args()
 
 
-def load_model(model, scheduler=None, custom_pipeline=None, variant=None):
+def load_model(model,
+               scheduler=None,
+               custom_pipeline=None,
+               variant=None,
+               lora=None):
     extra_kwargs = {}
     if custom_pipeline is not None:
         extra_kwargs['custom_pipeline'] = custom_pipeline
@@ -44,6 +60,9 @@ def load_model(model, scheduler=None, custom_pipeline=None, variant=None):
         scheduler_cls = getattr(importlib.import_module('diffusers'),
                                 scheduler)
         model.scheduler = scheduler_cls.from_config(model.scheduler.config)
+    if lora is not None:
+        model.load_lora_weights(lora)
+        model.fuse_lora()
     model.safety_checker = None
     model.to(torch.device('cuda'))
     return model
@@ -87,6 +106,7 @@ def main():
         scheduler=args.scheduler,
         custom_pipeline=args.custom_pipeline,
         variant=args.variant,
+        lora=args.lora,
     )
     if not args.no_optimize:
         model = compile_model(model)
@@ -100,6 +120,8 @@ def main():
             num_images_per_prompt=args.batch,
             generator=None if args.seed is None else torch.Generator(
                 device='cuda').manual_seed(args.seed),
+            **(dict() if args.extra_call_kwargs is None else json.loads(
+                args.extra_call_kwargs)),
         )
         return kwarg_inputs
 
