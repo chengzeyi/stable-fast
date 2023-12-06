@@ -12,9 +12,9 @@ And unlike `TensorRT` or `AITemplate`, which takes dozens of minutes to compile 
 
 [![](https://mermaid.ink/img/pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGX3RyqrvcwwACWwEbY7CZC_HtNqLYHj948j_zezHhhlamJFexwWJRWroDl6Doa6FjAsTETWXdcYT0cpL7dqw4nF5bkUGqnXE8g2VUNBL4QWtI0oVO6BaMJ1IAtwadyHbw-g4jSAFIR3_zxgIN1NNrAV8LL9Tc88YxL5iVCvCkLb5J9oFZ9j-DMVHWSBV7pAaPKDKPqaae-_7zSMPbo_uVeuOnN555cSVszvVwhj3gkds46LHsKG7ROsnep77ugZINXU5Yqo2srGXAIw28Qc86llrrECd5Ell8CEKngPoo085HzJIA8FxsU6TsL2EDTgKr281ykhs30NkvJCg9LtLQ1ufo6nJ15veuKFW6aKWDzWPsmnhW2Ew6saLC3X-yPWvnWv8jeYE0-XZi7j9vmWmWdf9Jbb1S78fPUe7pzbrTF6bRdR63fw1xuwztZVW9r7D7y8-kcnzOMEzpfEkyTpK5KkWdN_CSa-sJFjGxdAzai_mPMf1f08PNr_zaP37P-BVvguY0?type=png)](https://mermaid.live/edit#pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGX3RyqrvcwwACWwEbY7CZC_HtNqLYHj948j_zezHhhlamJFexwWJRWroDl6Doa6FjAsTETWXdcYT0cpL7dqw4nF5bkUGqnXE8g2VUNBL4QWtI0oVO6BaMJ1IAtwadyHbw-g4jSAFIR3_zxgIN1NNrAV8LL9Tc88YxL5iVCvCkLb5J9oFZ9j-DMVHWSBV7pAaPKDKPqaae-_7zSMPbo_uVeuOnN555cSVszvVwhj3gkds46LHsKG7ROsnep77ugZINXU5Yqo2srGXAIw28Qc86llrrECd5Ell8CEKngPoo085HzJIA8FxsU6TsL2EDTgKr281ykhs30NkvJCg9LtLQ1ufo6nJ15veuKFW6aKWDzWPsmnhW2Ew6saLC3X-yPWvnWv8jeYE0-XZi7j9vmWmWdf9Jbb1S78fPUe7pzbrTF6bRdR63fw1xuwztZVW9r7D7y8-kcnzOMEzpfEkyTpK5KkWdN_CSa-sJFjGxdAzai_mPMf1f08PNr_zaP37P-BVvguY0)
 
-| Framework | torch   | torch.compile | AIT    | oneflow | TensorRT | __stable-fast__ |
-| --------- | ------- | ------------- | ------ | ------- | -------- | --------------- |
-| Time      | 1897 ms | 1510 ms       | 1158   | 1003 ms | 991 ms   | __1015 ms__     |
+| Framework | torch | torch.compile | AIT  | oneflow | TensorRT | __stable-fast__ |
+| --------- | ----- | ------------- | ---- | ------- | -------- | --------------- |
+| Time/ms   | 1897  | 1510          | 1158 | 1003    | 991      | __1015__        |
 
 __NOTE__: During benchmarking, `TensorRT` is tested with `static batch size` and `CUDA Graph enabled` while `stable-fast` is running with full dynamic shape.
 
