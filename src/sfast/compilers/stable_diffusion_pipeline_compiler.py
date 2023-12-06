@@ -165,6 +165,7 @@ def compile_unet(m, config):
 
 def _modify_model(
     m,
+    training=False,
     enable_cnn_optimization=True,
     enable_fused_linear_geglu=True,
     prefer_lowp_gemm=True,
@@ -201,10 +202,11 @@ def _modify_model(
         if enable_triton_layer_norm:
             triton_passes.jit_pass_optimize_layer_norm(m.graph)
 
-    if enable_fused_linear_geglu:
+    if enable_fused_linear_geglu and not training:
         passes.jit_pass_fuse_linear_geglu(m.graph)
 
-    passes.jit_pass_optimize_linear(m.graph)
+    if not training:
+        passes.jit_pass_optimize_linear(m.graph)
 
     if memory_format is not None:
         sfast._C._jit_pass_convert_op_input_tensors(
@@ -216,7 +218,7 @@ def _modify_model(
     if enable_cnn_optimization:
         passes.jit_pass_optimize_cnn(m.graph)
 
-    if prefer_lowp_gemm:
+    if prefer_lowp_gemm and not training:
         passes.jit_pass_prefer_lowp_gemm(m.graph)
         passes.jit_pass_fuse_lowp_linear_add(m.graph)
 
@@ -237,8 +239,11 @@ def _ts_compiler(
                 m,
                 preserve_parameters=preserve_parameters,
             )
+
         if modify_model_fn is not None:
-            modify_model_fn(m)
+            training = any(x.requires_grad for x in inputs
+                           if isinstance(x, torch.Tensor))
+            modify_model_fn(m, training=training)
 
     return m
 

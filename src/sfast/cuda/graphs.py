@@ -17,7 +17,14 @@ def make_dynamic_graphed_callable(callable):
 
     @functools.wraps(callable)
     def dynamic_graphed_callable(*args, **kwargs):
-        key = (hash_arg(args), hash_arg(kwargs))
+        if isinstance(callable, torch.nn.Module):
+            training = getattr(callable, 'training', False)
+        elif hasattr(callable, '__self__') and isinstance(
+                callable.__self__, torch.nn.Module):
+            training = getattr(callable.__self__, 'training', False)
+        else:
+            training = False
+        key = (training, hash_arg(args), hash_arg(kwargs))
         cached_callable = cached_callables.get(key)
         if cached_callable is None:
             with lock:
