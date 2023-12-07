@@ -165,7 +165,6 @@ def compile_unet(m, config):
 
 def _modify_model(
     m,
-    training=False,
     enable_cnn_optimization=True,
     enable_fused_linear_geglu=True,
     prefer_lowp_gemm=True,
@@ -177,6 +176,8 @@ def _modify_model(
     if enable_triton:
         from sfast.jit.passes import triton_passes
 
+    training = getattr(m, 'training', False)
+
     torch._C._jit_pass_inline(m.graph)
     '''
     RuntimeError: 0 INTERNAL ASSERT FAILED at "../torch/csrc/jit/ir/alias_analysis.cpp":616, please report a bug to PyTorch. We don't have an op for aten::to but it isn't a special case.  Argument types: int, Device, int, bool, bool, NoneType,
@@ -186,7 +187,8 @@ def _modify_model(
 
     # passes.jit_pass_prefer_tanh_approx_gelu(m.graph)
 
-    passes.jit_pass_remove_dropout(m.graph)
+    if not training:
+        passes.jit_pass_remove_dropout(m.graph)
 
     passes.jit_pass_remove_contiguous(m.graph)
     passes.jit_pass_replace_view_with_reshape(m.graph)
@@ -241,9 +243,7 @@ def _ts_compiler(
             )
 
         if modify_model_fn is not None:
-            training = any(x.requires_grad for x in inputs
-                           if isinstance(x, torch.Tensor))
-            modify_model_fn(m, training=training)
+            modify_model_fn(m)
 
     return m
 

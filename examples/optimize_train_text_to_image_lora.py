@@ -720,23 +720,22 @@ def main():
 
     if args.sfast:
         from sfast.compilers.stable_diffusion_pipeline_compiler import compile_unet, CompilationConfig
-        
+
+        # torch.jit.set_fusion_strategy([('STATIC', 0), ('DYNAMIC', 0)])
         config = CompilationConfig.Default()
 
-        try:
-            import xformers
+        if args.enable_xformers_memory_efficient_attention:
             config.enable_xformers = True
-        except ImportError:
-            print('xformers not installed, skip')
         try:
             import triton
             config.enable_triton = True
         except ImportError:
             print('Triton not installed, skip')
-        config.enable_cuda_graph = True
+        # config.enable_cuda_graph = True
 
         unet = compile_unet(unet, config)
     elif args.compile:
+        torch._dynamo.config.suppress_errors = True
         unet = torch.compile(unet)
 
     for epoch in range(first_epoch, args.num_train_epochs):

@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 import torch
 from xformers.ops import (memory_efficient_attention, AttentionOp)
 from xformers import ops

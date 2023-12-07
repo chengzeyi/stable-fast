@@ -79,8 +79,8 @@ def make_graphed_callable(callable,
     torch.cuda.synchronize()
     with torch.cuda.stream(torch.cuda.Stream(device=execution_env.device)):
         for _ in range(3):
-            callable(*tree_copy(example_inputs),
-                     **tree_copy(example_kwarg_inputs))
+            callable(*tree_copy(example_inputs, detach=True),
+                     **tree_copy(example_kwarg_inputs, detach=True))
     torch.cuda.synchronize()
 
     if is_default_allocator:

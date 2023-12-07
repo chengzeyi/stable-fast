@@ -271,16 +271,16 @@ class LayerNorm(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, normalized_shape, weight, bias, eps):
         x = x.contiguous()
-        if weight is not None:
-            weight = weight.contiguous()
-        if bias is not None:
-            bias = bias.contiguous()
+        weight = weight.contiguous() if weight is not None else None
+        bias = bias.contiguous() if bias is not None else None
         # allocate output
         y = torch.empty_like(x)
         # reshape input data into 2D tensor
         x_arg = x.reshape(-1, x.shape[-1])
         M, N = x_arg.shape
-        if torch.is_grad_enabled():
+        needs_backward = any(x is not None and x.requires_grad
+                             for x in [x, weight, bias])
+        if needs_backward:
             mean = torch.empty((M, ), dtype=x.dtype, device=x.device)
             rstd = torch.empty((M, ), dtype=x.dtype, device=x.device)
         else:
@@ -317,6 +317,11 @@ class LayerNorm(torch.autograd.Function):
     @staticmethod
     def backward(ctx, dy):
         x, w, b, m, v = ctx.saved_tensors
+        x = x.contiguous()
+        w = w.contiguous() if w is not None else None
+        b = b.contiguous() if b is not None else None
+        m = m.contiguous()
+        v = v.contiguous()
         # heuristics for amount of parallel reduction stream for DW/DB
         N = w.shape[0]
         GROUP_SIZE_M = 64

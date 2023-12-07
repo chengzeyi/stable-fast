@@ -124,15 +124,16 @@ def construct_triton_group_norm_torch_op():
                 output, mean, rstd = aten.native_group_norm(
                     input, weight, bias, N, C, HxW, num_groups, eps)
             else:
-                grad_mode_enabled = torch.is_grad_enabled()
+                needs_backward = any(x is not None and x.requires_grad
+                                     for x in [input, weight, bias])
                 output, mean, rstd = group_norm_forward(
                     input,
                     num_groups,
                     weight,
                     bias,
                     eps,
-                    output_mean=grad_mode_enabled,
-                    output_rstd=grad_mode_enabled)
+                    output_mean=needs_backward,
+                    output_rstd=needs_backward)
             ctx.save_for_backward(input, weight, bias, mean, rstd)
             ctx.num_groups = num_groups
             return output
@@ -141,8 +142,8 @@ def construct_triton_group_norm_torch_op():
         def backward(ctx, grad_output):
             input, weight, bias, mean, rstd = ctx.saved_tensors
             grad_input_mask = (ctx.needs_input_grad[0],
-                               ctx.needs_input_grad[1],
-                               ctx.needs_input_grad[2])
+                               ctx.needs_input_grad[2],
+                               ctx.needs_input_grad[3])
             N, C = input.shape[:2]
             HxW = input.numel() // (N * C)
             grad_output = grad_output.contiguous()
@@ -188,15 +189,16 @@ def construct_triton_group_norm_silu_torch_op():
                     input, weight, bias, N, C, HxW, num_groups, eps)
                 output = aten.silu(output)
             else:
-                grad_mode_enabled = torch.is_grad_enabled()
+                needs_backward = any(x is not None and x.requires_grad
+                                     for x in [input, weight, bias])
                 output, mean, rstd = group_norm_silu_forward(
                     input,
                     num_groups,
                     weight,
                     bias,
                     eps,
-                    output_mean=grad_mode_enabled,
-                    output_rstd=grad_mode_enabled)
+                    output_mean=needs_backward,
+                    output_rstd=needs_backward)
             ctx.save_for_backward(input, weight, bias, mean, rstd)
             ctx.num_groups = num_groups
             return output
@@ -205,8 +207,8 @@ def construct_triton_group_norm_silu_torch_op():
         def backward(ctx, grad_output):
             input, weight, bias, mean, rstd = ctx.saved_tensors
             grad_input_mask = (ctx.needs_input_grad[0],
-                               ctx.needs_input_grad[1],
-                               ctx.needs_input_grad[2])
+                               ctx.needs_input_grad[2],
+                               ctx.needs_input_grad[3])
             N, C = input.shape[:2]
             HxW = input.numel() // (N * C)
             grad_output = grad_output.contiguous()

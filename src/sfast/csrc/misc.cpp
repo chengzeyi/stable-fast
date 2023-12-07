@@ -10,6 +10,7 @@ namespace misc {
 using namespace torch;
 
 void initMiscBindings(py::module m) {
+  m.def("_abort", []() { std::abort(); });
   m.def("_compute_stride", [](const IntArrayRef &oldshape,
                               const IntArrayRef &oldstride,
                               const IntArrayRef &newshape) {

@@ -19,21 +19,23 @@ def tree_copy_(dest, src):
         for k in dest:
             tree_copy_(dest[k], src[k])
     else:
-        assert type(dest) == type(src)
+        assert type(dest) is type(src)
 
 
-def tree_copy(src):
+def tree_copy(src, detach=False):
     if isinstance(src, torch.Tensor):
-        return src.clone()
+        return src.detach().clone() if detach else src.clone()
     elif isinstance(src, (list, tuple)):
-        return type(src)(tree_copy(x) for x in src)
+        return type(src)(tree_copy(x, detach=detach) for x in src)
     elif dataclasses.is_dataclass(src):
-        return type(src)(**{
-            field.name: tree_copy(getattr(src, field.name))
-            for field in dataclasses.fields(src)
-        })
+        return type(src)(
+            **{
+                field.name: tree_copy(getattr(src, field.name), detach=detach)
+                for field in dataclasses.fields(src)
+            })
     elif isinstance(src, dict):
-        return type(src)((k, tree_copy(v)) for k, v in src.items())
+        return type(src)(
+            (k, tree_copy(v, detach=detach)) for k, v in src.items())
     else:
         return src
 
