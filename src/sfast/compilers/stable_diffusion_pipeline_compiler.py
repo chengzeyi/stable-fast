@@ -1,7 +1,6 @@
 import logging
 import packaging.version
 from dataclasses import dataclass
-from typing import Set
 import functools
 import torch
 import sfast
