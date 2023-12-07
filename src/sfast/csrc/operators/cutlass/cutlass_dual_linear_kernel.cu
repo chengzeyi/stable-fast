@@ -292,7 +292,7 @@ torch::Tensor cutlass_linear_geglu(const torch::Tensor &input,
                      const c10::optional<torch::Tensor> &bias1) {
     auto x = cublas_lowp_linear(input, weight0, bias0);
     auto y = cublas_lowp_linear(input, weight1, bias1);
-    y = at::gelu_(y, "tanh");
+    y = at::gelu_(y);
     return at::mul_out(y, x, y);
   };
 
