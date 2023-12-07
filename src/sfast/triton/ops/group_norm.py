@@ -7,7 +7,7 @@ import triton
 import triton.language as tl
 from sfast.utils.copy_func import copy_func
 from . import activation
-from .utils import _welford_combine
+from .utils import welford_combine
 
 act = activation.identity
 
@@ -43,9 +43,9 @@ def group_norm_4d_forward_kernel(
         x = tl.load(X + r, mask=r < GROUP_SIZE).to(tl.float32)
         m2_ = tl.zeros((BLOCK_SIZE, ), dtype=tl.float32)
         weight_ = (r < GROUP_SIZE).to(tl.float32)
-        _mean, _m2, _weight = _welford_combine(_mean, _m2, _weight, x, m2_,
+        _mean, _m2, _weight = welford_combine(_mean, _m2, _weight, x, m2_,
                                                weight_)
-    mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, _welford_combine)
+    mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, welford_combine)
     var = m2 / weight
     rstd = 1. / tl.sqrt(var + eps)
     if mean_ptr is not None:
@@ -148,12 +148,12 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel(
         weight_ = mask.to(tl.float32)
         x = tl.load(X + (r * C)[:, None] + row[None, :],
                     mask=mask).to(tl.float32)
-        _mean, _m2, _weight = _welford_combine(_mean, _m2, _weight, x, m2_,
+        _mean, _m2, _weight = welford_combine(_mean, _m2, _weight, x, m2_,
                                                weight_)
     _mean = tl.view(_mean, (BLOCK_SIZE * ROW_SIZE, ))
     _m2 = tl.view(_m2, (BLOCK_SIZE * ROW_SIZE, ))
     _weight = tl.view(_weight, (BLOCK_SIZE * ROW_SIZE, ))
-    mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, _welford_combine)
+    mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, welford_combine)
     var = m2 / weight
     rstd = 1. / tl.sqrt(var + eps)
     offset = pid_batch * groups + group
@@ -212,12 +212,12 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1(
         weight_ = mask.to(tl.float32)
         x = tl.load(X + (r * C)[:, None] + row[None, :],
                     mask=mask).to(tl.float32)
-        _mean, _m2, _weight = _welford_combine(_mean, _m2, _weight, x, m2_,
+        _mean, _m2, _weight = welford_combine(_mean, _m2, _weight, x, m2_,
                                                weight_)
     _mean = tl.view(_mean, (BLOCK_SIZE * ROW_SIZE, ))
     _m2 = tl.view(_m2, (BLOCK_SIZE * ROW_SIZE, ))
     _weight = tl.view(_weight, (BLOCK_SIZE * ROW_SIZE, ))
-    mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, _welford_combine)
+    mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, welford_combine)
     # var = m2 / weight
     # rstd = 1. / tl.sqrt(var + eps)
     offset = pid_batch * groups * cluster_num + group * cluster_num + cluster
@@ -257,7 +257,7 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_2(
     cluster_m2 = tl.load(cluster_m2_ptr + offset, mask=mask)
     cluster_weight = tl.load(cluster_weight_ptr + offset, mask=mask)
     mean, m2, weight = tl.reduce((cluster_mean, cluster_m2, cluster_weight), 0,
-                                 _welford_combine)
+                                 welford_combine)
     var = m2 / weight
     rstd = 1. / tl.sqrt(var + eps)
     offset = pid_batch * groups + group

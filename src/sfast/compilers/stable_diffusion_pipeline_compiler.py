@@ -251,6 +251,23 @@ def _ts_compiler(
 def _build_lazy_trace(config,
                       enable_triton_reshape=False,
                       enable_triton_layer_norm=False):
+
+    lazy_trace_ = functools.partial(
+        lazy_trace,
+        ts_compiler=_build_ts_compiler(
+            config,
+            enable_triton_reshape=enable_triton_reshape,
+            enable_triton_layer_norm=enable_triton_layer_norm),
+        check_trace=False,
+        strict=False,
+    )
+
+    return lazy_trace_
+
+
+def _build_ts_compiler(config,
+                       enable_triton_reshape=False,
+                       enable_triton_layer_norm=False):
     modify_model = functools.partial(
         _modify_model,
         enable_cnn_optimization=config.enable_cnn_optimization,
@@ -269,14 +286,7 @@ def _build_lazy_trace(config,
         modify_model_fn=modify_model,
     )
 
-    lazy_trace_ = functools.partial(
-        lazy_trace,
-        ts_compiler=ts_compiler,
-        check_trace=False,
-        strict=False,
-    )
-
-    return lazy_trace_
+    return ts_compiler
 
 
 def _enable_xformers(m):

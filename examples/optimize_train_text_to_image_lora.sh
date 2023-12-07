@@ -27,7 +27,6 @@ accelerate launch --mixed_precision="fp16" $SCRIPT_DIR/optimize_train_text_to_im
   --validation_prompt="A pokemon with blue eyes." \
   --seed=1337 \
   --allow_tf32 \
-  --enable_xformers_memory_efficient_attention \
   --sfast
   # --push_to_hub \
   # --hub_model_id=${HUB_MODEL_ID} \

@@ -256,3 +256,28 @@ def get_cuda_device_from_tensors(x):
     else:
 
         return None
+
+
+def get_requires_grad_from_tensors(x):
+    if isinstance(x, torch.Tensor):
+        return x.requires_grad
+    elif isinstance(x, (list, tuple)):
+        for y in x:
+            requires_grad = get_requires_grad_from_tensors(y)
+            if requires_grad:
+                return True
+        return False
+    elif dataclasses.is_dataclass(x):
+        for k in dataclasses.fields(x):
+            requires_grad = get_requires_grad_from_tensors(getattr(x, k))
+            if requires_grad:
+                return True
+        return False
+    elif isinstance(x, dict):
+        for v in x.values():
+            requires_grad = get_requires_grad_from_tensors(v)
+            if requires_grad:
+                return True
+        return False
+    else:
+        return False

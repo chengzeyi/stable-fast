@@ -40,18 +40,21 @@ def tree_copy(src, detach=False):
         return src
 
 
-def shadow_copy(obj):
+def shadow_copy(obj, detach=False):
     if isinstance(obj, torch.Tensor):
         return sfast._C._create_shadow_tensor(
-            obj) if obj.device.type == 'cuda' else obj
+            obj, detach=detach
+        ) if obj.device.type == 'cuda' else obj
     elif isinstance(obj, (list, tuple)):
-        return type(obj)(shadow_copy(x) for x in obj)
+        return type(obj)(shadow_copy(x, detach=detach) for x in obj)
     elif dataclasses.is_dataclass(obj):
         return type(obj)(**{
-            field.name: shadow_copy(getattr(obj, field.name))
+            field.name:
+            shadow_copy(getattr(obj, field.name), detach=detach)
             for field in dataclasses.fields(obj)
         })
     elif isinstance(obj, dict):
-        return type(obj)((k, shadow_copy(v)) for k, v in obj.items())
+        return type(obj)(
+            (k, shadow_copy(v, detach=detach)) for k, v in obj.items())
     else:
         return obj
