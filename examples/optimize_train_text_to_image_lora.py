@@ -724,8 +724,8 @@ def main():
         # torch.jit.set_fusion_strategy([('STATIC', 0), ('DYNAMIC', 0)])
         config = CompilationConfig.Default()
 
-        if args.enable_xformers_memory_efficient_attention:
-            config.enable_xformers = True
+        # if args.enable_xformers_memory_efficient_attention:
+        #     config.enable_xformers = True
         try:
             import triton
             config.enable_triton = True

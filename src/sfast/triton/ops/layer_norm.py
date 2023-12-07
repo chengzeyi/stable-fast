@@ -29,6 +29,8 @@ In doing so, you will learn about:
 # where :math:`\epsilon` is a small constant added to the denominator for numerical stability.
 # Let’s first take a look at the forward pass implementation.
 
+import functools
+import operator
 import torch
 import triton
 import triton.language as tl
@@ -42,6 +44,8 @@ from .utils import _welford_combine
 # except ModuleNotFoundError:
 #     HAS_APEX = False
 HAS_APEX = False
+
+aten = torch.ops.aten
 
 
 @triton.jit
@@ -275,8 +279,10 @@ class LayerNorm(torch.autograd.Function):
         bias = bias.contiguous() if bias is not None else None
         # allocate output
         y = torch.empty_like(x)
+
+        N = functools.reduce(operator.mul, normalized_shape, 1)
         # reshape input data into 2D tensor
-        x_arg = x.reshape(-1, x.shape[-1])
+        x_arg = x.reshape(-1, N)
         M, N = x_arg.shape
         needs_backward = any(x is not None and x.requires_grad
                              for x in [x, weight, bias])
@@ -316,14 +322,26 @@ class LayerNorm(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, dy):
+        dy.contiguous()
         x, w, b, m, v = ctx.saved_tensors
         x = x.contiguous()
         w = w.contiguous() if w is not None else None
         b = b.contiguous() if b is not None else None
         m = m.contiguous()
         v = v.contiguous()
+
+        M = m.numel()
+        N = x.numel() // M
+
+        grad_input_mask = (ctx.needs_input_grad[0], ctx.needs_input_grad[2],
+                           ctx.needs_input_grad[3])
+        grad_inputs = aten.native_group_norm_backward(dy, x, N, m, v, w, b,
+                                                      grad_input_mask)
+        dx, dw, db = grad_inputs
+        return dx, None, dw, db, None
+
         # heuristics for amount of parallel reduction stream for DW/DB
-        N = w.shape[0]
+        # N = w.shape[0]
         GROUP_SIZE_M = 64
         if N <= 8192: GROUP_SIZE_M = 96
         if N <= 4096: GROUP_SIZE_M = 128

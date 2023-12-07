@@ -150,8 +150,7 @@ def construct_triton_group_norm_torch_op():
             input = input.contiguous()
             mean = mean.contiguous()
             rstd = rstd.contiguous()
-            if weight is not None:
-                weight = weight.contiguous()
+            weight = weight.contiguous() if weight is not None else None
             grad_inputs = aten.native_group_norm_backward(
                 grad_output, input, mean, rstd, weight, N, C, HxW,
                 ctx.num_groups, grad_input_mask)
@@ -215,8 +214,7 @@ def construct_triton_group_norm_silu_torch_op():
             input = input.contiguous()
             mean = mean.contiguous()
             rstd = rstd.contiguous()
-            if weight is not None:
-                weight = weight.contiguous()
+            weight = weight.contiguous() if weight is not None else None
             repeats = input.shape[1] // ctx.num_groups
             normed = input.sub(
                 mean.repeat_interleave(repeats, 1)[..., None, None]).mul_(

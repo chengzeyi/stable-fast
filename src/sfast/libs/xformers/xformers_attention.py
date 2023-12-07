@@ -2,6 +2,7 @@ from typing import Optional
 import torch
 from xformers.ops import (memory_efficient_attention, AttentionOp)
 from xformers import ops
+from sfast.utils.custom_python_operator import register_custom_python_operator
 
 OP_STR_MAP = {
     ops.MemoryEfficientAttentionCutlassFwdFlashBwOp:
@@ -18,8 +19,7 @@ OP_STR_MAP = {
 STR_OP_MAP = {v: k for k, v in OP_STR_MAP.items()}
 
 
-@torch.jit.ignore
-def _xformers_memory_efficient_attention(
+def xformers_memory_efficient_attention_torch_op(
         query: torch.Tensor,
         key: torch.Tensor,
         value: torch.Tensor,
@@ -39,17 +39,9 @@ def _xformers_memory_efficient_attention(
     return hidden_states
 
 
-@torch.jit.script
-def xformers_memory_efficient_attention_script(
-        query: torch.Tensor,
-        key: torch.Tensor,
-        value: torch.Tensor,
-        attn_bias: Optional[torch.Tensor] = None,
-        p: float = 0.0,
-        scale: Optional[float] = None,
-        op: Optional[str] = None):
-    return _xformers_memory_efficient_attention(query, key, value, attn_bias,
-                                                p, scale, op)
+register_custom_python_operator(
+    'sfast_xformers::memory_efficient_attention(Tensor query, Tensor key, Tensor value, Tensor? attn_bias, float p, float? scale, str? op) -> Tensor',
+    xformers_memory_efficient_attention_torch_op)
 
 
 def xformers_memory_efficient_attention(
@@ -63,5 +55,5 @@ def xformers_memory_efficient_attention(
         op: Optional[AttentionOp] = None):
     if op is not None:
         op = OP_STR_MAP[op]
-    return xformers_memory_efficient_attention_script(query, key, value,
-                                                      attn_bias, p, scale, op)
+    return torch.ops.sfast_xformers.memory_efficient_attention(
+        query, key, value, attn_bias, p, scale, op)

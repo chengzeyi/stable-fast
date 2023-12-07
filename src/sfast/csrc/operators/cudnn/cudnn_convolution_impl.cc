@@ -1373,7 +1373,7 @@ public:
       grad_weight = std::get<1>(conv_grads);
       grad_bias = std::get<2>(conv_grads);
     }
-    if (
+    if (!z_shape.empty() &&
 #if 1
         ctx->needs_input_grad(3)
 #else
