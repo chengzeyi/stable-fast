@@ -1,8 +1,7 @@
 import functools
 import torch
-from torch.utils._python_dispatch import _disable_current_modes
 from torch._dynamo.backends.registry import register_backend
-from torch._subclasses import FakeTensor
+from torch._dynamo.backends.common import aot_autograd, fake_tensor_unsupported
 from sfast.jit.utils import better_trace
 
 
@@ -14,44 +13,18 @@ def sfast_jit_script(gm, example_inputs, *, ts_compiler=None):
     return ts
 
 
-def fake_tensor_unsupported(fn):
-    """
-    Decorator for backends that need real inputs.  We swap out fake
-    tensors for zero tensors.
-    """
-
-    def defake(x):
-        if not isinstance(x, FakeTensor):
-            return x
-        if x._has_symbolic_sizes_strides:
-            size = [s.node.shape_env.size_hint(s.node.expr) for s in x.size()]
-            stride = [
-                s.node.shape_env.size_hint(s.node.expr) for s in x.stride()
-            ]
-        else:
-            size = x.size()
-            stride = x.stride()
-        y = torch.empty_strided(
-            size,
-            stride,
-            dtype=x.dtype,
-            device=x.device,
-            # RuntimeError: a leaf Variable that requires grad is being used in an in-place operation.
-            requires_grad=False,
-            # requires_grad=x.requires_grad,
-        )
-        y.zero_()
-        y.requires_grad = x.requires_grad
-        # y.zero_()
-        return y
-
-    @functools.wraps(fn)
-    def wrapper(model, inputs, **kwargs):
-        with _disable_current_modes():
-            inputs = list(map(defake, inputs))
-            return fn(model, inputs, **kwargs)
-
-    return wrapper
+@register_backend
+def sfast_jit_script_aot_autograd(gm,
+                                  example_inputs,
+                                  *,
+                                  fw_ts_compiler=None,
+                                  bw_ts_compiler=None):
+    fw_compiler = functools.partial(sfast_jit_script,
+                                    ts_compiler=fw_ts_compiler)
+    bw_compiler = functools.partial(sfast_jit_script,
+                                    ts_compiler=bw_ts_compiler)
+    return aot_autograd(fw_compiler=fw_compiler,
+                        bw_compiler=bw_compiler)(gm, example_inputs)
 
 
 @register_backend
@@ -62,7 +35,22 @@ def sfast_jit_trace(gm, example_inputs, *, ts_compiler=None):
     # (torch/csrc/jit/api/function_impl.h: get_executor())
     # But we might modify its graph later, so we don't want to cache it.
     # So we set check_trace to False.
-    ts = better_trace(gm, example_inputs, check_trace=False)
+    ts = better_trace(gm, example_inputs, check_trace=False, strict=False)
     if ts_compiler is not None:
         ts = ts_compiler(ts, example_inputs)
     return ts
+
+
+@register_backend
+@fake_tensor_unsupported
+def sfast_jit_trace_aot_autograd(gm,
+                                 example_inputs,
+                                 *,
+                                 fw_ts_compiler=None,
+                                 bw_ts_compiler=None):
+    fw_compiler = functools.partial(sfast_jit_trace,
+                                    ts_compiler=fw_ts_compiler)
+    bw_compiler = functools.partial(sfast_jit_trace,
+                                    ts_compiler=bw_ts_compiler)
+    return aot_autograd(fw_compiler=fw_compiler,
+                        bw_compiler=bw_compiler)(gm, example_inputs)

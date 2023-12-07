@@ -4,8 +4,8 @@
 #include <torch/version.h>
 
 #include <ATen/cuda/CUDAConfig.h>
-#include <ATen/cudnn/cudnn-wrapper.h>
 #include <ATen/cudnn/Types.h>
+#include <ATen/cudnn/cudnn-wrapper.h>
 
 #include <c10/cuda/CUDACachingAllocator.h>
 #if TORCH_VERSION_MAJOR >= 2
@@ -26,8 +26,8 @@
 #include <sstream>
 #include <unordered_map>
 
-#include "cudnn_utils.h"
 #include "cudnn_convolution.h"
+#include "cudnn_utils.h"
 
 #if CUDNN_VERSION < 8000
 #define AT_CUDNN_CONV_BIAS_ADD_FALLBACK
@@ -936,7 +936,8 @@ void raw_cudnn_convolution_add_out(
         Constant one(dataType, 1);
         Constant alpha_(dataType, alpha);
 
-        // If mathType is not using Tensor Core, then the fusion is extremely slow
+        // If mathType is not using Tensor Core, then the fusion is extremely
+        // slow
         if ((fwdAlgPerf.mathType == CUDNN_TENSOR_OP_MATH ||
              fwdAlgPerf.mathType == CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION) &&
             (activation_mode != CUDNN_ACTIVATION_IDENTITY ||
@@ -1006,7 +1007,7 @@ void raw_cudnn_convolution_add_fallback_out(
   output.add_(alpha_mul_z_add_bias);
 }
 
-}
+} // namespace
 
 Tensor cudnn_convolution_bias_add_activation(
     const Tensor &input_t, const Tensor &weight_t,
@@ -1183,9 +1184,7 @@ select_conv_backend(const Tensor &input_r, const Tensor &weight_r,
                     bool transposed_, IntArrayRef output_padding_,
                     int64_t groups_) {
   return torch::native::select_conv_backend(
-      input_r,
-      weight_r,
-      bias_opt,
+      input_r, weight_r, bias_opt,
 #if TORCH_VERSION_MINOR >= 2
       fromIntArrayRefUnchecked
 #endif
@@ -1195,9 +1194,7 @@ select_conv_backend(const Tensor &input_r, const Tensor &weight_r,
       fromIntArrayRefUnchecked
 #endif
       (dilation_),
-      transposed_,
-      fromIntArrayRefUnchecked(output_padding_),
-      groups_,
+      transposed_, fromIntArrayRefUnchecked(output_padding_), groups_,
       c10::nullopt);
 }
 #endif
@@ -1210,8 +1207,10 @@ Tensor cudnn_convolution_bias_add_activation_with_fallback_forward(
     IntArrayRef output_padding, int64_t groups,
     cudnnActivationMode_t activation_mode = CUDNN_ACTIVATION_IDENTITY) {
   // bool need_backward = GradMode::is_enabled() &&
-  //                      (input_t.requires_grad() || weight_t.requires_grad() ||
-  //                       (bias_t.has_value() && bias_t.value().requires_grad()));
+  //                      (input_t.requires_grad() || weight_t.requires_grad()
+  //                      ||
+  //                       (bias_t.has_value() &&
+  //                       bias_t.value().requires_grad()));
   ConvBackend backend =
       select_conv_backend(input_t, weight_t, bias_t, stride, padding, dilation,
                           transposed, output_padding, groups);
@@ -1313,7 +1312,8 @@ public:
     ctx->saved_data["output_padding"] = output_padding;
     ctx->saved_data["groups"] = groups;
     ctx->saved_data["activation_mode"] = activation_mode;
-    ctx->saved_data["z_shape"] = z.has_value() ? z.value().sizes() : IntArrayRef();
+    ctx->saved_data["z_shape"] =
+        z.has_value() ? z.value().sizes() : IntArrayRef();
 
     return output;
   }
@@ -1336,6 +1336,7 @@ public:
         ctx->saved_data["activation_mode"].toInt());
     auto z_shape = ctx->saved_data["z_shape"].toIntVector();
 
+    Tensor grad_input, grad_weight, grad_bias, grad_z;
     Tensor act_backward;
     switch (activation_mode) {
     case CUDNN_ACTIVATION_IDENTITY:
@@ -1345,7 +1346,7 @@ public:
       act_backward = sigmoid_backward(grad_output[0], output);
       break;
     case CUDNN_ACTIVATION_RELU:
-      act_backward = threshold_backward(grad_output[0], output, 0);
+      act_backward = threshold_backward(grad_output[0], output, 0.0);
       break;
     case CUDNN_ACTIVATION_TANH:
       act_backward = tanh_backward(grad_output[0], output);
@@ -1354,43 +1355,42 @@ public:
       TORCH_CHECK(false, "Unsupported activation mode: ", activation_mode);
     }
 
-    auto conv_grads = torch::convolution_backward(
-        act_backward, input, weight,
-        bias.defined() ? bias.sizes() : c10::optional<IntArrayRef>(), stride,
-        padding, dilation, transposed, output_padding, groups,
-#if 0
-        std::array<bool, 3>({ctx->needs_input_grad(0), ctx->needs_input_grad(1),
-                             ctx->needs_input_grad(2)})
+    if (ctx->needs_input_grad(0) || ctx->needs_input_grad(1) ||
+        ctx->needs_input_grad(2)) {
+      auto conv_grads = torch::convolution_backward(
+          act_backward, input, weight,
+          bias.defined() ? bias.sizes() : c10::optional<IntArrayRef>(), stride,
+          padding, dilation, transposed, output_padding, groups,
+#if 1
+          std::array<bool, 3>({ctx->needs_input_grad(0),
+                               ctx->needs_input_grad(1),
+                               ctx->needs_input_grad(2)})
 #else
-        std::array<bool, 3>({true, true, true})
+          std::array<bool, 3>({true, true, true})
 #endif
-                             );
-    auto grad_input = std::get<0>(conv_grads);
-    auto grad_weight = std::get<1>(conv_grads);
-    auto grad_bias = std::get<2>(conv_grads);
-
-    Tensor grad_z;
+      );
+      grad_input = std::get<0>(conv_grads);
+      grad_weight = std::get<1>(conv_grads);
+      grad_bias = std::get<2>(conv_grads);
+    }
     if (!z_shape.empty() &&
-#if 0
-      ctx->needs_input_grad(3)
+#if 1
+        ctx->needs_input_grad(3)
 #else
-      true
+        true
 #endif
     ) {
       float _alpha = alpha.has_value() ? alpha.value().to<float>() : 1.0f;
       if (_alpha == 0.0f) {
         grad_z = at::zeros(z_shape, act_backward.options());
-      } else if (_alpha == 1.0f) {
-        grad_z = act_backward;
-        if (z_shape != grad_z.sizes()) {
-            grad_z = at::sum_to(grad_z, z_shape);
-        }
       } else {
         grad_z = act_backward;
-        if (z_shape != act_backward.sizes()) {
-            act_backward = at::sum_to(act_backward, z_shape);
+        if (z_shape != grad_z.sizes()) {
+          grad_z = at::sum_to(grad_z, z_shape);
         }
-        grad_z = grad_z * _alpha;
+        if (_alpha != 1.0f) {
+          grad_z = grad_z * _alpha;
+        }
       }
     }
 
@@ -1467,44 +1467,34 @@ Tensor cudnn_convolution_bias_tanh(const Tensor &input_t,
       dilation, transposed, output_padding, groups, CUDNN_ACTIVATION_TANH);
 }
 
-Tensor cudnn_convolution_bias_add_sigmoid(const Tensor &input_t,
-                                         const Tensor &weight_t,
-                                         const c10::optional<Tensor> &bias_t,
-                                         const c10::optional<Tensor> &z_t,
-                                         const c10::optional<Scalar> &alpha,
-                                         IntArrayRef stride,
-                                         IntArrayRef padding,
-                                         IntArrayRef dilation, bool transposed,
-                                         IntArrayRef output_padding,
-                                         int64_t groups) {
+Tensor cudnn_convolution_bias_add_sigmoid(
+    const Tensor &input_t, const Tensor &weight_t,
+    const c10::optional<Tensor> &bias_t, const c10::optional<Tensor> &z_t,
+    const c10::optional<Scalar> &alpha, IntArrayRef stride, IntArrayRef padding,
+    IntArrayRef dilation, bool transposed, IntArrayRef output_padding,
+    int64_t groups) {
   return cudnn_convolution_bias_add_activation_with_fallback(
       input_t, weight_t, bias_t, z_t, alpha, stride, padding, dilation,
       transposed, output_padding, groups, CUDNN_ACTIVATION_SIGMOID);
 }
 
-Tensor cudnn_convolution_bias_add_relu(const Tensor &input_t,
-                                       const Tensor &weight_t,
-                                       const c10::optional<Tensor> &bias_t,
-                                       const c10::optional<Tensor> &z_t,
-                                       const c10::optional<Scalar> &alpha,
-                                       IntArrayRef stride, IntArrayRef padding,
-                                       IntArrayRef dilation, bool transposed,
-                                       IntArrayRef output_padding,
-                                       int64_t groups) {
+Tensor cudnn_convolution_bias_add_relu(
+    const Tensor &input_t, const Tensor &weight_t,
+    const c10::optional<Tensor> &bias_t, const c10::optional<Tensor> &z_t,
+    const c10::optional<Scalar> &alpha, IntArrayRef stride, IntArrayRef padding,
+    IntArrayRef dilation, bool transposed, IntArrayRef output_padding,
+    int64_t groups) {
   return cudnn_convolution_bias_add_activation_with_fallback(
       input_t, weight_t, bias_t, z_t, alpha, stride, padding, dilation,
       transposed, output_padding, groups, CUDNN_ACTIVATION_RELU);
 }
 
-Tensor cudnn_convolution_bias_add_tanh(const Tensor &input_t,
-                                       const Tensor &weight_t,
-                                       const c10::optional<Tensor> &bias_t,
-                                       const c10::optional<Tensor> &z_t,
-                                       const c10::optional<Scalar> &alpha,
-                                       IntArrayRef stride, IntArrayRef padding,
-                                       IntArrayRef dilation, bool transposed,
-                                       IntArrayRef output_padding,
-                                       int64_t groups) {
+Tensor cudnn_convolution_bias_add_tanh(
+    const Tensor &input_t, const Tensor &weight_t,
+    const c10::optional<Tensor> &bias_t, const c10::optional<Tensor> &z_t,
+    const c10::optional<Scalar> &alpha, IntArrayRef stride, IntArrayRef padding,
+    IntArrayRef dilation, bool transposed, IntArrayRef output_padding,
+    int64_t groups) {
   return cudnn_convolution_bias_add_activation_with_fallback(
       input_t, weight_t, bias_t, z_t, alpha, stride, padding, dilation,
       transposed, output_padding, groups, CUDNN_ACTIVATION_TANH);

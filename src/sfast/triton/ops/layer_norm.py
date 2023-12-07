@@ -29,10 +29,12 @@ In doing so, you will learn about:
 # where :math:`\epsilon` is a small constant added to the denominator for numerical stability.
 # Let’s first take a look at the forward pass implementation.
 
+import functools
+import operator
 import torch
 import triton
 import triton.language as tl
-from .utils import _welford_combine
+from .utils import welford_combine
 
 # try:
 #     # This is https://github.com/NVIDIA/apex, NOT the apex on PyPi, so it
@@ -42,6 +44,8 @@ from .utils import _welford_combine
 # except ModuleNotFoundError:
 #     HAS_APEX = False
 HAS_APEX = False
+
+aten = torch.ops.aten
 
 
 @triton.jit
@@ -81,9 +85,9 @@ def _layer_norm_fwd_fused(
             if off == 0:
                 _mean, _m2, _weight = x, m2_, weight_
             else:
-                _mean, _m2, _weight = _welford_combine(_mean, _m2, _weight, x,
-                                                       m2_, weight_)
-    mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, _welford_combine)
+                _mean, _m2, _weight = welford_combine(_mean, _m2, _weight, x,
+                                                      m2_, weight_)
+    mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, welford_combine)
     var = m2 / weight
     rstd = 1 / tl.sqrt(var + eps)
     mean = mean.to(x.dtype)
@@ -271,16 +275,18 @@ class LayerNorm(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, normalized_shape, weight, bias, eps):
         x = x.contiguous()
-        if weight is not None:
-            weight = weight.contiguous()
-        if bias is not None:
-            bias = bias.contiguous()
+        weight = weight.contiguous() if weight is not None else None
+        bias = bias.contiguous() if bias is not None else None
         # allocate output
         y = torch.empty_like(x)
+
+        N = functools.reduce(operator.mul, normalized_shape, 1)
         # reshape input data into 2D tensor
-        x_arg = x.reshape(-1, x.shape[-1])
+        x_arg = x.reshape(-1, N)
         M, N = x_arg.shape
-        if torch.is_grad_enabled():
+        needs_backward = any(x is not None and x.requires_grad
+                             for x in [x, weight, bias])
+        if needs_backward:
             mean = torch.empty((M, ), dtype=x.dtype, device=x.device)
             rstd = torch.empty((M, ), dtype=x.dtype, device=x.device)
         else:
@@ -312,17 +318,38 @@ class LayerNorm(torch.autograd.Function):
         ctx.BLOCK_SIZE = BLOCK_SIZE
         ctx.num_warps = num_warps
         ctx.eps = eps
+        ctx.normalized_shape = normalized_shape
         return y
 
     @staticmethod
     def backward(ctx, dy):
+        dy.contiguous()
         x, w, b, m, v = ctx.saved_tensors
+        x = x.contiguous()
+        w = w.contiguous() if w is not None else None
+        b = b.contiguous() if b is not None else None
+        m = m.contiguous()
+        v = v.contiguous()
+
+        grad_input_mask = (ctx.needs_input_grad[0], ctx.needs_input_grad[2],
+                           ctx.needs_input_grad[3])
+        grad_inputs = aten.native_layer_norm_backward(dy, x,
+                                                      ctx.normalized_shape, m,
+                                                      v, w, b, grad_input_mask)
+        dx, dw, db = grad_inputs
+        return dx, None, dw, db, None
+
+        M = m.numel()
+        N = x.numel() // M
         # heuristics for amount of parallel reduction stream for DW/DB
-        N = w.shape[0]
+        # N = w.shape[0]
         GROUP_SIZE_M = 64
-        if N <= 8192: GROUP_SIZE_M = 96
-        if N <= 4096: GROUP_SIZE_M = 128
-        if N <= 1024: GROUP_SIZE_M = 256
+        if N <= 8192:
+            GROUP_SIZE_M = 96
+        if N <= 4096:
+            GROUP_SIZE_M = 128
+        if N <= 1024:
+            GROUP_SIZE_M = 256
         # allocate output
         locks = torch.zeros(2 * GROUP_SIZE_M, dtype=torch.int32, device='cuda')
         _dw = torch.empty((GROUP_SIZE_M, w.shape[0]),
@@ -355,7 +382,10 @@ class LayerNorm(torch.autograd.Function):
             BLOCK_SIZE_N=ctx.BLOCK_SIZE,  #
             GROUP_SIZE_M=GROUP_SIZE_M,  #
             num_warps=ctx.num_warps)
-        grid = lambda meta: [triton.cdiv(N, meta['BLOCK_SIZE_N'])]
+
+        def grid(meta):
+            return [triton.cdiv(N, meta['BLOCK_SIZE_N'])]
+
         # accumulate partial sums in separate kernel
         _layer_norm_bwd_dwdb[grid](
             _dw,
@@ -467,7 +497,10 @@ if __name__ == '__main__':
 
         # forward pass
         if mode == 'forward':
-            gbps = lambda ms: 2 * x.numel() * x.element_size() / ms * 1e-6
+
+            def gbps(ms):
+                return 2 * x.numel() * x.element_size() / ms * 1e-6
+
             ms, min_ms, max_ms = triton.testing.do_bench(y_fwd,
                                                          quantiles=quantiles,
                                                          rep=500)

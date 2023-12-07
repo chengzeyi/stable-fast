@@ -17,7 +17,7 @@ with torch.jit.optimized_execution(False):
 Or disable it globally.
 
 ```python
-torch.jit.set_fusion_strategy([('STATIC', 0), ('DYNAMIC', 0)]
+torch.jit.set_fusion_strategy([('STATIC', 0), ('DYNAMIC', 0)])
 ```
 
 Disable Triton.

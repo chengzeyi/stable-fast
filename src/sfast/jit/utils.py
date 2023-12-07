@@ -9,7 +9,10 @@ class ScriptModuleClearHook:
         self.class_type = sfast._C._jit_get_module_type(script_module_c)
 
     def __del__(self):
-        sfast._C._jit_clear_class_type_registration(self.class_type)
+        try:
+            sfast._C._jit_clear_class_type_registration(self.class_type)
+        except Exception:
+            pass
 
 
 def attach_script_module_clear_hook(

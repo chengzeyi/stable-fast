@@ -191,6 +191,8 @@ def _modify_model(
     if enable_triton:
         from sfast.jit.passes import triton_passes
 
+    training = getattr(m, 'training', False)
+
     torch._C._jit_pass_inline(m.graph)
     '''
     RuntimeError: 0 INTERNAL ASSERT FAILED at "../torch/csrc/jit/ir/alias_analysis.cpp":616, please report a bug to PyTorch. We don't have an op for aten::to but it isn't a special case.  Argument types: int, Device, int, bool, bool, NoneType,
@@ -200,7 +202,8 @@ def _modify_model(
 
     # passes.jit_pass_prefer_tanh_approx_gelu(m.graph)
 
-    passes.jit_pass_remove_dropout(m.graph)
+    if not training:
+        passes.jit_pass_remove_dropout(m.graph)
 
     passes.jit_pass_remove_contiguous(m.graph)
     passes.jit_pass_replace_view_with_reshape(m.graph)
@@ -216,10 +219,11 @@ def _modify_model(
         if enable_triton_layer_norm:
             triton_passes.jit_pass_optimize_layer_norm(m.graph)
 
-    if enable_fused_linear_geglu:
+    if enable_fused_linear_geglu and not training:
         passes.jit_pass_fuse_linear_geglu(m.graph)
 
-    passes.jit_pass_optimize_linear(m.graph)
+    if not training:
+        passes.jit_pass_optimize_linear(m.graph)
 
     if memory_format is not None:
         sfast._C._jit_pass_convert_op_input_tensors(
@@ -231,7 +235,7 @@ def _modify_model(
     if enable_cnn_optimization:
         passes.jit_pass_optimize_cnn(m.graph)
 
-    if prefer_lowp_gemm:
+    if prefer_lowp_gemm and not training:
         passes.jit_pass_prefer_lowp_gemm(m.graph)
         passes.jit_pass_fuse_lowp_linear_add(m.graph)
 
@@ -252,6 +256,7 @@ def _ts_compiler(
                 m,
                 preserve_parameters=preserve_parameters,
             )
+
         if modify_model_fn is not None:
             modify_model_fn(m)
 
@@ -261,6 +266,23 @@ def _ts_compiler(
 def _build_lazy_trace(config,
                       enable_triton_reshape=False,
                       enable_triton_layer_norm=False):
+
+    lazy_trace_ = functools.partial(
+        lazy_trace,
+        ts_compiler=_build_ts_compiler(
+            config,
+            enable_triton_reshape=enable_triton_reshape,
+            enable_triton_layer_norm=enable_triton_layer_norm),
+        check_trace=False,
+        strict=False,
+    )
+
+    return lazy_trace_
+
+
+def _build_ts_compiler(config,
+                       enable_triton_reshape=False,
+                       enable_triton_layer_norm=False):
     modify_model = functools.partial(
         _modify_model,
         enable_cnn_optimization=config.enable_cnn_optimization,
@@ -279,14 +301,7 @@ def _build_lazy_trace(config,
         modify_model_fn=modify_model,
     )
 
-    lazy_trace_ = functools.partial(
-        lazy_trace,
-        ts_compiler=ts_compiler,
-        check_trace=False,
-        strict=False,
-    )
-
-    return lazy_trace_
+    return ts_compiler
 
 
 def _enable_xformers(m):

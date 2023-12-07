@@ -17,7 +17,14 @@ def make_dynamic_graphed_callable(callable):
 
     @functools.wraps(callable)
     def dynamic_graphed_callable(*args, **kwargs):
-        key = (hash_arg(args), hash_arg(kwargs))
+        if isinstance(callable, torch.nn.Module):
+            training = getattr(callable, 'training', False)
+        elif hasattr(callable, '__self__') and isinstance(
+                callable.__self__, torch.nn.Module):
+            training = getattr(callable.__self__, 'training', False)
+        else:
+            training = False
+        key = (training, hash_arg(args), hash_arg(kwargs))
         cached_callable = cached_callables.get(key)
         if cached_callable is None:
             with lock:
@@ -72,8 +79,8 @@ def make_graphed_callable(callable,
     torch.cuda.synchronize()
     with torch.cuda.stream(torch.cuda.Stream(device=execution_env.device)):
         for _ in range(3):
-            callable(*tree_copy(example_inputs),
-                     **tree_copy(example_kwarg_inputs))
+            callable(*tree_copy(example_inputs, detach=True),
+                     **tree_copy(example_kwarg_inputs, detach=True))
     torch.cuda.synchronize()
 
     if is_default_allocator:
@@ -249,3 +256,28 @@ def get_cuda_device_from_tensors(x):
     else:
 
         return None
+
+
+def get_requires_grad_from_tensors(x):
+    if isinstance(x, torch.Tensor):
+        return x.requires_grad
+    elif isinstance(x, (list, tuple)):
+        for y in x:
+            requires_grad = get_requires_grad_from_tensors(y)
+            if requires_grad:
+                return True
+        return False
+    elif dataclasses.is_dataclass(x):
+        for k in dataclasses.fields(x):
+            requires_grad = get_requires_grad_from_tensors(getattr(x, k))
+            if requires_grad:
+                return True
+        return False
+    elif isinstance(x, dict):
+        for v in x.values():
+            requires_grad = get_requires_grad_from_tensors(v)
+            if requires_grad:
+                return True
+        return False
+    else:
+        return False

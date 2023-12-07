@@ -19,7 +19,8 @@ def trace_with_kwargs(func,
     if example_kwarg_inputs is None:
         example_kwarg_inputs = {}
     pos_args = flat_tensors.flattern(
-        (tree_copy(example_inputs), tree_copy(example_kwarg_inputs)))
+        (tree_copy(example_inputs,
+                   detach=True), tree_copy(example_kwarg_inputs, detach=True)))
     traced_module = better_trace(TraceablePosArgOnlyModuleWrapper(func),
                                  pos_args, **kwargs)
     training = getattr(func, 'training', False) if isinstance(
@@ -39,7 +40,7 @@ def lazy_trace(func, *, ts_compiler=None, **kwargs_):
     @functools.wraps(wrapped)
     def wrapper(*args, **kwargs):
         nonlocal lock, traced_modules
-        key = (hash_arg(args), hash_arg(kwargs))
+        key = (module_to_be_traced.training, hash_arg(args), hash_arg(kwargs))
         traced_module = traced_modules.get(key)
         if traced_module is None:
             with lock:
@@ -84,12 +85,22 @@ def to_module(func, self=None):
         def forward(self, *args, **kwargs):
             return self.func(*args, **kwargs)
 
+        @property
+        def training(self):
+            return getattr(self.module, 'training', False)
+
+        # set training status of the module
+        @training.setter
+        def training(self, mode):
+            if hasattr(self, 'module') and hasattr(self.module, 'training'):
+                self.module.training = mode
+
     if self is None and hasattr(func, '__self__') and isinstance(
             func.__self__, torch.nn.Module):
         self = func.__self__
     if self is not None:
-        return FuncModule(func, self).train(self.training)
-    return FuncModule(func).eval()
+        return FuncModule(func, self)
+    return FuncModule(func)
 
 
 def hash_arg(arg):

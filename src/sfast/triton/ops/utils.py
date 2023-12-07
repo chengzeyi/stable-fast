@@ -3,7 +3,7 @@ import triton.language as tl
 
 
 @triton.jit
-def _welford_combine(mean_1, m2_1, weight_1, mean_2, m2_2, weight_2):
+def welford_combine(mean_1, m2_1, weight_1, mean_2, m2_2, weight_2):
     delta = mean_2 - mean_1
     new_weight = weight_1 + weight_2
     # w2_over_w = weight_2 / new_weight
