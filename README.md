@@ -337,13 +337,13 @@ Detailed benchmarking results will be available soon.
 
 ### A100 PCIe 40GB
 
-Thanks for __@SuperSecureHuman__'s help, benchmarking on A100 PCIe 40GB is available now.
+Thanks for __@SuperSecureHuman__ and __@jon-chuang__'s help, benchmarking on A100 PCIe 40GB is available now.
 
 | Framework                                | SD 1.5        | SD 2.1         | SD 1.5 ControlNet | SD XL         |
 | ---------------------------------------- | ------------- | -------------- | ----------------- | --------------|
 | Vanilla PyTorch (2.1.0+cu118)            | 23.8 it/s     | 23.8 it/s      | 15.7 it/s         | 10.0 it/s     |
 | torch.compile (2.1.0+cu118, NHWC UNet)   | 37.7 it/s     | 42.7 it/s      | 24.7 it/s         | 20.9 it/s     |
-| __Stable Fast (with xformers & Triton)__ | __53.2 it/s__ | __55.9 it/s__  | __37.1 it/s__     | __29.6 it/s__ |
+| __Stable Fast (with xformers & Triton)__ | __58.0 it/s__ | __outdated__   | __outdated__      | __outdated__  |
 
 ## Compatibility
 
