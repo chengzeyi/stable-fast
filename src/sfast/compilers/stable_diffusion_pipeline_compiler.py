@@ -13,6 +13,17 @@ from sfast.utils import gpu_device
 logger = logging.getLogger()
 
 
+@dataclass
+class ComponentCompileConfig:
+    text_encoder: bool = True,
+    text_encoder_2: bool = True, 
+    image_processor: bool = True,
+    vae_encode: bool = True,
+    vae_decode: bool = True,
+    unet: bool = True,
+    controlnet: bool = True
+    scheduler: bool = False
+
 class CompilationConfig:
 
     @dataclass
@@ -53,8 +64,9 @@ class CompilationConfig:
             Triton generated CUDA kernels are faster than PyTorch's CUDA kernels.
             However, Triton has a lot of bugs, and can increase the CPU overhead,
             though the overhead can be reduced by enabling CUDA graph.
-        trace_scheduler:
-            Whether to trace the scheduler.
+        compiles:
+            Components to compile. If compiling any component gives you an
+            error message, you can set its entry to false.
         '''
         memory_format: torch.memory_format = (
             torch.channels_last if gpu_device.device_has_tensor_core() else
@@ -70,6 +82,7 @@ class CompilationConfig:
         enable_cuda_graph: bool = False
         enable_triton: bool = False
         trace_scheduler: bool = False
+        compiles: ComponentCompileConfig = ComponentCompileConfig()
 
 
 def compile(m, config):
@@ -78,9 +91,10 @@ def compile(m, config):
         'cuda' if torch.cuda.is_available() else 'cpu')
 
     enable_cuda_graph = config.enable_cuda_graph and device.type == 'cuda'
-
-    m.unet = compile_unet(m.unet, config)
-    if hasattr(m, 'controlnet'):
+    
+    if config.compiles.unet:
+        m.unet = compile_unet(m.unet, config)
+    if hasattr(m, 'controlnet') and config.compiles.controlnet:
         m.controlnet = compile_unet(m.controlnet, config)
 
     if config.enable_xformers:
@@ -93,9 +107,9 @@ def compile(m, config):
         lazy_trace_ = _build_lazy_trace(config)
 
         # SVD doesn't have a text encoder
-        if getattr(m, 'text_encoder', None) is not None:
+        if getattr(m, 'text_encoder', None) is not None and config.compiles.text_encoder:
             m.text_encoder.forward = lazy_trace_(m.text_encoder.forward)
-        if getattr(m, 'text_encoder_2', None) is not None:
+        if getattr(m, 'text_encoder_2', None) is not None and config.compiles.text_encoder_2:
             m.text_encoder_2.forward = lazy_trace_(m.text_encoder_2.forward)
         if (not packaging.version.parse('2.0.0') <= packaging.version.parse(
                 torch.__version__) < packaging.version.parse('2.1.0')):
@@ -106,30 +120,30 @@ def compile(m, config):
 
             When executing AttnProcessor in TorchScript
             """
-            if hasattr(m.vae, 'decode'):
+            # May be incompatible with AutoencoderKLOutput's latent_dist of type
+            # DiagonalGaussianDistribution for img2img
+            if hasattr(m.vae, 'encode') and config.compiles.vae_encode:
+                m.vae.encode = lazy_trace_(m.vae.encode)
+            if hasattr(m.vae, 'decode') and config.compiles.vae_decode:
                 m.vae.decode = lazy_trace_(m.vae.decode)
-            # Incompatible with AutoencoderKLOutput's latent_dist of type DiagonalGaussianDistribution
-            # For img2img
-            # if hasattr(m.vae, 'encode'):
-            #     m.vae.encode = lazy_trace_(m.vae.encode)
-        if config.trace_scheduler:
+        if config.compiles.scheduler:
             m.scheduler.scale_model_input = lazy_trace_(
                 m.scheduler.scale_model_input)
             m.scheduler.step = lazy_trace_(m.scheduler.step)
 
     if enable_cuda_graph:
-        if getattr(m, 'text_encoder', None) is not None:
+        if getattr(m, 'text_encoder', None) is not None and config.compiles.text_encoder:
             m.text_encoder.forward = make_dynamic_graphed_callable(
                 m.text_encoder.forward)
-        if getattr(m, 'text_encoder_2', None) is not None:
+        if getattr(m, 'text_encoder_2', None) is not None and config.compiles.text_encoder_2:
             m.text_encoder_2.forward = make_dynamic_graphed_callable(
                 m.text_encoder_2.forward)
-        if hasattr(m.vae, 'decode'):
+        if hasattr(m.vae, 'encode') and config.compiles.vae_encode:
+            m.vae.encode = make_dynamic_graphed_callable(m.vae.encode)
+        if hasattr(m.vae, 'decode') and config.compiles.vae_decode:
             m.vae.decode = make_dynamic_graphed_callable(m.vae.decode)
-        # if hasattr(m.vae, 'encode'):
-        #     m.vae.encode = make_dynamic_graphed_callable(m.vae.encode)
 
-    if hasattr(m, 'image_processor'):
+    if hasattr(m, 'image_processor') and config.compiles.image_processor:
         from sfast.libs.diffusers.image_processor import patch_image_prcessor
         patch_image_prcessor(m.image_processor)
 
@@ -137,6 +151,7 @@ def compile(m, config):
 
 
 def compile_unet(m, config):
+    assert config.compiles.unet or config.compiles.controlnet
     # attribute `device` is not generally available
     device = m.device if hasattr(m, 'device') else torch.device(
         'cuda' if torch.cuda.is_available() else 'cpu')
