@@ -720,7 +720,7 @@ def main():
 
     if args.sfast:
         import functools
-        from sfast.dynamo.backends.sfast_jit import sfast_jit_trace_aot_autograd
+        from sfast.dynamo.backends.sfast_jit import sfast_jit_trace
         from sfast.compilers.stable_diffusion_pipeline_compiler import (_build_ts_compiler,
                                                                         CompilationConfig)
 
@@ -740,8 +740,8 @@ def main():
         if config.memory_format is not None:
             unet = unet.to(memory_format=config.memory_format)
         unet = torch.compile(unet, backend=functools.partial(
-            sfast_jit_trace_aot_autograd,
-            fw_ts_compiler=_build_ts_compiler(config)))
+            sfast_jit_trace,
+            ts_compiler=_build_ts_compiler(config)))
     elif args.compile:
         torch._dynamo.config.suppress_errors = True
         unet = unet.to(memory_format=torch.channels_last)

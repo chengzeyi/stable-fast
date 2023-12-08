@@ -257,7 +257,7 @@ register_custom_python_operator(
 
 def construct__convolution_torch_op():
 
-    class _Convolution(torch.autograd.Function):
+    class Triton_Convolution(torch.autograd.Function):
 
         @staticmethod
         def forward(ctx, input, weight, bias, stride, padding, dilation,
@@ -282,10 +282,10 @@ def construct__convolution_torch_op():
     def _convolution(input, weight, bias, stride, padding, dilation,
                      transposed, output_padding, groups, benchmark,
                      deterministic, cudnn_enabled, allow_tf32):
-        return _Convolution.apply(input, weight, bias, stride, padding,
-                                  dilation, transposed, output_padding, groups,
-                                  benchmark, deterministic, cudnn_enabled,
-                                  allow_tf32)
+        return Triton_Convolution.apply(input, weight, bias, stride, padding,
+                                        dilation, transposed, output_padding, groups,
+                                        benchmark, deterministic, cudnn_enabled,
+                                        allow_tf32)
 
     return _convolution
 

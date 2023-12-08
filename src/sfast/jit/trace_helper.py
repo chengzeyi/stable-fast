@@ -131,7 +131,9 @@ class TracedPosArgOnlyModuleWrapper(torch.nn.Module):
         unflat_outputs = flat_tensors.unflattern(outputs)
         return unflat_outputs
 
-    def convert_inputs(self, args, kwargs):
+    def convert_inputs(self, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
         return flat_tensors.flattern((args, kwargs))
 
 

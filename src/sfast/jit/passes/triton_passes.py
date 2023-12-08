@@ -22,10 +22,10 @@ def jit_pass_optimize_convolution(graph):
         torch._C._jit_pass_custom_pattern_based_rewrite_graph(
             '''
 graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13):
-    %x : Tensor = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %x = aten::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
     return (%x)''', '''
 graph(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13):
-    %x : Tensor = sfast_triton::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
+    %x = sfast_triton::_convolution(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13)
     return (%x)''', graph)
 
 
@@ -34,10 +34,10 @@ def jit_pass_optimize_contiguous(graph):
         torch._C._jit_pass_custom_pattern_based_rewrite_graph(
             '''
 graph(%1, %2):
-    %x : Tensor = aten::contiguous(%1, %2)
+    %x = aten::contiguous(%1, %2)
     return (%x)''', '''
 graph(%1, %2):
-    %x : Tensor = sfast_triton::contiguous(%1, %2)
+    %x = sfast_triton::contiguous(%1, %2)
     return (%x)''', graph)
 
 
@@ -46,10 +46,10 @@ def jit_pass_optimize_reshape(graph):
         torch._C._jit_pass_custom_pattern_based_rewrite_graph(
             '''
 graph(%1, %2):
-    %x : Tensor = aten::reshape(%1, %2)
+    %x = aten::reshape(%1, %2)
     return (%x)''', '''
 graph(%1, %2):
-    %x : Tensor = sfast_triton::reshape(%1, %2)
+    %x = sfast_triton::reshape(%1, %2)
     return (%x)''', graph)
 
 
@@ -58,10 +58,10 @@ def jit_pass_optimize_group_norm(graph):
         torch._C._jit_pass_custom_pattern_based_rewrite_graph(
             '''
 graph(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled):
-    %output : Tensor = aten::group_norm(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled)
+    %output = aten::group_norm(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled)
     return (%output)''', '''
 graph(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled):
-    %output : Tensor = sfast_triton::group_norm(%input, %num_groups, %weight, %bias, %eps)
+    %output = sfast_triton::group_norm(%input, %num_groups, %weight, %bias, %eps)
     return (%output)''', graph)
 
 
@@ -70,21 +70,21 @@ def jit_pass_fuse_group_norm_silu(graph):
         torch._C._jit_pass_custom_pattern_based_rewrite_graph(
             '''
 graph(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled):
-    %x : Tensor = aten::group_norm(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled)
-    %y : Tensor = aten::silu(%x)
+    %x = aten::group_norm(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled)
+    %y = aten::silu(%x)
     return (%y)''', '''
 graph(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled):
-    %y : Tensor = sfast_triton::group_norm_silu(%input, %num_groups, %weight, %bias, %eps)
+    %y = sfast_triton::group_norm_silu(%input, %num_groups, %weight, %bias, %eps)
     return (%y)''', graph)
 
         torch._C._jit_pass_custom_pattern_based_rewrite_graph(
             '''
 graph(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled):
-    %x : Tensor = aten::group_norm(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled)
-    %y : Tensor = aten::silu_(%x)
+    %x = aten::group_norm(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled)
+    %y = aten::silu_(%x)
     return (%y)''', '''
 graph(%input, %num_groups, %weight, %bias, %eps, %cudnn_enabled):
-    %y : Tensor = sfast_triton::group_norm_silu(%input, %num_groups, %weight, %bias, %eps)
+    %y = sfast_triton::group_norm_silu(%input, %num_groups, %weight, %bias, %eps)
     return (%y)''', graph)
 
 
@@ -93,8 +93,8 @@ def jit_pass_optimize_layer_norm(graph):
         torch._C._jit_pass_custom_pattern_based_rewrite_graph(
             '''
 graph(%input, %normalized_shape, %weight, %bias, %eps, %cudnn_enabled):
-    %output : Tensor = aten::layer_norm(%input, %normalized_shape, %weight, %bias, %eps, %cudnn_enabled)
+    %output = aten::layer_norm(%input, %normalized_shape, %weight, %bias, %eps, %cudnn_enabled)
     return (%output)''', '''
 graph(%input, %normalized_shape, %weight, %bias, %eps, %cudnn_enabled):
-    %output : Tensor = sfast_triton::layer_norm(%input, %normalized_shape, %weight, %bias, %eps)
+    %output = sfast_triton::layer_norm(%input, %normalized_shape, %weight, %bias, %eps)
     return (%output)''', graph)
