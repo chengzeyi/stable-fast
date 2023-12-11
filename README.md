@@ -10,11 +10,11 @@
 And unlike `TensorRT` or `AITemplate`, which takes dozens of minutes to compile a model, `stable-fast` only takes a few seconds to compile a model.
 `stable-fast` also supports `dynamic shape`, `LoRA` and `ControlNet` out of the box.
 
-[![](https://mermaid.ink/img/pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGX3RyqrvcwwACWwEbY7CZC_HtNqLYHj948j_zezHhhlamJFexwWJRWroDl6Doa6FjAsTETWXdcYT0cpL7dqw4nF5bkUGqnXE8g2VUNBL4QWtI0oVO6BaMJ1IAtwadyHbw-g4jSAFIR3_zxgIN1NNrAV8LL9Tc88YxL5iVCvCkLb5J9oFZ9j-DMVHWSBV7pAaPKDKPqaae-_7zSMPbo_uVeuOnN555cSVszvVwhj3gkds46LHsKG7ROsnep77ugZINXU5Yqo2srGXAIw28Qc86llrrECd5Ell8CEKngPoo085HzJIA8FxsU6TsL2EDTgKr281ykhs30NkvJCg9LtLQ1ufo6nJ15veuKFW6aKWDzWPsmnhW2Ew6saLC3X-yPWvnWv8jeYE0-XZi7j9vmWmWdf9Jbb1S78fPUe7pzbrTF6bRdR63fw1xuwztZVW9r7D7y8-kcnzOMEzpfEkyTpK5KkWdN_CSa-sJFjGxdAzai_mPMf1f08PNr_zaP37P-BVvguY0?type=png)](https://mermaid.live/edit#pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGX3RyqrvcwwACWwEbY7CZC_HtNqLYHj948j_zezHhhlamJFexwWJRWroDl6Doa6FjAsTETWXdcYT0cpL7dqw4nF5bkUGqnXE8g2VUNBL4QWtI0oVO6BaMJ1IAtwadyHbw-g4jSAFIR3_zxgIN1NNrAV8LL9Tc88YxL5iVCvCkLb5J9oFZ9j-DMVHWSBV7pAaPKDKPqaae-_7zSMPbo_uVeuOnN555cSVszvVwhj3gkds46LHsKG7ROsnep77ugZINXU5Yqo2srGXAIw28Qc86llrrECd5Ell8CEKngPoo085HzJIA8FxsU6TsL2EDTgKr281ykhs30NkvJCg9LtLQ1ufo6nJ15veuKFW6aKWDzWPsmnhW2Ew6saLC3X-yPWvnWv8jeYE0-XZi7j9vmWmWdf9Jbb1S78fPUe7pzbrTF6bRdR63fw1xuwztZVW9r7D7y8-kcnzOMEzpfEkyTpK5KkWdN_CSa-sJFjGxdAzai_mPMf1f08PNr_zaP37P-BVvguY0)
+[![](https://mermaid.ink/img/pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGXXQ5V13sYYABLYCNsdhNF_HtNqLYHj948j_zezPjOatMQK9jhcFdauQLuR9fTSMcCjq2ZybrjCuvhIPX1Vvc4u7Aih1I75QYCyUo1EvhC6EjTjE7pDowmUCN2BJ_K9fD6DCJKA0hFfPXHAw7W0WQDXwkv5W944hmXzEuEeFUW3iT7QK2GAcGZue4lC7zSA0a1GSc10E59_1nSOA3o_uVeuB3M556UpK2ZX0rIIx6JnbMOq4HCFq2T7F3q2y4o2ejVlKXa6MZKBhzC8BvEnHOppa5whjeR5ZcARCq4jyLNfOQ8CSDPxQYFf2cBG2keUTV-nnepYTO9zVKywsMKLW1Nrr4OF2deb7pmhZsXCtgyNb6JZ4XdjCMrWhzsF_ujUb71L3Iw2JBP78zdpm1znbLOP-mtt6rb-GUePN07N9nidNquo87vYam24Z2sarY19h_5-XSOzxnGCZ0vCaZJ0tSVyLM2fhJtc-EiRrauAZtQ_zHmvyt6-Pm1f5vH71n_Alb0uYg?type=png)](https://mermaid.live/edit#pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGXXQ5V13sYYABLYCNsdhNF_HtNqLYHj948j_zezPjOatMQK9jhcFdauQLuR9fTSMcCjq2ZybrjCuvhIPX1Vvc4u7Aih1I75QYCyUo1EvhC6EjTjE7pDowmUCN2BJ_K9fD6DCJKA0hFfPXHAw7W0WQDXwkv5W944hmXzEuEeFUW3iT7QK2GAcGZue4lC7zSA0a1GSc10E59_1nSOA3o_uVeuB3M556UpK2ZX0rIIx6JnbMOq4HCFq2T7F3q2y4o2ejVlKXa6MZKBhzC8BvEnHOppa5whjeR5ZcARCq4jyLNfOQ8CSDPxQYFf2cBG2keUTV-nnepYTO9zVKywsMKLW1Nrr4OF2deb7pmhZsXCtgyNb6JZ4XdjCMrWhzsF_ujUb71L3Iw2JBP78zdpm1znbLOP-mtt6rb-GUePN07N9nidNquo87vYam24Z2sarY19h_5-XSOzxnGCZ0vCaZJ0tSVyLM2fhJtc-EiRrauAZtQ_zHmvyt6-Pm1f5vH71n_Alb0uYg)
 
 | Framework | torch | torch.compile | AIT  | oneflow | TensorRT | __stable-fast__ |
 | --------- | ----- | ------------- | ---- | ------- | -------- | --------------- |
-| Time/ms   | 1897  | 1510          | 1158 | 1003    | 991      | __1015__        |
+| Time/ms   | 1897  | 1510          | 1158 | 1003    | 991      | __1010__        |
 
 __NOTE__: During benchmarking, `TensorRT` is tested with `static batch size` and `CUDA Graph enabled` while `stable-fast` is running with full dynamic shape.
 
@@ -32,12 +32,9 @@ __NOTE__: During benchmarking, `TensorRT` is tested with `static batch size` and
     - [Model Quantization](#model-quantization)
     - [Some Common Methods To Speed Up PyTorch](#some-common-methods-to-speed-up-pytorch)
   - [Performance Comparison](#performance-comparison)
-    - [RTX 4080 (512x512, batch size 1, fp16, tcmalloc enabled, in WSL2)](#rtx-4080-512x512-batch-size-1-fp16-tcmalloc-enabled-in-wsl2)
-    - [RTX 4090 (512x512, batch size 1, fp16, tcmalloc enabled)](#rtx-4090-512x512-batch-size-1-fp16-tcmalloc-enabled)
-    - [RTX 3080 Ti (512x512, batch size 1, fp16, tcmalloc enabled)](#rtx-3080-ti-512x512-batch-size-1-fp16-tcmalloc-enabled)
-    - [RTX 3090 (512x512, batch size 1, fp16, tcmalloc enabled)](#rtx-3090-512x512-batch-size-1-fp16-tcmalloc-enabled)
+    - [RTX 4080 (512x512, batch size 1, fp16, in WSL2)](#rtx-4080-512x512-batch-size-1-fp16-in-wsl2)
     - [H100](#h100)
-    - [A100 PCIe 40GB](#a100-pcie-40gb)
+    - [A100](#a100)
   - [Compatibility](#compatibility)
   - [Troubleshooting](#troubleshooting)
 
@@ -269,81 +266,47 @@ Performance varies very greatly across different hardware/software/platform/driv
 It is very hard to benchmark accurately. And preparing the environment for benchmarking is also a hard job.
 I have tested on some platforms before but the results may still be inaccurate.
 Note that when benchmarking, the progress bar showed by `tqdm` may be inaccurate because of the asynchronous nature of CUDA.
-To solve this problem, I have to add `torch.cuda.synchronize()` after every inference step, which will slow down the inference,
-so the results might not be very accurate and might be slower than the actual performance.
+To solve this problem, I use `CUDA Event` to measure the speed of iterations per second accurately.
 
 `stable-fast` is expected to work better on newer GPUs and newer CUDA versions.
 __On older GPUs, the performance increase might be limited.__
 __During benchmarking, the progress bar might work incorrectly because of the asynchronous nature of CUDA.__
 
-### RTX 4080 (512x512, batch size 1, fp16, tcmalloc enabled, in WSL2)
+### RTX 4080 (512x512, batch size 1, fp16, in WSL2)
 
 This is my personal gaming PC😄. It has a more powerful CPU than those from cloud server providers.
 
-| Framework                                | SD 1.5        | SD 2.1        | SD XL (1024x1024) |
-| ---------------------------------------- | ------------- | ------------- | ----------------- |
-| Vanilla PyTorch (2.1.0+cu118)            | 29.5 it/s     | 32.4 it/s     | 4.6 it/s          |
-| torch.compile (2.1.0+cu118, NHWC UNet)   | 40.0 it/s     | 44.0 it/s     | 6.1 it/s          |
-| AITemplate                               | 44.2 it/s     | untested      | untested          |
-| OneFlow                                  | 53.6 it/s     | untested      | untested          |
-| AUTO1111 WebUI                           | 17.2 it/s     | 15.2 it/s     | 3.6 it/s          |
-| AUTO1111 WebUI (with SDPA)               | 24.5 it/s     | 26.1 it/s     | 4.3 it/s          |
-| TensorRT (AUTO1111 WebUI)                | 40.8 it/s     | untested      | untested          |
-| TensorRT Official Demo                   | 52.6 it/s     | untested      | untested          |
-| __Stable Fast (with xformers & Triton)__ | __50.5 it/s__ | __53.3 it/s__ | __8.3 it/s__      |
-
-### RTX 4090 (512x512, batch size 1, fp16, tcmalloc enabled)
-
-| Framework                                | SD 1.5        | SD 2.1         | SD 1.5 ControlNet |
-| ---------------------------------------- | ------------- | -------------- | ----------------- |
-| Vanilla PyTorch (2.1.0+cu118)            | 24.9 it/s     | 27.1 it/s      | 18.9 it/s         |
-| torch.compile (2.1.0+cu118, NHWC UNet)   | 33.5 it/s     | 38.2 it/s      | 22.7 it/s         |
-| AITemplate                               | 65.7 it/s     | 71.6 it/s      | untested          |
-| OneFlow                                  | 60.1 it/s     | 12.9 it/s (??) | untested          |
-| TensorRT                                 | untested      | untested       | untested          |
-| __Stable Fast (with xformers & Triton)__ | __61.8 it/s__ | __61.6 it/s__  | __42.3 it/s__     |
-
-(??): OneFlow seems to be not working well with SD 2.1
-
-### RTX 3080 Ti (512x512, batch size 1, fp16, tcmalloc enabled)
-
-| Framework                                | SD 1.5        | SD 2.1         | SD 1.5 ControlNet |
-| ---------------------------------------- | ------------- | -------------- | ----------------- |
-| Vanilla PyTorch (2.1.0+cu118)            | 19.3 it/s     | 20.4 it/s      | 13.8 it/s         |
-| torch.compile (2.1.0+cu118, NHWC UNet)   | 24.4 it/s     | 26.9 it/s      | 17.7 it/s         |
-| AITemplate                               | untested      | untested       | untested          |
-| OneFlow                                  | 32.8 it/s     | 8.82 it/s (??) | untested          |
-| TensorRT                                 | untested      | untested       | untested          |
-| __Stable Fast (with xformers & Triton)__ | __28.1 it/s__ | __30.2 it/s__  | __20.0 it/s__     |
-
-(??): OneFlow seems to be not working well with SD 2.1
-
-### RTX 3090 (512x512, batch size 1, fp16, tcmalloc enabled)
-
-| Framework                                | SD 1.5        |
-| ---------------------------------------- | ------------- |
-| Vanilla PyTorch (2.1.0+cu118)            | 22.5 it/s     |
-| torch.compile (2.1.0+cu118, NHWC UNet)   | 25.3 it/s     |
-| AITemplate                               | 34.6 it/s     |
-| OneFlow                                  | 38.8 it/s     |
-| TensorRT                                 | untested      |
-| __Stable Fast (with xformers & Triton)__ | __31.5 it/s__ |
+| Framework                                | SD 1.5        | SD XL (1024x1024) | SD 1.5 ControlNet |
+| ---------------------------------------- | ------------- | ----------------- | ----------------- |
+| Vanilla PyTorch (2.1.0)                  | 29.5 it/s     | 4.6 it/s          | 19.7 it/s         |
+| torch.compile (2.1.0, max-autotune)      | 40.0 it/s     | 6.1 it/s          | 20.t it/s         |
+| AITemplate                               | 44.2 it/s     |                   |                   |
+| OneFlow                                  | 53.6 it/s     |                   |                   |
+| AUTO1111 WebUI                           | 17.2 it/s     | 3.6 it/s          |                   |
+| AUTO1111 WebUI (with SDPA)               | 24.5 it/s     | 4.3 it/s          |                   |
+| TensorRT (AUTO1111 WebUI)                | 40.8 it/s     |                   |                   |
+| TensorRT Official Demo                   | 52.6 it/s     |                   |                   |
+| __stable-fast (with xformers & Triton)__ | __50.8 it/s__ | __8.5 it/s__      | __36.6 it/s__     |
 
 ### H100
 
-Thanks for __@Consceleratus__'s help, I have tested speed on H100.
+Thanks for __@Consceleratus__ and __@harishp__'s help, I have tested speed on H100.
 
-Detailed benchmarking results will be available soon.
+| Framework                                | SD 1.5         | SD XL (1024x1024) | SD 1.5 ControlNet |
+| ---------------------------------------- | -------------- | ----------------- | ----------------- |
+| Vanilla PyTorch (2.1.0)                  | 54.5 it/s      | 14.9 it/s         | 35.8 it/s         |
+| torch.compile (2.1.0, max-autotune)      | 66.0 it/s      | 18.5 it/s         | 40.7 it/s         |
+| __stable-fast (with xformers & Triton)__ | __104.6 it/s__ | __21.6 it/s__     | __72.6 it/s__     |
 
-### A100 PCIe 40GB
+### A100
 
-Thanks for __@SuperSecureHuman__ and __@jon-chuang__'s help, benchmarking on A100 PCIe 40GB is available now.
+Thanks for __@SuperSecureHuman__ and __@jon-chuang__'s help, benchmarking on A100 is available now.
 
-| Framework                                | SD 1.5        | SD 2.1         | SD 1.5 ControlNet | SD XL         |
-| ---------------------------------------- | ------------- | -------------- | ----------------- | --------------|
-| Vanilla PyTorch (2.1.0+cu118)            | 23.8 it/s     | 23.8 it/s      | 15.7 it/s         | 10.0 it/s     |
-| torch.compile (2.1.0+cu118, NHWC UNet)   | 37.7 it/s     | 42.7 it/s      | 24.7 it/s         | 20.9 it/s     |
-| __Stable Fast (with xformers & Triton)__ | __58.0 it/s__ | __outdated__   | __outdated__      | __outdated__  |
+| Framework                                | SD 1.5        | SD XL (1024x1024) |
+| ---------------------------------------- | ------------- | ----------------- |
+| Vanilla PyTorch (2.1.0)                  | 35.6 it/s     | 8.7 it/s          |
+| torch.compile (2.1.0, max-autotune)      | 41.9 it/s     | 10.0 it/s         |
+| __stable-fast (with xformers & Triton)__ | __61.8 it/s__ | __11.9 it/s__     |
 
 ## Compatibility
 
