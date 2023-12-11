@@ -172,8 +172,8 @@ def compile_vae(m, config):
             m = apply_auto_jit_compiler_to_all_modules(m,
                                                        ts_compiler=ts_compiler)
 
-    if enable_cuda_graph:
-        m = apply_auto_graph_compiler_to_all_modules(m)
+    # if enable_cuda_graph:
+    #     m = apply_auto_graph_compiler_to_all_modules(m)
 
     return m
 

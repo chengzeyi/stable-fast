@@ -286,7 +286,7 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | AUTO1111 WebUI (with SDPA)               | 24.5 it/s     | 4.3 it/s          |                   |
 | TensorRT (AUTO1111 WebUI)                | 40.8 it/s     |                   |                   |
 | TensorRT Official Demo                   | 52.6 it/s     |                   |                   |
-| __stable-fast (with xformers & Triton)__ | __50.8 it/s__ | __8.5 it/s__      | __36.6 it/s__     |
+| __stable-fast (with xformers & Triton)__ | __50.8 it/s__ | __8.7 it/s__      | __36.6 it/s__     |
 
 ### H100
 

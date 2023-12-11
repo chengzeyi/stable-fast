@@ -200,6 +200,7 @@ class AutoJITCompiler:
 
             traced_module = call_helper(traced_m)
 
+            @functools.wraps(wrapped)
             def functionalized(*args, **kwargs):
                 return traced_module(*args, **kwargs)
 
