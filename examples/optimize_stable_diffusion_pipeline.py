@@ -13,6 +13,7 @@ WIDTH = 512
 EXTRA_CALL_KWARGS = None
 
 import importlib
+import inspect
 import argparse
 import time
 import json
@@ -106,6 +107,33 @@ def compile_model(model):
     return model
 
 
+class IterationProfiler:
+
+    def __init__(self):
+        self.begin = None
+        self.end = None
+        self.num_iterations = 0
+
+    def get_iter_per_sec(self):
+        if self.begin is None or self.end is None:
+            return None
+        self.end.synchronize()
+        dur = self.begin.elapsed_time(self.end)
+        return self.num_iterations / dur * 1000.0
+
+    def callback_on_step_end(self, pipe, i, t, callback_kwargs):
+        if self.begin is None:
+            event = torch.cuda.Event(enable_timing=True)
+            event.record()
+            self.begin = event
+        else:
+            event = torch.cuda.Event(enable_timing=True)
+            event.record()
+            self.end = event
+            self.num_iterations += 1
+        return callback_kwargs
+
+
 def main():
     args = parse_args()
     if args.input_image is None:
@@ -126,7 +154,7 @@ def main():
     elif args.compiler == 'sfast':
         model = compile_model(model)
     elif args.compiler in ('compile', 'compile-max-autotune'):
-        mode = 'max_autotune' if args.compiler == 'compile-max-autotune' else None
+        mode = 'max-autotune' if args.compiler == 'compile-max-autotune' else None
         model.unet = torch.compile(model.unet, mode=mode)
         model.vae = torch.compile(model.vae, mode=mode)
     else:
@@ -164,6 +192,11 @@ def main():
     # Let's see it!
     # Note: Progress bar might work incorrectly due to the async nature of CUDA.
     kwarg_inputs = get_kwarg_inputs()
+    iter_profiler = None
+    if 'callback_on_step_end' in inspect.signature(model).parameters:
+        iter_profiler = IterationProfiler()
+        kwarg_inputs[
+            'callback_on_step_end'] = iter_profiler.callback_on_step_end
     begin = time.time()
     output_images = model(**kwarg_inputs).images
     end = time.time()
@@ -175,6 +208,9 @@ def main():
         print_image(image, max_width=80)
 
     print(f'Inference time: {end - begin:.3f}s')
+    iter_per_sec = iter_profiler.get_iter_per_sec()
+    if iter_per_sec is not None:
+        print(f'Iterations per second: {iter_per_sec:.3f}')
 
     if args.output_image is not None:
         output_images[0].save(args.output_image)
