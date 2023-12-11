@@ -3,6 +3,7 @@ VARIANT = None
 CUSTOM_PIPELINE = 'latent_consistency_txt2img'
 SCHEDULER = 'EulerAncestralDiscreteScheduler'
 LORA = None
+CONTROLNET = None
 STEPS = 4
 PROMPT = 'best quality, realistic, unreal engine, 4K, a beautiful girl'
 SEED = None
@@ -18,7 +19,7 @@ import argparse
 import time
 import json
 import torch
-from PIL import Image
+from PIL import (Image, ImageDraw)
 from sfast.compilers.stable_diffusion_pipeline_compiler import (
     compile, CompilationConfig)
 
@@ -30,6 +31,7 @@ def parse_args():
     parser.add_argument('--custom-pipeline', type=str, default=CUSTOM_PIPELINE)
     parser.add_argument('--scheduler', type=str, default=SCHEDULER)
     parser.add_argument('--lora', type=str, default=LORA)
+    parser.add_argument('--controlnet', type=str, default=None)
     parser.add_argument('--steps', type=int, default=STEPS)
     parser.add_argument('--prompt', type=str, default=PROMPT)
     parser.add_argument('--seed', type=int, default=SEED)
@@ -41,6 +43,7 @@ def parse_args():
                         type=str,
                         default=EXTRA_CALL_KWARGS)
     parser.add_argument('--input-image', type=str, default=None)
+    parser.add_argument('--control-image', type=str, default=None)
     parser.add_argument('--output-image', type=str, default=None)
     parser.add_argument(
         '--compiler',
@@ -52,15 +55,21 @@ def parse_args():
 
 def load_model(pipeline_cls,
                model,
-               scheduler=None,
-               custom_pipeline=None,
                variant=None,
-               lora=None):
+               custom_pipeline=None,
+               scheduler=None,
+               lora=None,
+               controlnet=None):
     extra_kwargs = {}
     if custom_pipeline is not None:
         extra_kwargs['custom_pipeline'] = custom_pipeline
     if variant is not None:
         extra_kwargs['variant'] = variant
+    if controlnet is not None:
+        from diffusers import ControlNetModel
+        controlnet = ControlNetModel.from_pretrained(controlnet,
+                                                     torch_dtype=torch.float16)
+        extra_kwargs['controlnet'] = controlnet
     model = pipeline_cls.from_pretrained(model,
                                          torch_dtype=torch.float16,
                                          **extra_kwargs)
@@ -144,10 +153,11 @@ def main():
     model = load_model(
         pipeline_cls,
         args.model,
-        scheduler=args.scheduler,
-        custom_pipeline=args.custom_pipeline,
         variant=args.variant,
+        custom_pipeline=args.custom_pipeline,
+        scheduler=args.scheduler,
         lora=args.lora,
+        controlnet=args.controlnet,
     )
     if args.compiler == 'none':
         pass
@@ -167,6 +177,21 @@ def main():
         input_image = input_image.resize((args.width, args.height),
                                          Image.LANCZOS)
 
+    if args.control_image is None:
+        if args.controlnet is None:
+            control_image = None
+        else:
+            control_image = Image.new('RGB', (args.width, args.height))
+            draw = ImageDraw.Draw(control_image)
+            draw.ellipse((args.width // 4, args.height // 4,
+                          args.width // 4 * 3, args.height // 4 * 3),
+                         fill=(255, 255, 255))
+            del draw
+    else:
+        control_image = Image.open(args.control_image).convert('RGB')
+        control_image = control_image.resize((args.width, args.height),
+                                             Image.LANCZOS)
+
     def get_kwarg_inputs():
         kwarg_inputs = dict(
             prompt=args.prompt,
@@ -181,6 +206,11 @@ def main():
         )
         if input_image is not None:
             kwarg_inputs['image'] = input_image
+        if control_image is not None:
+            if input_image is None:
+                kwarg_inputs['image'] = control_image
+            else:
+                kwarg_inputs['control_image'] = control_image
         return kwarg_inputs
 
     # NOTE: Warm it up.
