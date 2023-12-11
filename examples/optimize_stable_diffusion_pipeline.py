@@ -166,6 +166,8 @@ def main():
     elif args.compiler in ('compile', 'compile-max-autotune'):
         mode = 'max-autotune' if args.compiler == 'compile-max-autotune' else None
         model.unet = torch.compile(model.unet, mode=mode)
+        if hasattr(model, 'controlnet'):
+            model.controlnet = torch.compile(model.controlnet, mode=mode)
         model.vae = torch.compile(model.vae, mode=mode)
     else:
         raise ValueError(f'Unknown compiler: {args.compiler}')

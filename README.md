@@ -279,7 +279,7 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | Framework                                | SD 1.5        | SD XL (1024x1024) | SD 1.5 ControlNet |
 | ---------------------------------------- | ------------- | ----------------- | ----------------- |
 | Vanilla PyTorch (2.1.0)                  | 29.5 it/s     | 4.6 it/s          | 19.7 it/s         |
-| torch.compile (2.1.0, max-autotune)      | 40.0 it/s     | 6.1 it/s          | 20.t it/s         |
+| torch.compile (2.1.0, max-autotune)      | 40.0 it/s     | 6.1 it/s          | 21.8 it/s         |
 | AITemplate                               | 44.2 it/s     |                   |                   |
 | OneFlow                                  | 53.6 it/s     |                   |                   |
 | AUTO1111 WebUI                           | 17.2 it/s     | 3.6 it/s          |                   |
@@ -295,18 +295,18 @@ Thanks for __@Consceleratus__ and __@harishp__'s help, I have tested speed on H1
 | Framework                                | SD 1.5         | SD XL (1024x1024) | SD 1.5 ControlNet |
 | ---------------------------------------- | -------------- | ----------------- | ----------------- |
 | Vanilla PyTorch (2.1.0)                  | 54.5 it/s      | 14.9 it/s         | 35.8 it/s         |
-| torch.compile (2.1.0, max-autotune)      | 66.0 it/s      | 18.5 it/s         | 40.7 it/s         |
+| torch.compile (2.1.0, max-autotune)      | 66.0 it/s      | 18.5 it/s         |                   |
 | __stable-fast (with xformers & Triton)__ | __104.6 it/s__ | __21.6 it/s__     | __72.6 it/s__     |
 
 ### A100
 
 Thanks for __@SuperSecureHuman__ and __@jon-chuang__'s help, benchmarking on A100 is available now.
 
-| Framework                                | SD 1.5        | SD XL (1024x1024) |
-| ---------------------------------------- | ------------- | ----------------- |
-| Vanilla PyTorch (2.1.0)                  | 35.6 it/s     | 8.7 it/s          |
-| torch.compile (2.1.0, max-autotune)      | 41.9 it/s     | 10.0 it/s         |
-| __stable-fast (with xformers & Triton)__ | __61.8 it/s__ | __11.9 it/s__     |
+| Framework                                | SD 1.5        | SD XL (1024x1024) | SD 1.5 ControlNet |
+| ---------------------------------------- | ------------- | ----------------- | ----------------- |
+| Vanilla PyTorch (2.1.0)                  | 35.6 it/s     | 8.7 it/s          | 25.1 it/s         |
+| torch.compile (2.1.0, max-autotune)      | 41.9 it/s     | 10.0 it/s         |                   |
+| __stable-fast (with xformers & Triton)__ | __61.8 it/s__ | __11.9 it/s__     | __41.1 it/s__     |
 
 ## Compatibility
 
