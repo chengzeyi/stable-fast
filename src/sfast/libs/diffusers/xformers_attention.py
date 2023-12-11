@@ -4,8 +4,8 @@ from sfast.utils.patch import patch_module
 
 
 def patch_all_attention_modules(m):
-    patch_module(m, lambda stack: isinstance(stack[-1][1], Attention),
-                 patch_attention_module)
+    return patch_module(m, lambda stack: isinstance(stack[-1][1], Attention),
+                        patch_attention_module)
 
 
 def patch_attention_module(m):

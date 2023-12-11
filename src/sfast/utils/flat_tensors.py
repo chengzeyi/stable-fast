@@ -19,6 +19,40 @@ def unflattern(tensors):
     return unflatten_tensors(tensors)[0]
 
 
+def can_be_perfectly_flattened(obj):
+    if obj is None:
+        return True
+    elif isinstance(obj, torch.Tensor):
+        return True
+    # bool must be be checked before int because bool is a subclass of int
+    elif isinstance(obj, bool):
+        return True
+    elif isinstance(obj, float):
+        return True
+    elif isinstance(obj, int):
+        return True
+    elif isinstance(obj, str):
+        return True
+    elif isinstance(obj, bytes):
+        return True
+    elif isinstance(obj, list):
+        return all(can_be_perfectly_flattened(arg) for arg in obj)
+    elif isinstance(obj, tuple):
+        return all(can_be_perfectly_flattened(arg) for arg in obj)
+    # dataclass must be checked before dict
+    # because dataclass is a subclass of dict
+    elif dataclasses.is_dataclass(obj):
+        return all(
+            can_be_perfectly_flattened(getattr(obj, field.name))
+            for field in dataclasses.fields(obj))
+    elif isinstance(obj, dict):
+        return all(
+            can_be_perfectly_flattened(key)
+            and can_be_perfectly_flattened(obj[key]) for key in obj.keys())
+    else:
+        return False
+
+
 def _tensor_from_int(num):
     return torch.tensor([num], dtype=torch.int64)
 

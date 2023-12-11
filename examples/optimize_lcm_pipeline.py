@@ -12,14 +12,14 @@ HEIGHT = 768
 WIDTH = 768
 EXTRA_CALL_KWARGS = None
 
-from sfast.compilers.stable_diffusion_pipeline_compiler import (
-    compile, CompilationConfig)
-from diffusers import DiffusionPipeline
-import torch
-import json
 import importlib
 import argparse
 import time
+import json
+import torch
+from PIL import Image
+from sfast.compilers.stable_diffusion_pipeline_compiler import (
+    compile, CompilationConfig)
 
 
 def parse_args():
@@ -39,11 +39,18 @@ def parse_args():
     parser.add_argument('--extra-call-kwargs',
                         type=str,
                         default=EXTRA_CALL_KWARGS)
-    parser.add_argument('--no-optimize', action='store_true')
+    parser.add_argument('--input-image', type=str, default=None)
+    parser.add_argument('--output-image', type=str, default=None)
+    parser.add_argument(
+        '--compiler',
+        type=str,
+        default='sfast',
+        choices=['none', 'sfast', 'compile', 'compile-max-autotune'])
     return parser.parse_args()
 
 
-def load_model(model,
+def load_model(pipeline_cls,
+               model,
                scheduler=None,
                custom_pipeline=None,
                variant=None,
@@ -53,9 +60,9 @@ def load_model(model,
         extra_kwargs['custom_pipeline'] = custom_pipeline
     if variant is not None:
         extra_kwargs['variant'] = variant
-    model = DiffusionPipeline.from_pretrained(model,
-                                              torch_dtype=torch.float16,
-                                              **extra_kwargs)
+    model = pipeline_cls.from_pretrained(model,
+                                         torch_dtype=torch.float16,
+                                         **extra_kwargs)
     if scheduler is not None:
         scheduler_cls = getattr(importlib.import_module('diffusers'),
                                 scheduler)
@@ -101,15 +108,36 @@ def compile_model(model):
 
 def main():
     args = parse_args()
+    if args.input_image is None:
+        from diffusers import AutoPipelineForText2Image as pipeline_cls
+    else:
+        from diffusers import AutoPipelineForImage2Image as pipeline_cls
+
     model = load_model(
+        pipeline_cls,
         args.model,
         scheduler=args.scheduler,
         custom_pipeline=args.custom_pipeline,
         variant=args.variant,
         lora=args.lora,
     )
-    if not args.no_optimize:
+    if args.compiler == 'none':
+        pass
+    elif args.compiler == 'sfast':
         model = compile_model(model)
+    elif args.compiler in ('compile', 'compile-max-autotune'):
+        mode = 'max_autotune' if args.compiler == 'compile-max-autotune' else None
+        model.unet = torch.compile(model.unet, mode=mode)
+        model.vae = torch.compile(model.vae, mode=mode)
+    else:
+        raise ValueError(f'Unknown compiler: {args.compiler}')
+
+    if args.input_image is None:
+        input_image = None
+    else:
+        input_image = Image.open(args.input_image).convert('RGB')
+        input_image = input_image.resize((args.width, args.height),
+                                         Image.LANCZOS)
 
     def get_kwarg_inputs():
         kwarg_inputs = dict(
@@ -123,6 +151,8 @@ def main():
             **(dict() if args.extra_call_kwargs is None else json.loads(
                 args.extra_call_kwargs)),
         )
+        if input_image is not None:
+            kwarg_inputs['image'] = input_image
         return kwarg_inputs
 
     # NOTE: Warm it up.
@@ -133,8 +163,9 @@ def main():
 
     # Let's see it!
     # Note: Progress bar might work incorrectly due to the async nature of CUDA.
+    kwarg_inputs = get_kwarg_inputs()
     begin = time.time()
-    output_images = model(**get_kwarg_inputs()).images
+    output_images = model(**kwarg_inputs).images
     end = time.time()
 
     # Let's view it in terminal!
@@ -144,6 +175,9 @@ def main():
         print_image(image, max_width=80)
 
     print(f'Inference time: {end - begin:.3f}s')
+
+    if args.output_image is not None:
+        output_images[0].save(args.output_image)
 
 
 if __name__ == '__main__':

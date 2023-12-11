@@ -5,9 +5,11 @@ import functools
 import torch
 import sfast
 from sfast.jit import passes
-from sfast.jit.trace_helper import lazy_trace
+from sfast.jit.trace_helper import (lazy_trace,
+                                    apply_auto_jit_compiler_to_all_modules)
 from sfast.jit import utils as jit_utils
-from sfast.cuda.graphs import make_dynamic_graphed_callable
+from sfast.cuda.graphs import (make_dynamic_graphed_callable,
+                               apply_auto_graph_compiler_to_all_modules)
 from sfast.utils import gpu_device
 
 logger = logging.getLogger()
@@ -82,12 +84,7 @@ def compile(m, config):
     m.unet = compile_unet(m.unet, config)
     if hasattr(m, 'controlnet'):
         m.controlnet = compile_unet(m.controlnet, config)
-
-    if config.enable_xformers:
-        _enable_xformers(m)
-
-    if config.memory_format is not None:
-        m.vae.to(memory_format=config.memory_format)
+    m.vae = compile_vae(m.vae, config)
 
     if config.enable_jit:
         lazy_trace_ = _build_lazy_trace(config)
@@ -97,21 +94,6 @@ def compile(m, config):
             m.text_encoder.forward = lazy_trace_(m.text_encoder.forward)
         if getattr(m, 'text_encoder_2', None) is not None:
             m.text_encoder_2.forward = lazy_trace_(m.text_encoder_2.forward)
-        if (not packaging.version.parse('2.0.0') <= packaging.version.parse(
-                torch.__version__) < packaging.version.parse('2.1.0')):
-            """
-            Weird bug in PyTorch 2.0.x
-
-            RuntimeError: shape '[512, 512, 64, 64]' is invalid for input of size 2097152
-
-            When executing AttnProcessor in TorchScript
-            """
-            if hasattr(m.vae, 'decode'):
-                m.vae.decode = lazy_trace_(m.vae.decode)
-            # Incompatible with AutoencoderKLOutput's latent_dist of type DiagonalGaussianDistribution
-            # For img2img
-            # if hasattr(m.vae, 'encode'):
-            #     m.vae.encode = lazy_trace_(m.vae.encode)
         if config.trace_scheduler:
             m.scheduler.scale_model_input = lazy_trace_(
                 m.scheduler.scale_model_input)
@@ -124,10 +106,6 @@ def compile(m, config):
         if getattr(m, 'text_encoder_2', None) is not None:
             m.text_encoder_2.forward = make_dynamic_graphed_callable(
                 m.text_encoder_2.forward)
-        if hasattr(m.vae, 'decode'):
-            m.vae.decode = make_dynamic_graphed_callable(m.vae.decode)
-        # if hasattr(m.vae, 'encode'):
-        #     m.vae.encode = make_dynamic_graphed_callable(m.vae.encode)
 
     if hasattr(m, 'image_processor'):
         from sfast.libs.diffusers.image_processor import patch_image_prcessor
@@ -159,6 +137,43 @@ def compile_unet(m, config):
 
     if enable_cuda_graph:
         m.forward = make_dynamic_graphed_callable(m.forward)
+
+    return m
+
+
+def compile_vae(m, config):
+    # attribute `device` is not generally available
+    device = m.device if hasattr(m, 'device') else torch.device(
+        'cuda' if torch.cuda.is_available() else 'cpu')
+
+    enable_cuda_graph = config.enable_cuda_graph and device.type == 'cuda'
+
+    if config.enable_xformers:
+        _enable_xformers(m)
+
+    if config.memory_format is not None:
+        m.to(memory_format=config.memory_format)
+
+    if config.enable_jit:
+        if (not packaging.version.parse('2.0.0') <= packaging.version.parse(
+                torch.__version__) < packaging.version.parse('2.1.0')):
+            """
+            Weird bug in PyTorch 2.0.x
+
+            RuntimeError: shape '[512, 512, 64, 64]' is invalid for input of size 2097152
+
+            When executing AttnProcessor in TorchScript
+            """
+            ts_compiler = _build_ts_compiler(
+                config,
+                enable_triton_reshape=enable_cuda_graph,
+                enable_triton_layer_norm=enable_cuda_graph,
+            )
+            m = apply_auto_jit_compiler_to_all_modules(m,
+                                                       ts_compiler=ts_compiler)
+
+    if enable_cuda_graph:
+        m = apply_auto_graph_compiler_to_all_modules(m)
 
     return m
 

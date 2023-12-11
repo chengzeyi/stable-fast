@@ -3,7 +3,9 @@ import functools
 import threading
 import dataclasses
 import torch
-from sfast.utils.copy import tree_copy_, tree_copy, shadow_copy
+from sfast.utils.copy import (tree_copy_, tree_copy, shadow_copy,
+                              can_be_perfectly_copied)
+from sfast.hooks.module_jit_hook import (apply_to_all_modules, apply_to_module)
 
 logger = logging.getLogger()
 
@@ -281,3 +283,46 @@ def get_requires_grad_from_tensors(x):
         return False
     else:
         return False
+
+
+def can_io_obj_be_perfectly_graphed(obj):
+    return can_be_perfectly_copied(obj)
+
+
+class AutoGraphCraphCompiler:
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self._is_compiling = threading.local()
+        self._is_compiling.value = False
+
+    def is_compiling(self):
+        return self._is_compiling.value
+
+    def get_inputs_key(self, func, inputs, kwargs):
+        if not can_io_obj_be_perfectly_graphed((inputs, kwargs)):
+            return None
+        return (hash_arg(inputs), hash_arg(kwargs))
+
+    def get_outputs_key(self, func, outputs):
+        if not can_io_obj_be_perfectly_graphed(outputs):
+            return None
+        return hash_arg(outputs)
+
+    def compile(self, func, inputs, kwargs):
+        self._is_compiling.value = True
+        try:
+            return simple_make_graphed_callable(func, inputs, kwargs,
+                                                **self.kwargs)
+        finally:
+            self._is_compiling.value = False
+
+
+def apply_auto_graph_compiler_to_all_modules(m, filter_func=None, **kwargs):
+    return apply_to_all_modules(m,
+                                AutoGraphCraphCompiler(**kwargs),
+                                filter_func=filter_func)
+
+
+def apply_auto_graph_compiler_to_module(m, **kwargs):
+    return apply_to_module(m, AutoGraphCraphCompiler(**kwargs))
