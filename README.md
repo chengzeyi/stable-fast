@@ -10,11 +10,11 @@
 And unlike `TensorRT` or `AITemplate`, which takes dozens of minutes to compile a model, `stable-fast` only takes a few seconds to compile a model.
 `stable-fast` also supports `dynamic shape`, `LoRA` and `ControlNet` out of the box.
 
-[![](https://mermaid.ink/img/pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGXXQ5V13sYYABLYCNsdhNF_HtNqLYHj948j_zezPjOatMQK9jhcFdauQLuR9fTSMcCjq2ZybrjCuvhIPX1Vvc4u7Aih1I75QYCyUo1EvhC6EjTjE7pDowmUCN2BJ_K9fD6DCJKA0hFfPXHAw7W0WQDXwkv5W944hmXzEuEeFUW3iT7QK2GAcGZue4lC7zSA0a1GSc10E59_1nSOA3o_uVeuB3M556UpK2ZX0rIIx6JnbMOq4HCFq2T7F3q2y4o2ejVlKXa6MZKBhzC8BvEnHOppa5whjeR5ZcARCq4jyLNfOQ8CSDPxQYFf2cBG2keUTV-nnepYTO9zVKywsMKLW1Nrr4OF2deb7pmhZsXCtgyNb6JZ4XdjCMrWhzsF_ujUb71L3Iw2JBP78zdpm1znbLOP-mtt6rb-GUePN07N9nidNquo87vYam24Z2sarY19h_5-XSOzxnGCZ0vCaZJ0tSVyLM2fhJtc-EiRrauAZtQ_zHmvyt6-Pm1f5vH71n_Alb0uYg?type=png)](https://mermaid.live/edit#pako:eNpFUsGOmzAQ_ZWRpSgXIDYsCXCoVGl76KGXXQ5V13sYYABLYCNsdhNF_HtNqLYHj948j_zezPjOatMQK9jhcFdauQLuR9fTSMcCjq2ZybrjCuvhIPX1Vvc4u7Aih1I75QYCyUo1EvhC6EjTjE7pDowmUCN2BJ_K9fD6DCJKA0hFfPXHAw7W0WQDXwkv5W944hmXzEuEeFUW3iT7QK2GAcGZue4lC7zSA0a1GSc10E59_1nSOA3o_uVeuB3M556UpK2ZX0rIIx6JnbMOq4HCFq2T7F3q2y4o2ejVlKXa6MZKBhzC8BvEnHOppa5whjeR5ZcARCq4jyLNfOQ8CSDPxQYFf2cBG2keUTV-nnepYTO9zVKywsMKLW1Nrr4OF2deb7pmhZsXCtgyNb6JZ4XdjCMrWhzsF_ujUb71L3Iw2JBP78zdpm1znbLOP-mtt6rb-GUePN07N9nidNquo87vYam24Z2sarY19h_5-XSOzxnGCZ0vCaZJ0tSVyLM2fhJtc-EiRrauAZtQ_zHmvyt6-Pm1f5vH71n_Alb0uYg)
+[![](https://mermaid.ink/img/pako:eNpFUk2PmzAQ_SsjS1EuQGxYEuBQqdL20EMvuzlUXe9hgAEsgY2w2U2E-O81odoePJp5Hs1787GwytTECnY4LEorV8BydB0NdCzg2JiJrDuusB4OUt_uVYeTC0tyKLVTrieQ7KoGAp8ILWma0CndgtEEasCW4FO5Dl6fQURpAKmIb_55h4N1NNrAZ8LL9Tc88YxL5ilCvCkLb5J9oFZ9j-DMVHWSBZ7p4UaVGUbV0w59_3mlYezR_Ys9cdObzz24krZmerlCHvFI7Jh1WPYUNmidZO9S33dCyQbPpixVRtdWMuAQht8g5pxLLXWJE7yJLL8EIFLBvRVp5i3nSQB5LjaTvrOADTQNqGo_zkVq2DRvo5Ss8G6JlrYeV5-HszOvd12xwk0zBWwea9_Ds8J2woEVDfb2C_1RK9_5F9gbrMmHC3P3cVtcq6zzJb3yRrUbPk-9hzvnRlucTtt31Po1zOU2u5NV9bbF7iM_n87xOcM4ofMlwTRJ6qoUedbET6KpL1zEyNY1YCPqP8b8V0UPPb_2q3kcz_oX1ja5bQ?type=png)](https://mermaid.live/edit#pako:eNpFUk2PmzAQ_SsjS1EuQGxYEuBQqdL20EMvuzlUXe9hgAEsgY2w2U2E-O81odoePJp5Hs1787GwytTECnY4LEorV8BydB0NdCzg2JiJrDuusB4OUt_uVYeTC0tyKLVTrieQ7KoGAp8ILWma0CndgtEEasCW4FO5Dl6fQURpAKmIb_55h4N1NNrAZ8LL9Tc88YxL5ilCvCkLb5J9oFZ9j-DMVHWSBZ7p4UaVGUbV0w59_3mlYezR_Ys9cdObzz24krZmerlCHvFI7Jh1WPYUNmidZO9S33dCyQbPpixVRtdWMuAQht8g5pxLLXWJE7yJLL8EIFLBvRVp5i3nSQB5LjaTvrOADTQNqGo_zkVq2DRvo5Ss8G6JlrYeV5-HszOvd12xwk0zBWwea9_Ds8J2woEVDfb2C_1RK9_5F9gbrMmHC3P3cVtcq6zzJb3yRrUbPk-9hzvnRlucTtt31Po1zOU2u5NV9bbF7iM_n87xOcM4ofMlwTRJ6qoUedbET6KpL1zEyNY1YCPqP8b8V0UPPb_2q3kcz_oX1ja5bQ)
 
 | Framework | torch | torch.compile | AIT  | oneflow | TensorRT | __stable-fast__ |
 | --------- | ----- | ------------- | ---- | ------- | -------- | --------------- |
-| Time/ms   | 1897  | 1510          | 1158 | 1003    | 991      | __1010__        |
+| Time/ms   | 1897  | 1510          | 1158 | 1003    | 991      | __995__         |
 
 __NOTE__: During benchmarking, `TensorRT` is tested with `static batch size` and `CUDA Graph enabled` while `stable-fast` is running with full dynamic shape.
 
@@ -286,7 +286,7 @@ This is my personal gaming PC😄. It has a more powerful CPU than those from cl
 | AUTO1111 WebUI (with SDPA)               | 24.5 it/s     | 4.3 it/s          |                   |
 | TensorRT (AUTO1111 WebUI)                | 40.8 it/s     |                   |                   |
 | TensorRT Official Demo                   | 52.6 it/s     |                   |                   |
-| __stable-fast (with xformers & Triton)__ | __50.8 it/s__ | __8.7 it/s__      | __36.6 it/s__     |
+| __stable-fast (with xformers & Triton)__ | __51.6 it/s__ | __9.1 it/s__      | __36.7 it/s__     |
 
 ### H100
 

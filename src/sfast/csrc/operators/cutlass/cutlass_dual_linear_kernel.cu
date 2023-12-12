@@ -260,11 +260,11 @@ template <typename scalar_t> struct acc_type {
   using type = scalar_t;
 };
 
-// NOTE: Significant precision loss if setting acc_type to half_t for GEGLU
-// Maybe GELU is too sensitive to precision loss
-template <> struct acc_type<cutlass::half_t> {
-  using type = float;
-};
+// NOTE: Significant precision loss if setting acc_type to fp16 for GEGLU
+// But we have to use fp16 here since on 4080 it is too slow to use fp32
+// template <> struct acc_type<cutlass::half_t> {
+//   using type = float;
+// };
 
 template <> struct acc_type<cutlass::bfloat16_t> {
   using type = float;
