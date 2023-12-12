@@ -42,6 +42,10 @@ def make_dynamic_graphed_callable(func):
                     cached_callables[key] = cached_callable
         return cached_callable(*args, **kwargs)
 
+    if isinstance(func, torch.nn.Module):
+        dynamic_graphed_callable.__self__ = func
+    elif hasattr(func, '__self__'):
+        dynamic_graphed_callable.__self__ = func.__self__
     dynamic_graphed_callable._cached = cached_callables
 
     return dynamic_graphed_callable

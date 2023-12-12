@@ -8,8 +8,10 @@ from sfast.jit import passes
 from sfast.jit.trace_helper import (lazy_trace,
                                     apply_auto_jit_compiler_to_all_modules)
 from sfast.jit import utils as jit_utils
-from sfast.cuda.graphs import (make_dynamic_graphed_callable,
-                               apply_auto_graph_compiler_to_all_modules)
+from sfast.cuda.graphs import (
+    make_dynamic_graphed_callable,
+    # apply_auto_graph_compiler_to_all_modules,
+)
 from sfast.utils import gpu_device
 
 logger = logging.getLogger()
@@ -172,6 +174,9 @@ def compile_vae(m, config):
             m = apply_auto_jit_compiler_to_all_modules(m,
                                                        ts_compiler=ts_compiler)
 
+    # NOTE: SDXL upcasts its parameters of VAE to float32 each time in inference to avoid overflow.
+    # Our CUDA Graph implementation will permanently stores the upcasted parameters in the graph,
+    # and this might cause memory issues if the changes of the shape of inputs cause recapturing.
     # if enable_cuda_graph:
     #     m = apply_auto_graph_compiler_to_all_modules(m)
 

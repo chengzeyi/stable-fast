@@ -25,7 +25,13 @@ class ModuleJitHook:
         self.compiled_cache = {}
 
         self.call_impl = self.module._call_impl
-        self.module._call_impl = self.compiled_call_impl
+
+        def compiled_call_impl(*args, **kwargs):
+            return self.compiled_call_impl(*args, **kwargs)
+
+        compiled_call_impl.__self__ = self.module
+
+        self.module._call_impl = compiled_call_impl
 
     def compiled_call_impl(self, *args, **kwargs):
         if self.compiler.is_compiling():

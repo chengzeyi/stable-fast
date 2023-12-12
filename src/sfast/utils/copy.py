@@ -62,10 +62,8 @@ def shadow_copy(obj, detach=False):
 def can_be_perfectly_copied(obj):
     if obj is None:
         return True
-    elif isinstance(obj, torch.Tensor):
-        return True
     # micro optimization: bool obj is an instance of int
-    elif isinstance(obj, (str, int, float, bytes)):
+    elif isinstance(obj, (torch.Tensor, float, int, str, bytes)):
         return True
     elif isinstance(obj, (list, tuple)):
         return all(can_be_perfectly_copied(x) for x in obj)

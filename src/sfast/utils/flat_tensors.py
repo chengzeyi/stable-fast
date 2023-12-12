@@ -22,22 +22,10 @@ def unflattern(tensors):
 def can_be_perfectly_flattened(obj):
     if obj is None:
         return True
-    elif isinstance(obj, torch.Tensor):
+    # micro optimization: bool obj is an instance of int
+    elif isinstance(obj, (torch.Tensor, float, int, str, bytes)):
         return True
-    # bool must be be checked before int because bool is a subclass of int
-    elif isinstance(obj, bool):
-        return True
-    elif isinstance(obj, float):
-        return True
-    elif isinstance(obj, int):
-        return True
-    elif isinstance(obj, str):
-        return True
-    elif isinstance(obj, bytes):
-        return True
-    elif isinstance(obj, list):
-        return all(can_be_perfectly_flattened(arg) for arg in obj)
-    elif isinstance(obj, tuple):
+    elif isinstance(obj, (list, tuple)):
         return all(can_be_perfectly_flattened(arg) for arg in obj)
     # dataclass must be checked before dict
     # because dataclass is a subclass of dict
