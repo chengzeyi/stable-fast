@@ -12,11 +12,11 @@ def apply_to_all_modules(m, compiler, filter_func=None):
 
 
 def apply_to_module(m, compiler):
-    ModuleJitHook(m, compiler)
+    ModuleJITHook(m, compiler)
     return m
 
 
-class ModuleJitHook:
+class ModuleJITHook:
 
     def __init__(self, module, compiler):
         self.lock = threading.Lock()
@@ -46,10 +46,17 @@ class ModuleJitHook:
             if inputs_key in self.compiled_cache:
                 compiled = self.compiled_cache[inputs_key]
                 if compiled == self.ready_to_compile:
-                    logger.info(f"Compiling {self.module.__class__.__name__}")
-                    compiled = self.compiler.compile(self.call_impl, args,
-                                                     kwargs)
-                    self.compiled_cache[inputs_key] = compiled
+                    logger.info(f'Compiling {self.module.__class__.__name__}')
+                    try:
+                        compiled = self.compiler.compile(
+                            self.call_impl, args, kwargs)
+                        self.compiled_cache[inputs_key] = compiled
+                    except Exception:
+                        self.compiled_cache[inputs_key] = self.cannot_compile
+                        logger.exception(
+                            f'Failed to compile {self.module.__class__.__name__}'
+                        )
+                        raise
                 elif compiled == self.cannot_compile:
                     return self.call_impl(*args, **kwargs)
                 return compiled(*args, **kwargs)
@@ -59,7 +66,16 @@ class ModuleJitHook:
             if outputs_key is None:
                 self.compiled_cache[inputs_key] = self.cannot_compile
             else:
-                self.compiled_cache[inputs_key] = self.ready_to_compile
+                new_input_key = self.compiler.get_inputs_key(
+                    self.call_impl, args, kwargs)
+                if hash(new_input_key) == hash(inputs_key):
+                    # inputs not mutated
+                    logger.info(f'Compiling {self.module.__class__.__name__}')
+                    compiled = self.compiler.compile(self.call_impl, args,
+                                                     kwargs)
+                    self.compiled_cache[inputs_key] = compiled
+                else:
+                    self.compiled_cache[inputs_key] = self.ready_to_compile
             return outputs
 
     def ready_to_compile(self):

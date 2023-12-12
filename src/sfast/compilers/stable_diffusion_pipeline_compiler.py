@@ -5,12 +5,11 @@ import functools
 import torch
 import sfast
 from sfast.jit import passes
-from sfast.jit.trace_helper import (lazy_trace,
-                                    apply_auto_jit_compiler_to_all_modules)
+from sfast.jit.trace_helper import (lazy_trace, apply_auto_trace_compiler)
 from sfast.jit import utils as jit_utils
 from sfast.cuda.graphs import (
     make_dynamic_graphed_callable,
-    # apply_auto_graph_compiler_to_all_modules,
+    # apply_auto_graph_compiler,
 )
 from sfast.utils import gpu_device
 
@@ -171,14 +170,13 @@ def compile_vae(m, config):
                 enable_triton_reshape=enable_cuda_graph,
                 enable_triton_layer_norm=enable_cuda_graph,
             )
-            m = apply_auto_jit_compiler_to_all_modules(m,
-                                                       ts_compiler=ts_compiler)
+            m = apply_auto_trace_compiler(m, ts_compiler=ts_compiler)
 
     # NOTE: SDXL upcasts its parameters of VAE to float32 each time in inference to avoid overflow.
     # Our CUDA Graph implementation will permanently stores the upcasted parameters in the graph,
     # and this might cause memory issues if the changes of the shape of inputs cause recapturing.
     # if enable_cuda_graph:
-    #     m = apply_auto_graph_compiler_to_all_modules(m)
+    #     m = apply_auto_graph_compiler(m)
 
     return m
 

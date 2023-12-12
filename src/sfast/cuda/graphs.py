@@ -326,16 +326,23 @@ class AutoGraphCraphCompiler:
             def functionalized(*args, **kwargs):
                 return graphed(*args, **kwargs)
 
+            if isinstance(func, torch.nn.Module):
+                functionalized.__self__ = func
+            elif hasattr(func, '__self__'):
+                functionalized.__self__ = func.__self__
+
             return functionalized
         finally:
             self._is_compiling.value = False
 
 
-def apply_auto_graph_compiler_to_all_modules(m, filter_func=None, **kwargs):
-    return apply_to_all_modules(m,
-                                AutoGraphCraphCompiler(**kwargs),
-                                filter_func=filter_func)
-
-
-def apply_auto_graph_compiler_to_module(m, **kwargs):
-    return apply_to_module(m, AutoGraphCraphCompiler(**kwargs))
+def apply_auto_graph_compiler_to_all_modules(m,
+                                             filter_func=None,
+                                             recursive=True,
+                                             **kwargs):
+    if recursive:
+        return apply_to_all_modules(m,
+                                    AutoGraphCraphCompiler(**kwargs),
+                                    filter_func=filter_func)
+    else:
+        return apply_to_module(m, AutoGraphCraphCompiler(**kwargs))

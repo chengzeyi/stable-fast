@@ -156,11 +156,11 @@ class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
         return flat_outputs
 
 
-def can_io_obj_be_perfectly_jitted(obj):
+def can_io_obj_be_perfectly_traced(obj):
     return flat_tensors.can_be_perfectly_flattened(obj)
 
 
-class AutoJITCompiler:
+class AutoTraceCompiler:
 
     def __init__(self, *, ts_compiler=None, **kwargs):
         self.ts_compiler = ts_compiler
@@ -172,12 +172,12 @@ class AutoJITCompiler:
         return self._is_compiling.value
 
     def get_inputs_key(self, func, inputs, kwargs):
-        if not can_io_obj_be_perfectly_jitted((inputs, kwargs)):
+        if not can_io_obj_be_perfectly_traced((inputs, kwargs)):
             return None
         return (hash_arg(inputs), hash_arg(kwargs))
 
     def get_outputs_key(self, func, outputs):
-        if not can_io_obj_be_perfectly_jitted(outputs):
+        if not can_io_obj_be_perfectly_traced(outputs):
             return None
         return (hash_arg(outputs), )
 
@@ -206,16 +206,20 @@ class AutoJITCompiler:
             def functionalized(*args, **kwargs):
                 return traced_module(*args, **kwargs)
 
+            if isinstance(func, torch.nn.Module):
+                functionalized.__self__ = func
+            elif hasattr(func, '__self__'):
+                functionalized.__self__ = func.__self__
+
             return functionalized
         finally:
             self._is_compiling.value = False
 
 
-def apply_auto_jit_compiler_to_all_modules(m, filter_func=None, **kwargs):
-    return apply_to_all_modules(m,
-                                AutoJITCompiler(**kwargs),
-                                filter_func=filter_func)
-
-
-def apply_auto_jit_compiler_to_module(m, **kwargs):
-    return apply_to_module(m, AutoJITCompiler(**kwargs))
+def apply_auto_trace_compiler(m, filter_func=None, recursive=True, **kwargs):
+    if recursive:
+        return apply_to_all_modules(m,
+                                    AutoTraceCompiler(**kwargs),
+                                    filter_func=filter_func)
+    else:
+        return apply_to_module(m, AutoTraceCompiler(**kwargs))
