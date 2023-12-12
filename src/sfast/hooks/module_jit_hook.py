@@ -68,7 +68,7 @@ class ModuleJITHook:
             else:
                 new_input_key = self.compiler.get_inputs_key(
                     self.call_impl, args, kwargs)
-                if hash(new_input_key) == hash(inputs_key):
+                if new_input_key == inputs_key:
                     # inputs not mutated
                     logger.info(f'Compiling {self.module.__class__.__name__}')
                     compiled = self.compiler.compile(self.call_impl, args,
