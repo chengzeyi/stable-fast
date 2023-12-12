@@ -29,6 +29,11 @@ basic_kwarg_inputs = dict(
     num_inference_steps=30,
 )
 
+basic_img2img_kwarg_inputs = dict(
+    prompt='cartonized',
+    num_inference_steps=30,
+)
+
 
 def display_image(image):
     print_image(image, max_width=80)
@@ -135,6 +140,44 @@ def test_benchmark_sd15_model_with_controlnet(sd15_model_path,
     )
 
 
+def test_compile_sd15_model_with_controlnet(sd15_model_path,
+                                            sd_controlnet_canny_model_path,
+                                            diffusers_dog_example_path,
+                                            skip_comparsion=True):
+    test_benchmark_sd15_model_with_controlnet(sd15_model_path,
+                                              sd_controlnet_canny_model_path,
+                                              diffusers_dog_example_path,
+                                              skip_comparsion=skip_comparsion)
+
+
+def test_benchmark_sd15_model_with_img2img(sd15_model_path,
+                                           diffusers_dog_example_path,
+                                           skip_comparsion=False):
+    from diffusers import StableDiffusionImg2ImgPipeline
+
+    dog_image = get_images_from_path(diffusers_dog_example_path)[0]
+    dog_image = cv2.resize(dog_image, (512, 512))
+    dog_image = PIL.Image.fromarray(dog_image)
+
+    benchmark_sd_model(
+        sd15_model_path,
+        kwarg_inputs=dict(
+            **basic_img2img_kwarg_inputs,
+            image=dog_image,
+        ),
+        model_class=StableDiffusionImg2ImgPipeline,
+        skip_comparsion=skip_comparsion,
+    )
+
+
+def test_compile_sd15_model_with_img2img(sd15_model_path,
+                                         diffusers_dog_example_path,
+                                         skip_comparsion=True):
+    test_benchmark_sd15_model_with_img2img(sd15_model_path,
+                                           diffusers_dog_example_path,
+                                           skip_comparsion=skip_comparsion)
+
+
 def test_benchmark_sd21_model(sd21_model_path, skip_comparsion=False):
     kwarg_inputs = copy.deepcopy(basic_kwarg_inputs)
     kwarg_inputs['height'] = 768
@@ -190,16 +233,6 @@ def test_benchmark_quantized_sdxl_model(sdxl_model_path,
 def test_compile_quantized_sdxl_model(sdxl_model_path, skip_comparsion=True):
     test_benchmark_quantized_sdxl_model(sdxl_model_path,
                                         skip_comparsion=skip_comparsion)
-
-
-def test_compile_sd15_model_with_controlnet(sd15_model_path,
-                                            sd_controlnet_canny_model_path,
-                                            diffusers_dog_example_path,
-                                            skip_comparsion=True):
-    test_benchmark_sd15_model_with_controlnet(sd15_model_path,
-                                              sd_controlnet_canny_model_path,
-                                              diffusers_dog_example_path,
-                                              skip_comparsion=skip_comparsion)
 
 
 def call_model(model, inputs=None, kwarg_inputs=None):
