@@ -166,10 +166,9 @@ class AutoTraceCompiler:
         self.ts_compiler = ts_compiler
         self.kwargs = kwargs
         self._is_compiling = threading.local()
-        self._is_compiling.value = False
 
     def is_compiling(self):
-        return self._is_compiling.value
+        return getattr(self._is_compiling, 'value', False)
 
     def get_inputs_key(self, func, inputs, kwargs):
         if not can_io_obj_be_perfectly_traced((inputs, kwargs)):
