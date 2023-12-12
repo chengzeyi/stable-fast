@@ -327,14 +327,14 @@ def benchmark_sd_model(
                     return m
 
                 def quantize_unet(m):
-                    patch_module(
+                    m = patch_module(
                         m, lambda stack: isinstance(stack[-1][1], torch.nn.
                                                     Linear), replace_linear)
                     m = torch.quantization.quantize_dynamic(m,
                                                             {torch.nn.Linear},
                                                             dtype=torch.qint8,
                                                             inplace=True)
-                    patch_module(
+                    m = patch_module(
                         m, lambda stack: isinstance(
                             stack[-1][1], torch.ao.nn.quantized.Linear),
                         make_linear_compatible)

@@ -3,7 +3,9 @@ import functools
 import threading
 import dataclasses
 import torch
-from sfast.utils.copy import tree_copy_, tree_copy, shadow_copy
+from sfast.utils.copy import (tree_copy_, tree_copy, shadow_copy,
+                              can_be_perfectly_copied)
+from sfast.hooks.module_jit_hook import (apply_to_all_modules, apply_to_module)
 
 logger = logging.getLogger()
 
@@ -11,17 +13,19 @@ _per_device_execution_envs = {}
 _per_device_execution_envs_lock = threading.Lock()
 
 
-def make_dynamic_graphed_callable(callable):
+def make_dynamic_graphed_callable(func):
     lock = threading.Lock()
     cached_callables = {}
 
-    @functools.wraps(callable)
+    wrapped = func.forward if isinstance(func, torch.nn.Module) else func
+
+    @functools.wraps(wrapped)
     def dynamic_graphed_callable(*args, **kwargs):
-        if isinstance(callable, torch.nn.Module):
-            training = getattr(callable, 'training', False)
-        elif hasattr(callable, '__self__') and isinstance(
-                callable.__self__, torch.nn.Module):
-            training = getattr(callable.__self__, 'training', False)
+        if isinstance(func, torch.nn.Module):
+            training = getattr(func, 'training', False)
+        elif hasattr(func, '__self__') and isinstance(func.__self__,
+                                                      torch.nn.Module):
+            training = getattr(func.__self__, 'training', False)
         else:
             training = False
         key = (training, hash_arg(args), hash_arg(kwargs))
@@ -31,10 +35,10 @@ def make_dynamic_graphed_callable(callable):
                 cached_callable = cached_callables.get(key)
                 if cached_callable is None:
                     logger.info(
-                        f'Dynamically graphing {getattr(callable, "__name__", callable.__class__.__name__)}'
+                        f'Dynamically graphing {getattr(func, "__name__", func.__class__.__name__)}'
                     )
                     cached_callable = simple_make_graphed_callable(
-                        callable, args, kwargs)
+                        func, args, kwargs)
                     cached_callables[key] = cached_callable
         return cached_callable(*args, **kwargs)
 
@@ -43,20 +47,20 @@ def make_dynamic_graphed_callable(callable):
     return dynamic_graphed_callable
 
 
-def simple_make_graphed_callable(callable,
+def simple_make_graphed_callable(func,
                                  example_inputs=None,
                                  example_kwarg_inputs=None):
     cuda_device = get_cuda_device_from_tensors(
         (example_inputs, example_kwarg_inputs))
     assert cuda_device is not None
     execution_env = get_per_device_graph_execution_env(cuda_device)
-    return make_graphed_callable(callable,
+    return make_graphed_callable(func,
                                  example_inputs,
                                  example_kwarg_inputs,
                                  execution_env=execution_env)
 
 
-def make_graphed_callable(callable,
+def make_graphed_callable(func,
                           example_inputs=None,
                           example_kwarg_inputs=None,
                           *,
@@ -65,8 +69,8 @@ def make_graphed_callable(callable,
         torch.cuda, 'get_allocator_backend'
     ) or torch.cuda.get_allocator_backend() == 'native'
 
-    training = getattr(callable, 'training', False) if isinstance(
-        callable, torch.nn.Module) else False
+    training = getattr(func, 'training', False) if isinstance(
+        func, torch.nn.Module) else False
 
     if example_inputs is None:
         example_inputs = tuple()
@@ -79,8 +83,8 @@ def make_graphed_callable(callable,
     torch.cuda.synchronize()
     with torch.cuda.stream(torch.cuda.Stream(device=execution_env.device)):
         for _ in range(3):
-            callable(*tree_copy(example_inputs, detach=True),
-                     **tree_copy(example_kwarg_inputs, detach=True))
+            func(*tree_copy(example_inputs, detach=True),
+                 **tree_copy(example_kwarg_inputs, detach=True))
     torch.cuda.synchronize()
 
     if is_default_allocator:
@@ -114,8 +118,7 @@ def make_graphed_callable(callable,
             with torch.cuda.graph(fwd_graph,
                                   pool=execution_env.mempool,
                                   stream=execution_env.stream):
-                static_outputs = callable(*static_inputs,
-                                          **static_kwarg_inputs)
+                static_outputs = func(*static_inputs, **static_kwarg_inputs)
 
     if is_default_allocator:
         static_outputs = shadow_copy(static_outputs)
@@ -156,13 +159,13 @@ def make_graphed_callable(callable,
             return x.data
         return x
 
-    deps = [callable]
-    if isinstance(callable, torch.nn.Module):
-        deps.extend(map(convert_parameter_to_tensor, callable.parameters()))
-    elif hasattr(callable, '__self__') and isinstance(callable.__self__,
-                                                      torch.nn.Module):
+    deps = [func]
+    if isinstance(func, torch.nn.Module):
+        deps.extend(map(convert_parameter_to_tensor, func.parameters()))
+    elif hasattr(func, '__self__') and isinstance(func.__self__,
+                                                  torch.nn.Module):
         deps.extend(
-            map(convert_parameter_to_tensor, callable.__self__.parameters()))
+            map(convert_parameter_to_tensor, func.__self__.parameters()))
 
     return make_graphed_function(deps,
                                  execution_env,
@@ -281,3 +284,54 @@ def get_requires_grad_from_tensors(x):
         return False
     else:
         return False
+
+
+def can_io_obj_be_perfectly_graphed(obj):
+    return can_be_perfectly_copied(obj)
+
+
+class AutoGraphCraphCompiler:
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self._is_compiling = threading.local()
+        self._is_compiling.value = False
+
+    def is_compiling(self):
+        return self._is_compiling.value
+
+    def get_inputs_key(self, func, inputs, kwargs):
+        if not can_io_obj_be_perfectly_graphed((inputs, kwargs)):
+            return None
+        return (hash_arg(inputs), hash_arg(kwargs))
+
+    def get_outputs_key(self, func, outputs):
+        if not can_io_obj_be_perfectly_graphed(outputs):
+            return None
+        return hash_arg(outputs)
+
+    def compile(self, func, inputs, kwargs):
+        self._is_compiling.value = True
+        try:
+            graphed = simple_make_graphed_callable(func, inputs, kwargs,
+                                                   **self.kwargs)
+            wrapped = func.forward if isinstance(func,
+                                                 torch.nn.Module) else func
+
+            @functools.wraps(wrapped)
+            def functionalized(*args, **kwargs):
+                return graphed(*args, **kwargs)
+
+            return functionalized
+        finally:
+            self._is_compiling.value = False
+
+
+def apply_auto_graph_compiler_to_all_modules(m, filter_func=None, **kwargs):
+    return apply_to_all_modules(m,
+                                AutoGraphCraphCompiler(**kwargs),
+                                filter_func=filter_func)
+
+
+def apply_auto_graph_compiler_to_module(m, **kwargs):
+    return apply_to_module(m, AutoGraphCraphCompiler(**kwargs))

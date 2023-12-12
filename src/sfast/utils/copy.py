@@ -43,8 +43,7 @@ def tree_copy(src, detach=False):
 def shadow_copy(obj, detach=False):
     if isinstance(obj, torch.Tensor):
         return sfast._C._create_shadow_tensor(
-            obj, detach=detach
-        ) if obj.device.type == 'cuda' else obj
+            obj, detach=detach) if obj.device.type == 'cuda' else obj
     elif isinstance(obj, (list, tuple)):
         return type(obj)(shadow_copy(x, detach=detach) for x in obj)
     elif dataclasses.is_dataclass(obj):
@@ -58,3 +57,23 @@ def shadow_copy(obj, detach=False):
             (k, shadow_copy(v, detach=detach)) for k, v in obj.items())
     else:
         return obj
+
+
+def can_be_perfectly_copied(obj):
+    if obj is None:
+        return True
+    elif isinstance(obj, torch.Tensor):
+        return True
+    # micro optimization: bool obj is an instance of int
+    elif isinstance(obj, (str, int, float, bytes)):
+        return True
+    elif isinstance(obj, (list, tuple)):
+        return all(can_be_perfectly_copied(x) for x in obj)
+    elif dataclasses.is_dataclass(obj):
+        return all(
+            can_be_perfectly_copied(getattr(obj, field.name))
+            for field in dataclasses.fields(obj))
+    elif isinstance(obj, dict):
+        return all(can_be_perfectly_copied(v) for v in obj.values())
+    else:
+        return False

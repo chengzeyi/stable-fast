@@ -5,6 +5,7 @@ import threading
 import torch
 from sfast.utils import flat_tensors
 from sfast.utils.copy import tree_copy
+from sfast.hooks.module_jit_hook import (apply_to_all_modules, apply_to_module)
 from .utils import better_trace
 
 logger = logging.getLogger()
@@ -151,3 +152,68 @@ class TraceablePosArgOnlyModuleWrapper(torch.nn.Module):
         outputs = self.module(*orig_args, **orig_kwargs)
         flat_outputs = flat_tensors.flattern(outputs)
         return flat_outputs
+
+
+def can_io_obj_be_perfectly_jitted(obj):
+    return flat_tensors.can_be_perfectly_flattened(obj)
+
+
+class AutoJITCompiler:
+
+    def __init__(self, *, ts_compiler=None, **kwargs):
+        self.ts_compiler = ts_compiler
+        self.kwargs = kwargs
+        self._is_compiling = threading.local()
+        self._is_compiling.value = False
+
+    def is_compiling(self):
+        return self._is_compiling.value
+
+    def get_inputs_key(self, func, inputs, kwargs):
+        if not can_io_obj_be_perfectly_jitted((inputs, kwargs)):
+            return None
+        return (hash_arg(inputs), hash_arg(kwargs))
+
+    def get_outputs_key(self, func, outputs):
+        if not can_io_obj_be_perfectly_jitted(outputs):
+            return None
+        return (hash_arg(outputs), )
+
+    def compile(self, func, inputs, kwargs):
+        self._is_compiling.value = True
+        try:
+            wrapped = func.forward if isinstance(func,
+                                                 torch.nn.Module) else func
+            module_to_be_traced = to_module(wrapped)
+            traced_m, call_helper = trace_with_kwargs(module_to_be_traced,
+                                                      inputs, kwargs,
+                                                      **self.kwargs)
+            if self.ts_compiler is not None:
+                if 'call_helper' in inspect.signature(
+                        self.ts_compiler).parameters:
+                    traced_m = self.ts_compiler(traced_m, call_helper, inputs,
+                                                kwargs)
+                else:
+                    converted_args = call_helper(traced_m).convert_inputs(
+                        inputs, kwargs)
+                    traced_m = self.ts_compiler(traced_m, converted_args)
+
+            traced_module = call_helper(traced_m)
+
+            @functools.wraps(wrapped)
+            def functionalized(*args, **kwargs):
+                return traced_module(*args, **kwargs)
+
+            return functionalized
+        finally:
+            self._is_compiling.value = False
+
+
+def apply_auto_jit_compiler_to_all_modules(m, filter_func=None, **kwargs):
+    return apply_to_all_modules(m,
+                                AutoJITCompiler(**kwargs),
+                                filter_func=filter_func)
+
+
+def apply_auto_jit_compiler_to_module(m, **kwargs):
+    return apply_to_module(m, AutoJITCompiler(**kwargs))

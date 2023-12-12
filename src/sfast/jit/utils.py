@@ -16,7 +16,7 @@ class ScriptModuleClearHook:
 
 
 def attach_script_module_clear_hook(
-    script_module, attr_name="_module_registration_clear_hook"
+    script_module, attr_name="_sfast_module_registration_clear_hook"
 ):
     script_module._register_attribute(
         attr_name, torch._C.PyObjectType.get(), ScriptModuleClearHook(script_module)
