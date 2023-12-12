@@ -1,5 +1,6 @@
 #include <torch/extension.h>
 
+#include <c10/cuda/CUDAMathCompat.h>
 #include <c10/cuda/CUDAStream.h>
 
 #include <cutlass/cutlass.h>
@@ -18,6 +19,40 @@
 #include "thread/mul.h"
 
 #include "cutlass_dual_linear.h"
+
+namespace cutlass {
+
+// https://forums.developer.nvidia.com/t/accuracy-optimized-implementation-of-erff-without-performance-impact/218114
+/*
+ Based on John D. Vedder, "Simple approximations for the error function and its
+ inverse." American Journal of Physics, Vol. 55, No. 8, Aug. 1987, pp. 762-763.
+
+ maximum ulp error: 5735.81, maximum relative error: 3.8735e-4
+*/
+template <typename T> CUTLASS_HOST_DEVICE T fast_erff(T x) {
+  T x2 = x * x;
+  T tmp = (T)0.100646973f * x2 + (T)1.128759325f;
+  x = tmp * x;
+  return cutlass::fast_tanh(x);
+}
+
+namespace epilogue {
+namespace thread {
+
+template <> struct GELU<half> {
+  static const bool kIsHeavy = true;
+
+  CUTLASS_HOST_DEVICE
+  half operator()(half const &value) const {
+    return cutlass::constants::half<half>() * value *
+           (cutlass::constants::one<half>() +
+            cutlass::fast_erff(value *
+                               cutlass::constants::half_root_two<half>()));
+  }
+};
+} // namespace thread
+} // namespace epilogue
+} // namespace cutlass
 
 namespace sfast {
 namespace operators {
@@ -42,7 +77,7 @@ template <typename scalar_t, typename acc_t> struct GemmConfig {
   using ElementAccumulator = acc_t;
   using ElementComputeEpilogue = scalar_t;
 
-  using ThreadBlockShape = cutlass::gemm::GemmShape<128, 64, 32>;
+  using ThreadBlockShape = cutlass::gemm::GemmShape<128, 128, 32>;
   using WarpShape = cutlass::gemm::GemmShape<64, 32, 32>;
   using InstructionShape = cutlass::gemm::GemmShape<16, 8, 16>;
 };
@@ -209,17 +244,25 @@ torch::Tensor cutlass_dual_gemm(
   return y;
 }
 
-template <typename at_type> struct cutlass_type { using type = at_type; };
+template <typename at_type> struct cutlass_type {
+  using type = at_type;
+};
 
-template <> struct cutlass_type<at::Half> { using type = cutlass::half_t; };
+template <> struct cutlass_type<at::Half> {
+  using type = cutlass::half_t;
+};
 
 template <> struct cutlass_type<at::BFloat16> {
   using type = cutlass::bfloat16_t;
 };
 
-template <typename scalar_t> struct acc_type { using type = scalar_t; };
+template <typename scalar_t> struct acc_type {
+  using type = scalar_t;
+};
 
-template <> struct acc_type<cutlass::bfloat16_t> { using type = float; };
+template <> struct acc_type<cutlass::bfloat16_t> {
+  using type = float;
+};
 
 template <typename at_type, template <typename> class GemmWrapper>
 struct CutlassDualGemmLauncher {
