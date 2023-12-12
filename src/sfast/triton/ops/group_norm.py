@@ -44,7 +44,7 @@ def group_norm_4d_forward_kernel(
         m2_ = tl.zeros((BLOCK_SIZE, ), dtype=tl.float32)
         weight_ = (r < GROUP_SIZE).to(tl.float32)
         _mean, _m2, _weight = welford_combine(_mean, _m2, _weight, x, m2_,
-                                               weight_)
+                                              weight_)
     mean, m2, weight = tl.reduce((_mean, _m2, _weight), 0, welford_combine)
     var = m2 / weight
     rstd = 1. / tl.sqrt(var + eps)
@@ -98,7 +98,8 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
         lambda kwargs: min(4096, triton.next_power_of_2(kwargs['HxW'])),
     })(triton.heuristics({
         'num_warps':
-        lambda kwargs: max(1, min(16, kwargs['HxW'] // 128)),
+        lambda kwargs: max(
+            1, min(16, triton.next_power_of_2(kwargs['HxW'] // 128))),
     })(triton.jit(kernel)))
     return kernel
 
@@ -149,7 +150,7 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel(
         x = tl.load(X + (r * C)[:, None] + row[None, :],
                     mask=mask).to(tl.float32)
         _mean, _m2, _weight = welford_combine(_mean, _m2, _weight, x, m2_,
-                                               weight_)
+                                              weight_)
     _mean = tl.view(_mean, (BLOCK_SIZE * ROW_SIZE, ))
     _m2 = tl.view(_m2, (BLOCK_SIZE * ROW_SIZE, ))
     _weight = tl.view(_weight, (BLOCK_SIZE * ROW_SIZE, ))
@@ -213,7 +214,7 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1(
         x = tl.load(X + (r * C)[:, None] + row[None, :],
                     mask=mask).to(tl.float32)
         _mean, _m2, _weight = welford_combine(_mean, _m2, _weight, x, m2_,
-                                               weight_)
+                                              weight_)
     _mean = tl.view(_mean, (BLOCK_SIZE * ROW_SIZE, ))
     _m2 = tl.view(_m2, (BLOCK_SIZE * ROW_SIZE, ))
     _weight = tl.view(_weight, (BLOCK_SIZE * ROW_SIZE, ))
