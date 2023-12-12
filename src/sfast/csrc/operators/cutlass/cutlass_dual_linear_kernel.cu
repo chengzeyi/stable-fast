@@ -39,15 +39,15 @@ template <typename T> CUTLASS_HOST_DEVICE T fast_erff(T x) {
 namespace epilogue {
 namespace thread {
 
-template <> struct GELU<half> {
+template <> struct GELU<half_t> {
   static const bool kIsHeavy = true;
 
   CUTLASS_HOST_DEVICE
-  half operator()(half const &value) const {
-    return cutlass::constants::half<half>() * value *
-           (cutlass::constants::one<half>() +
+  half_t operator()(half_t const &value) const {
+    return cutlass::constants::half<half_t>() * value *
+           (cutlass::constants::one<half_t>() +
             cutlass::fast_erff(value *
-                               cutlass::constants::half_root_two<half>()));
+                               cutlass::constants::half_root_two<half_t>()));
   }
 };
 } // namespace thread
