@@ -29,7 +29,7 @@ namespace cutlass {
 
  maximum ulp error: 5735.81, maximum relative error: 3.8735e-4
 */
-template <typename T> CUTLASS_HOST_DEVICE T fast_erff(T x) {
+template <typename T> CUTLASS_HOST_DEVICE T fast_erf(T x) {
   T x2 = x * x;
   T tmp = (T)0.100646973f * x2 + (T)1.128759325f;
   x = tmp * x;
@@ -46,8 +46,8 @@ template <> struct GELU<half_t> {
   half_t operator()(half_t const &value) const {
     return cutlass::constants::half<half_t>() * value *
            (cutlass::constants::one<half_t>() +
-            cutlass::fast_erff(value *
-                               cutlass::constants::half_root_two<half_t>()));
+            cutlass::fast_erf(value *
+                              cutlass::constants::half_root_two<half_t>()));
   }
 };
 } // namespace thread
@@ -258,6 +258,11 @@ template <> struct cutlass_type<at::BFloat16> {
 
 template <typename scalar_t> struct acc_type {
   using type = scalar_t;
+};
+
+// NOTE: Significant precision loss if setting acc_type to half_t for GEGLU
+template <> struct acc_type<cutlass::half_t> {
+  using type = float;
 };
 
 template <> struct acc_type<cutlass::bfloat16_t> {
