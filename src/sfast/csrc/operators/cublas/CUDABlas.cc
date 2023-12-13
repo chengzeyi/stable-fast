@@ -696,7 +696,7 @@ void gemm_and_bias(
     at::opmath_type<Dtype> beta_val,
     const Dtype *mat3_ptr,
     int64_t mat3_ld) {
-  using opmath_t = at::opmath_type<Dtype>;
+  // using opmath_t = at::opmath_type<Dtype>;
   // opmath_t beta_val = 0; // bias is added in epilogue
 
   cudaDataType_t abcType = CUDA_R_32F;
