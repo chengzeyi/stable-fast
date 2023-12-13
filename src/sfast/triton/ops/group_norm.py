@@ -24,13 +24,12 @@ def group_norm_4d_forward_kernel(
     output_ptr,
     mean_ptr,
     rstd_ptr,
+    C_G,
+    GROUP_SIZE,
     BLOCK_SIZE: tl.constexpr,
 ):
     group = tl.program_id(0)
     pid_batch = tl.program_id(1)
-
-    C_G = C // groups
-    GROUP_SIZE = C_G * HxW
 
     offset = pid_batch * C * HxW + group * GROUP_SIZE
     X = input_ptr + offset
@@ -100,6 +99,10 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
         'num_warps':
         lambda kwargs: max(
             1, min(16, triton.next_power_of_2(kwargs['HxW'] // 128))),
+        'C_G':
+        lambda kwargs: kwargs['C'] // kwargs['groups'],
+        'GROUP_SIZE':
+        lambda kwargs: kwargs['C'] // kwargs['groups'] * kwargs['HxW'],
     })(triton.jit(kernel)))
     return kernel
 
@@ -117,6 +120,7 @@ def create_group_norm_4d_forward_kernel(act=activation.identity):
 @eval('''triton.heuristics({
     'num_warps':
     lambda kwargs: max(1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 128)),
+    'C_G': lambda kwargs: kwargs['C'] // kwargs['groups'],
 })''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel(
@@ -128,13 +132,12 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel(
     eps,
     mean_ptr,
     rstd_ptr,
+    C_G,
     ROW_SIZE: tl.constexpr,
     BLOCK_SIZE: tl.constexpr,
 ):
     group = tl.program_id(0)
     pid_batch = tl.program_id(1)
-
-    C_G = C // groups
 
     offset = pid_batch * C * HxW + group * C_G
     X = input_ptr + offset
@@ -175,6 +178,7 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel(
 @eval('''triton.heuristics({
     'num_warps':
     lambda kwargs: max(1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 128)),
+    'C_G': lambda kwargs: kwargs['C'] // kwargs['groups'],
 })''')
 @triton.jit
 def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1(
@@ -188,14 +192,13 @@ def group_norm_4d_channels_last_forward_collect_stats_kernel_stage_1(
     cluster_mean_ptr,
     cluster_m2_ptr,
     cluster_weight_ptr,
+    C_G,
     ROW_SIZE: tl.constexpr,
     BLOCK_SIZE: tl.constexpr,
 ):
     group = tl.program_id(0)
     cluster = tl.program_id(1)
     pid_batch = tl.program_id(2)
-
-    C_G = C // groups
 
     offset = pid_batch * C * HxW + group * C_G
     X = input_ptr + offset
@@ -278,13 +281,12 @@ def group_norm_4d_channels_last_forward_apply_kernel(
     groups,
     eps,
     output_ptr,
+    C_G,
     ROW_SIZE: tl.constexpr,
     BLOCK_SIZE: tl.constexpr,
 ):
     hw = tl.program_id(0) * BLOCK_SIZE
     pid_batch = tl.program_id(1)
-
-    C_G = C // groups
 
     offset = pid_batch * C * HxW
     X = input_ptr + offset
@@ -341,6 +343,8 @@ def create_group_norm_4d_channels_last_forward_apply_kernel(
         'num_warps':
         lambda kwargs: max(
             1, min(16, kwargs['ROW_SIZE'] * kwargs['BLOCK_SIZE'] // 128)),
+        'C_G':
+        lambda kwargs: kwargs['C'] // kwargs['groups'],
     })(triton.jit(kernel)))
     return kernel
 
@@ -402,14 +406,14 @@ def create_group_norm_forward(act=activation.identity):
                 N,
                 num_groups,
             ),
-                               dtype=input.dtype,
-                               device=input.device)
+                dtype=input.dtype,
+                device=input.device)
             rstd = torch.empty((
                 N,
                 num_groups,
             ),
-                               dtype=input.dtype,
-                               device=input.device)
+                dtype=input.dtype,
+                device=input.device)
 
             # def grid(meta):
             #     return (num_groups, N)
