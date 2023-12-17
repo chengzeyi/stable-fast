@@ -31,7 +31,7 @@ namespace cutlass {
 */
 template <typename T> CUTLASS_HOST_DEVICE T fast_erf(T x) {
   T x2 = x * x;
-  T tmp = (T)0.100646973f * x2 + (T)1.128759325f;
+  T tmp = (T)0.100646973 * x2 + (T)1.128759325;
   x = tmp * x;
   return cutlass::fast_tanh(x);
 }
@@ -244,21 +244,15 @@ torch::Tensor cutlass_dual_gemm(
   return y;
 }
 
-template <typename at_type> struct cutlass_type {
-  using type = at_type;
-};
+template <typename at_type> struct cutlass_type { using type = at_type; };
 
-template <> struct cutlass_type<at::Half> {
-  using type = cutlass::half_t;
-};
+template <> struct cutlass_type<at::Half> { using type = cutlass::half_t; };
 
 template <> struct cutlass_type<at::BFloat16> {
   using type = cutlass::bfloat16_t;
 };
 
-template <typename scalar_t> struct acc_type {
-  using type = scalar_t;
-};
+template <typename scalar_t> struct acc_type { using type = scalar_t; };
 
 // NOTE: Significant precision loss if setting acc_type to fp16 for GEGLU
 // But we have to use fp16 here since on 4080 it is too slow to use fp32
@@ -266,9 +260,7 @@ template <typename scalar_t> struct acc_type {
 //   using type = float;
 // };
 
-template <> struct acc_type<cutlass::bfloat16_t> {
-  using type = float;
-};
+template <> struct acc_type<cutlass::bfloat16_t> { using type = float; };
 
 template <typename at_type, template <typename> class GemmWrapper>
 struct CutlassDualGemmLauncher {

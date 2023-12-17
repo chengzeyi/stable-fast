@@ -33,7 +33,7 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
   using ElementB = int8_t;
   using ElementOutput = scalar_t;
   using ElementAccumulator = acc_t;
-  using ElementComputeEpilogue = scalar_t;
+  using ElementComputeEpilogue = acc_t;
 
   using Gemm = cutlass::gemm::device::GemmUniversal<
       ElementA, LayoutInputA, ElementB, LayoutInputB, ElementOutput,
@@ -227,6 +227,8 @@ template <> struct cutlass_type<at::BFloat16> {
 };
 
 template <typename scalar_t> struct acc_type { using type = scalar_t; };
+
+template <> struct acc_type<cutlass::half_t> { using type = float; };
 
 template <> struct acc_type<cutlass::bfloat16_t> { using type = float; };
 
