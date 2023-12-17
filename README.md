@@ -207,6 +207,9 @@ is to update the original UNet model's parameters inplace.
 The following code assumes you have already load a LoRA and compiled the model,
 and you want to switch to another LoRA.
 
+If you don't enable CUDA graph and keep `preserve_parameters = True`, things could be much easier.
+The following code might not even be needed.
+
 ```python
 # load_state_dict with assign=True requires torch >= 2.1.0
 
@@ -235,14 +238,27 @@ switch_lora(compiled_model.unet, lora_b_path)
 
 ### Model Quantization
 
-`stable-fast` extends PyTorch's `quantize_dynamic` functionality and provides a fast quantized linear operator.
+`stable-fast` extends PyTorch's `quantize_dynamic` functionality and provides a dynamically quantized linear operator on CUDA backend.
 By enabling it, you could get a slight VRAM reduction for `diffusers` and significant VRAM reduction for `transformers`,
-and cound get a potential speedup.
+and cound get a potential speedup (not always).
 
-However, since `diffusers` implements its own `Linear` layer as `LoRACompatibleLinear`,
-you need to do some hacks to make it work and it is a little complex and tricky.
+For `SD XL`, it is expected to see VRAM reduction of `2GB` with an image size of `1024x1024`.
 
-Refer to [tests/compilers/test_stable_diffusion_pipeline_compiler.py](tests/compilers/test_stable_diffusion_pipeline_compiler.py) to see how to do it.
+```python
+def quantize_unet(m):
+    from diffusers.utils import USE_PEFT_BACKEND
+    assert USE_PEFT_BACKEND
+    m = torch.quantization.quantize_dynamic(m, {torch.nn.Linear},
+                                            dtype=torch.qint8,
+                                            inplace=True)
+    return m
+
+model.unet = quantize_unet(model.unet)
+if hasattr(model, 'controlnet'):
+    model.controlnet = quantize_unet(model.controlnet)
+```
+
+Refer to [examples/optimize_stable_diffusion_pipeline.py](examples/optimize_stable_diffusion_pipeline.py) for more details.
 
 ### Some Common Methods To Speed Up PyTorch
 
