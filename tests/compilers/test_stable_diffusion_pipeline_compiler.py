@@ -305,39 +305,13 @@ def benchmark_sd_model(
             )
             if quantize:
 
-                def replace_linear(m):
-                    # Replace LoraCompatibleLinear with torch.nn.Linear
-                    new_m = torch.nn.Linear(m.in_features,
-                                            m.out_features,
-                                            bias=m.bias is not None).eval()
-                    new_m = new_m.to(device=m.weight.device,
-                                     dtype=m.weight.dtype)
-                    new_m.weight.copy_(m.weight)
-                    if m.bias is not None:
-                        new_m.bias.copy_(m.bias)
-                    return new_m
-
-                def make_linear_compatible(m):
-                    forward = m.forward
-
-                    def new_forward(x, *args, **kwargs):
-                        return forward(x)
-
-                    m.forward = new_forward
-                    return m
-
                 def quantize_unet(m):
-                    m = patch_module(
-                        m, lambda stack: isinstance(stack[-1][1], torch.nn.
-                                                    Linear), replace_linear)
+                    from diffusers.utils import USE_PEFT_BACKEND
+                    assert USE_PEFT_BACKEND
                     m = torch.quantization.quantize_dynamic(m,
                                                             {torch.nn.Linear},
                                                             dtype=torch.qint8,
                                                             inplace=True)
-                    m = patch_module(
-                        m, lambda stack: isinstance(
-                            stack[-1][1], torch.ao.nn.quantized.Linear),
-                        make_linear_compatible)
                     return m
 
                 model.unet = quantize_unet(model.unet)

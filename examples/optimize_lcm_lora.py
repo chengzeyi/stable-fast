@@ -50,6 +50,7 @@ def parse_args():
         type=str,
         default='sfast',
         choices=['none', 'sfast', 'compile', 'compile-max-autotune'])
+    parser.add_argument('--quantize', action='store_true')
     return parser.parse_args()
 
 
@@ -159,6 +160,21 @@ def main():
         lora=args.lora,
         controlnet=args.controlnet,
     )
+
+    if args.quantize:
+
+        def quantize_unet(m):
+            from diffusers.utils import USE_PEFT_BACKEND
+            assert USE_PEFT_BACKEND
+            m = torch.quantization.quantize_dynamic(m, {torch.nn.Linear},
+                                                    dtype=torch.qint8,
+                                                    inplace=True)
+            return m
+
+        model.unet = quantize_unet(model.unet)
+        if hasattr(model, 'controlnet'):
+            model.controlnet = quantize_unet(model.controlnet)
+
     if args.compiler == 'none':
         pass
     elif args.compiler == 'sfast':
@@ -243,6 +259,8 @@ def main():
     iter_per_sec = iter_profiler.get_iter_per_sec()
     if iter_per_sec is not None:
         print(f'Iterations per second: {iter_per_sec:.3f}')
+    peak_mem = torch.cuda.max_memory_allocated()
+    print(f'Peak memory: {peak_mem / 1024**3:.3f}GiB')
 
     if args.output_image is not None:
         output_images[0].save(args.output_image)
