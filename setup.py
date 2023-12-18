@@ -131,7 +131,7 @@ def get_extensions():
         if cuda_version >= 1102:
             extra_compile_args["nvcc"] += [
                 "--threads",
-                "4",
+                "2",
                 "--ptxas-options=-v",
             ]
         if platform.system() == "Windows":
