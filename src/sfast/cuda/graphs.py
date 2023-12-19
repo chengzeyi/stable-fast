@@ -115,14 +115,19 @@ def make_graphed_callable(func,
 
     fwd_graph = torch.cuda.CUDAGraph()
 
-    with execution_env.lock:
-        with torch.cuda.device(execution_env.device), torch.cuda.stream(
-                execution_env.stream):
+    try:
+        with execution_env.lock:
+            with torch.cuda.device(execution_env.device), torch.cuda.stream(
+                    execution_env.stream):
 
-            with torch.cuda.graph(fwd_graph,
-                                  pool=execution_env.mempool,
-                                  stream=execution_env.stream):
-                static_outputs = func(*static_inputs, **static_kwarg_inputs)
+                with torch.cuda.graph(fwd_graph,
+                                      pool=execution_env.mempool,
+                                      stream=execution_env.stream):
+                    static_outputs = func(*static_inputs,
+                                          **static_kwarg_inputs)
+    except Exception:
+        logger.error('Failed to capture CUDA Graph, please try without it')
+        raise
 
     if is_default_allocator:
         static_outputs = shadow_copy(static_outputs)

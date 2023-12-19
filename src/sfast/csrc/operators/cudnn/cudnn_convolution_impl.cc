@@ -1215,7 +1215,8 @@ Tensor cudnn_convolution_bias_add_activation_with_fallback_forward(
       select_conv_backend(input_t, weight_t, bias_t, stride, padding, dilation,
                           transposed, output_padding, groups);
 
-  if (backend == ConvBackend::Cudnn && input_t.data_ptr()) {
+  // TODO: Inspect if CUDNN can handle 5D convolution.
+  if (backend == ConvBackend::Cudnn && input_t.data_ptr() && weight_t.dim() <= 4) {
     auto input = input_t;
     auto weight = weight_t;
     auto z = z_t;

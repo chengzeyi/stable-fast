@@ -31,12 +31,20 @@ void ConvertOpInputTensorsOnBlock(
     const c10::optional<std::vector<int>> &indices) {
   static torch::jit::CompilationUnit decompose_funcs(R"SCRIPT(
 def tensor_to(self: Tensor, device: Optional[Device], dtype: Optional[int], memory_format: Optional[int]):
-    return torch.to(self, dtype=dtype, layout=None, device=device, memory_format=memory_format)
+    if memory_format is not None and memory_format == 2 and self.dim() != 4:
+        memory_format_: Optional[int] = None
+    else:
+        memory_format_: Optional[int] = memory_format
+    return torch.to(self, dtype=dtype, layout=None, device=device, memory_format=memory_format_)
 
 def list_of_tensors_to(self: List[Tensor], device: Optional[Device], dtype: Optional[int], memory_format: Optional[int]):
     l: List[Tensor] = []
     for t in self:
-        l.append(torch.to(t, dtype=dtype, layout=None, device=device, memory_format=memory_format))
+        if memory_format is not None and memory_format == 2 and t.dim() != 4:
+            memory_format_: Optional[int] = None
+        else:
+            memory_format_: Optional[int] = memory_format
+        l.append(torch.to(t, dtype=dtype, layout=None, device=device, memory_format=memory_format_))
     return l
 
 def list_of_optional_tensors_to(self: List[Optional[Tensor]], device: Optional[Device], dtype: Optional[int], memory_format: Optional[int]):
@@ -45,7 +53,11 @@ def list_of_optional_tensors_to(self: List[Optional[Tensor]], device: Optional[D
         if t is None:
             l.append(t)
         else:
-            l.append(torch.to(t, dtype=dtype, layout=None, device=device, memory_format=memory_format))
+            if memory_format is not None and memory_format == 2 and t.dim() != 4:
+                memory_format_: Optional[int] = None
+            else:
+                memory_format_: Optional[int] = memory_format
+            l.append(torch.to(t, dtype=dtype, layout=None, device=device, memory_format=memory_format_))
     return l
 )SCRIPT");
 

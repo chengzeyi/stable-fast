@@ -28,18 +28,36 @@ namespace sm80_space {
 using SmArch = cutlass::arch::Sm80;
 constexpr int NumStages = 4;
 
-template <typename scalar_t, typename acc_t> struct GemmWrapper {
+template <typename scalar_t, typename acc_t> struct GemmConfig {
   using ElementA = scalar_t;
   using ElementB = int8_t;
   using ElementOutput = scalar_t;
   using ElementAccumulator = acc_t;
   using ElementComputeEpilogue = acc_t;
 
+  using ThreadBlockShape = cutlass::gemm::GemmShape<128, 128, 64>;
+  using WarpShape = cutlass::gemm::GemmShape<64, 64, 64>;
+  using InstructionShape = cutlass::gemm::GemmShape<16, 8, 16>;
+};
+} // namespace sm80_space
+
+using namespace sm80_space;
+
+template <typename config> struct GemmWrapper {
+  using ElementA = typename config::ElementA;
+  using ElementB = typename config::ElementB;
+  using ElementOutput = typename config::ElementOutput;
+  using ElementAccumulator = typename config::ElementAccumulator;
+  using ElementComputeEpilogue = typename config::ElementComputeEpilogue;
+
+  using ThreadBlockShape = typename config::ThreadBlockShape;
+  using WarpShape = typename config::WarpShape;
+  using InstructionShape = typename config::InstructionShape;
+
   using Gemm = cutlass::gemm::device::GemmUniversal<
       ElementA, LayoutInputA, ElementB, LayoutInputB, ElementOutput,
       LayoutOutput, ElementAccumulator, MMAOp, SmArch,
-      cutlass::gemm::GemmShape<128, 128, 64>,
-      cutlass::gemm::GemmShape<64, 64, 64>, cutlass::gemm::GemmShape<16, 8, 16>,
+      ThreadBlockShape, WarpShape, InstructionShape,
       cutlass::epilogue::thread::LinearCombination<
           ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
           ElementAccumulator, ElementComputeEpilogue,
@@ -53,38 +71,7 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
   using GemmNoBias = cutlass::gemm::device::GemmUniversal<
       ElementA, LayoutInputA, ElementB, LayoutInputB, ElementOutput,
       LayoutOutput, ElementAccumulator, MMAOp, SmArch,
-      cutlass::gemm::GemmShape<128, 128, 64>,
-      cutlass::gemm::GemmShape<64, 64, 64>, cutlass::gemm::GemmShape<16, 8, 16>,
-      cutlass::epilogue::thread::LinearCombination<
-          ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
-          ElementAccumulator, ElementComputeEpilogue,
-          cutlass::epilogue::thread::ScaleType::OnlyAlphaScaling>,
-      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
-      128 / cutlass::sizeof_bits<ElementA>::value,
-      128 / cutlass::sizeof_bits<ElementB>::value,
-      cutlass::arch::OpMultiplyAddMixedInputUpcast,
-      cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
-
-  using GemmSmall = cutlass::gemm::device::GemmUniversal<
-      ElementA, LayoutInputA, ElementB, LayoutInputB, ElementOutput,
-      LayoutOutput, ElementAccumulator, MMAOp, SmArch,
-      cutlass::gemm::GemmShape<64, 64, 32>,
-      cutlass::gemm::GemmShape<32, 32, 32>, cutlass::gemm::GemmShape<16, 8, 16>,
-      cutlass::epilogue::thread::LinearCombination<
-          ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
-          ElementAccumulator, ElementComputeEpilogue,
-          cutlass::epilogue::thread::ScaleType::NoBetaScaling>,
-      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>, NumStages,
-      128 / cutlass::sizeof_bits<ElementA>::value,
-      128 / cutlass::sizeof_bits<ElementB>::value,
-      cutlass::arch::OpMultiplyAddMixedInputUpcast,
-      cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
-
-  using GemmNoBiasSmall = cutlass::gemm::device::GemmUniversal<
-      ElementA, LayoutInputA, ElementB, LayoutInputB, ElementOutput,
-      LayoutOutput, ElementAccumulator, MMAOp, SmArch,
-      cutlass::gemm::GemmShape<64, 64, 32>,
-      cutlass::gemm::GemmShape<32, 32, 32>, cutlass::gemm::GemmShape<16, 8, 16>,
+      ThreadBlockShape, WarpShape, InstructionShape,
       cutlass::epilogue::thread::LinearCombination<
           ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
           ElementAccumulator, ElementComputeEpilogue,
@@ -95,9 +82,6 @@ template <typename scalar_t, typename acc_t> struct GemmWrapper {
       cutlass::arch::OpMultiplyAddMixedInputUpcast,
       cutlass::ComplexTransform::kNone, cutlass::ComplexTransform::kNone>;
 };
-} // namespace sm80_space
-
-using namespace sm80_space;
 
 void get_input_layout(const torch::Tensor &input, const torch::Tensor &weight,
                       int &B, int &M, int &K, int &N,
@@ -185,14 +169,6 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
       weight_ref.stride(0),
       bias_ref.stride(0),
       output_ref.stride(0)};
-  // Allocate workspace memory
-  size_t workspace_size = Gemm::get_workspace_size(arguments);
-  auto workspace =
-      torch::empty({static_cast<int64_t>(workspace_size)},
-                   torch::dtype(torch::kUInt8).device(input.device()));
-
-  torch::DeviceGuard device_guard(input.device());
-  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
   cutlass::Status status;
   Gemm gemm_op;
@@ -203,10 +179,19 @@ cutlass_gemm(const torch::Tensor &input, const torch::Tensor &weight,
       "This problem size is not supported by this Gemm implementation: ",
       cutlass::cutlassGetStatusString(status));
 
+  // Allocate workspace memory
+  size_t workspace_size = Gemm::get_workspace_size(arguments);
+  auto workspace =
+      torch::empty({static_cast<int64_t>(workspace_size)},
+                   torch::dtype(torch::kUInt8).device(input.device()));
+
   status = gemm_op.initialize(arguments, workspace.data_ptr<uint8_t>());
   TORCH_CHECK(status == cutlass::Status::kSuccess,
               "Failed to initialize cutlass gemm: ",
               cutlass::cutlassGetStatusString(status));
+
+  torch::DeviceGuard device_guard(input.device());
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
   status = gemm_op(stream);
   TORCH_CHECK(status == cutlass::Status::kSuccess,
@@ -235,11 +220,9 @@ template <> struct acc_type<cutlass::bfloat16_t> { using type = float; };
 template <typename at_type> struct CutlassGemmLauncher {
   using scalar_t = typename cutlass_type<at_type>::type;
   using acc_t = typename acc_type<scalar_t>::type;
-  using GemmWrapper_ = GemmWrapper<scalar_t, acc_t>;
+  using GemmWrapper_ = GemmWrapper<GemmConfig<scalar_t, acc_t>>;
   using Gemm = typename GemmWrapper_::Gemm;
   using GemmNoBias = typename GemmWrapper_::GemmNoBias;
-  using GemmSmall = typename GemmWrapper_::GemmSmall;
-  using GemmNoBiasSmall = typename GemmWrapper_::GemmNoBiasSmall;
 
   static torch::Tensor launch(const torch::Tensor &input,
                               const torch::Tensor &weight,
@@ -247,42 +230,25 @@ template <typename at_type> struct CutlassGemmLauncher {
                               float dq_scale) {
     auto N = weight.size(0);
     auto K = weight.size(1);
-    auto M = input.numel() / K;
-
-    bool use_small_kernel = M <= Gemm::ThreadblockShape::kM ||
-                            N <= Gemm::ThreadblockShape::kN ||
-                            K <= Gemm::ThreadblockShape::kK;
+    // auto M = input.numel() / K;
 
     if (K % Gemm::kAlignmentA != 0 || K % Gemm::kAlignmentB != 0 ||
         N % Gemm::kAlignmentC != 0) {
-      if (K % GemmSmall::kAlignmentA != 0 || K % GemmSmall::kAlignmentB != 0 ||
-          N % GemmSmall::kAlignmentC != 0) {
         auto weight_ = input.scalar_type() == at::kFloat
                            ? weight.dequantize()
                            : weight.int_repr()
                                  .to(input.scalar_type())
                                  .mul_(weight.q_scale());
         return cublas_lowp_linear(input, weight_, bias);
-      } else {
-        use_small_kernel = true;
-      }
     }
     auto input_ = input.contiguous();
     auto weight_ = weight.contiguous();
     if (bias.has_value()) {
       c10::optional<torch::Tensor> bias_;
       bias_.emplace(bias.value().contiguous());
-      if (use_small_kernel) {
-        return cutlass_gemm<GemmSmall>(input_, weight_, bias_, dq_scale);
-      } else {
         return cutlass_gemm<Gemm>(input_, weight_, bias_, dq_scale);
-      }
     } else {
-      if (use_small_kernel) {
-        return cutlass_gemm<GemmNoBiasSmall>(input_, weight_, bias, dq_scale);
-      } else {
         return cutlass_gemm<GemmNoBias>(input_, weight_, bias, dq_scale);
-      }
     }
   }
 };

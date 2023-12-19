@@ -131,7 +131,7 @@ def get_extensions():
         if cuda_version >= 1102:
             extra_compile_args["nvcc"] += [
                 "--threads",
-                "4",
+                "2",
                 "--ptxas-options=-v",
             ]
         if platform.system() == "Windows":
@@ -158,14 +158,13 @@ def get_extensions():
             try:
                 # Try to use the bundled version of CUDNN with PyTorch installation.
                 # This is also used in CI.
-                # CUBLAS is not needed as the downloaded CUDA should include it.
                 from nvidia import cudnn
             except ImportError:
                 cudnn = None
 
             if cudnn is not None:
-                print("Using CUDNN from {}".format(cudnn.__file__))
                 cudnn_dir = os.path.dirname(cudnn.__file__)
+                print("Using CUDNN from {}".format(cudnn_dir))
                 include_dirs.append(os.path.join(cudnn_dir, "include"))
                 # Hope PyTorch knows how to link it correctly.
                 # We only need headers because PyTorch should have
@@ -174,13 +173,32 @@ def get_extensions():
                 # Make Windows CI happy (unresolved external symbol)
                 # Why Linux does not need this?
                 if platform.system() == "Windows":
+                    library_dirs.append(os.path.join(cudnn_dir, "lib"))
                     library_dirs.append(os.path.join(cudnn_dir, "lib", "x64"))
 
-        # Make Windows CI happy (unresolved external symbol)
-        # Why Linux does not need this?
+            try:
+                from nvidia import cublas
+            except ImportError:
+                cublas = None
+
+            if cublas is not None:
+                cublas_dir = os.path.dirname(cublas.__file__)
+                print("Using CUBLAS from {}".format(cublas_dir))
+                include_dirs.append(os.path.join(cublas_dir, "include"))
+                # Hope PyTorch knows how to link it correctly.
+                # We only need headers because PyTorch should have
+                # linked the actual library file. (But why not work on Windows?)
+
+                # Make Windows CI happy (unresolved external symbol)
+                # Why Linux does not need this?
+                if platform.system() == "Windows":
+                    library_dirs.append(os.path.join(cublas_dir, "lib"))
+                    library_dirs.append(os.path.join(cublas_dir, "lib", "x64"))
+
         if platform.system() == "Windows":
             libraries.append("cudnn")
             libraries.append("cublas")
+            libraries.append("cublasLt")
     else:
         print("Compiling without CUDA support")
 

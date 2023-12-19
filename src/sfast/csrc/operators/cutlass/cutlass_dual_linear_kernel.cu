@@ -214,14 +214,6 @@ torch::Tensor cutlass_dual_gemm(
        ElementComputeEpilogue(
            bias0.has_value() ? 1.0 : 0.0)}, // <- tuple of alpha and beta
       epilogue2_params};
-  // Allocate workspace memory
-  size_t workspace_size = Gemm::get_workspace_size(arguments);
-  auto workspace =
-      torch::empty({static_cast<int64_t>(workspace_size)},
-                   torch::dtype(torch::kUInt8).device(input.device()));
-
-  torch::DeviceGuard device_guard(input.device());
-  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
   cutlass::Status status;
   Gemm gemm_op;
@@ -232,10 +224,19 @@ torch::Tensor cutlass_dual_gemm(
       "This problem size is not supported by this Gemm implementation: ",
       cutlass::cutlassGetStatusString(status));
 
+  // Allocate workspace memory
+  size_t workspace_size = Gemm::get_workspace_size(arguments);
+  auto workspace =
+      torch::empty({static_cast<int64_t>(workspace_size)},
+                   torch::dtype(torch::kUInt8).device(input.device()));
+
   status = gemm_op.initialize(arguments, workspace.data_ptr<uint8_t>());
   TORCH_CHECK(status == cutlass::Status::kSuccess,
               "Failed to initialize cutlass gemm: ",
               cutlass::cutlassGetStatusString(status));
+
+  torch::DeviceGuard device_guard(input.device());
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
   status = gemm_op(stream);
   TORCH_CHECK(status == cutlass::Status::kSuccess,
