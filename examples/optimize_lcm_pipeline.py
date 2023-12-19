@@ -51,6 +51,7 @@ def parse_args():
         default='sfast',
         choices=['none', 'sfast', 'compile', 'compile-max-autotune'])
     parser.add_argument('--quantize', action='store_true')
+    parser.add_argument('--no-fusion', action='store_true')
     return parser.parse_args()
 
 
@@ -174,6 +175,9 @@ def main():
         model.unet = quantize_unet(model.unet)
         if hasattr(model, 'controlnet'):
             model.controlnet = quantize_unet(model.controlnet)
+
+    if args.no_fusion:
+        torch.jit.set_fusion_strategy([('STATIC', 0), ('DYNAMIC', 0)])
 
     if args.compiler == 'none':
         pass
