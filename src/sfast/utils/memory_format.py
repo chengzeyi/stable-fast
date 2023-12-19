@@ -6,9 +6,8 @@ TensorLikeType = torch.Tensor
 
 # This combines is_channels_last_strides_2d and is_channels_last_strides_3d in
 # c10/core/MemoryFormat.h into one function
-def are_strides_like_channels_last(
-    shape: Sequence[int], strides: Sequence[int]
-) -> bool:
+def are_strides_like_channels_last(shape: Sequence[int],
+                                   strides: Sequence[int]) -> bool:
     ndim = len(shape)
 
     if ndim == 4:
@@ -45,3 +44,14 @@ def suggest_memory_format(x: TensorLikeType) -> torch.memory_format:
         return torch.channels_last if x.ndim == 4 else torch.channels_last_3d
 
     return torch.contiguous_format
+
+
+def apply_memory_format(m, memory_format=torch.preserve_format):
+
+    def convert(t):
+        if memory_format is not None and t.dim() in (4, 5) and not (
+                memory_format == torch.channels_last and t.dim() != 4):
+            return t.to(memory_format=memory_format)
+        return t
+
+    return m._apply(convert)

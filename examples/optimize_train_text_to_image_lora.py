@@ -721,8 +721,8 @@ def main():
     if args.sfast:
         import functools
         from sfast.dynamo.backends.sfast_jit import sfast_jit_trace
-        from sfast.compilers.stable_diffusion_pipeline_compiler import (_build_ts_compiler,
-                                                                        CompilationConfig)
+        from sfast.compilers.diffusion_pipeline_compiler import (_build_ts_compiler,
+                                                                 CompilationConfig)
 
         # torch.jit.set_fusion_strategy([('STATIC', 0), ('DYNAMIC', 0)])
         config = CompilationConfig.Default()

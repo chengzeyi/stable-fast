@@ -10,7 +10,7 @@ import copy
 import cv2
 import PIL
 import torch
-from sfast.compilers.stable_diffusion_pipeline_compiler import (
+from sfast.compilers.diffusion_pipeline_compiler import (
     compile,
     CompilationConfig,
 )

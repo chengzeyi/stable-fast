@@ -1,16 +1,19 @@
-MODEL = 'runwayml/stable-diffusion-v1-5'
-VARIANT = None
+MODEL = 'stabilityai/stable-video-diffusion-img2vid-xt'
+VARIANT = 'fp16'
 CUSTOM_PIPELINE = None
-SCHEDULER = 'EulerAncestralDiscreteScheduler'
+SCHEDULER = None
 LORA = None
 CONTROLNET = None
-STEPS = 30
-PROMPT = 'best quality, realistic, unreal engine, 4K, a beautiful girl'
+STEPS = 25
 SEED = None
-WARMUPS = 3
+WARMUPS = 1
+FRAMES = None
 BATCH = 1
-HEIGHT = 512
-WIDTH = 512
+HEIGHT = 576
+WIDTH = 1024
+FPS = 7
+DECODE_CHUNK_SIZE = 4
+INPUT_IMAGE = 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/diffusers/svd/rocket.png?download=true'
 EXTRA_CALL_KWARGS = None
 
 import importlib
@@ -20,6 +23,7 @@ import time
 import json
 import torch
 from PIL import (Image, ImageDraw)
+from diffusers.utils import load_image, export_to_video
 from sfast.compilers.diffusion_pipeline_compiler import (compile,
                                                          CompilationConfig)
 
@@ -33,18 +37,22 @@ def parse_args():
     parser.add_argument('--lora', type=str, default=LORA)
     parser.add_argument('--controlnet', type=str, default=None)
     parser.add_argument('--steps', type=int, default=STEPS)
-    parser.add_argument('--prompt', type=str, default=PROMPT)
     parser.add_argument('--seed', type=int, default=SEED)
     parser.add_argument('--warmups', type=int, default=WARMUPS)
+    parser.add_argument('--frames', type=int, default=FRAMES)
     parser.add_argument('--batch', type=int, default=BATCH)
     parser.add_argument('--height', type=int, default=HEIGHT)
     parser.add_argument('--width', type=int, default=WIDTH)
+    parser.add_argument('--fps', type=int, default=FPS)
+    parser.add_argument('--decode-chunk-size',
+                        type=int,
+                        default=DECODE_CHUNK_SIZE)
     parser.add_argument('--extra-call-kwargs',
                         type=str,
                         default=EXTRA_CALL_KWARGS)
-    parser.add_argument('--input-image', type=str, default=None)
+    parser.add_argument('--input-image', type=str, default=INPUT_IMAGE)
     parser.add_argument('--control-image', type=str, default=None)
-    parser.add_argument('--output-image', type=str, default=None)
+    parser.add_argument('--output-video', type=str, default=None)
     parser.add_argument(
         '--compiler',
         type=str,
@@ -106,12 +114,9 @@ def compile_model(model):
         print('Triton not installed, skip')
     # NOTE:
     # CUDA Graph is suggested for small batch sizes and small resolutions to reduce CPU overhead.
-    # My implementation can handle dynamic shape with increased need for GPU memory.
-    # But when your GPU VRAM is insufficient or the image resolution is high,
-    # CUDA Graph could cause less efficient VRAM utilization and slow down the inference,
-    # especially when on Windows or WSL which has the "shared VRAM" mechanism.
-    # If you meet problems related to it, you should disable it.
-    config.enable_cuda_graph = True
+    # But it can increase the amount of GPU memory used.
+    # For StableVideoDiffusionPipeline it is not needed.
+    # config.enable_cuda_graph = True
 
     model = compile(model, config)
     return model
@@ -146,13 +151,10 @@ class IterationProfiler:
 
 def main():
     args = parse_args()
-    if args.input_image is None:
-        from diffusers import AutoPipelineForText2Image as pipeline_cls
-    else:
-        from diffusers import AutoPipelineForImage2Image as pipeline_cls
+    from diffusers import StableVideoDiffusionPipeline
 
     model = load_model(
-        pipeline_cls,
+        StableVideoDiffusionPipeline,
         args.model,
         variant=args.variant,
         custom_pipeline=args.custom_pipeline,
@@ -184,16 +186,12 @@ def main():
         model.unet = torch.compile(model.unet, mode=mode)
         if hasattr(model, 'controlnet'):
             model.controlnet = torch.compile(model.controlnet, mode=mode)
-        model.vae = torch.compile(model.vae, mode=mode)
+        # model.vae = torch.compile(model.vae, mode=mode)
     else:
         raise ValueError(f'Unknown compiler: {args.compiler}')
 
-    if args.input_image is None:
-        input_image = None
-    else:
-        input_image = Image.open(args.input_image).convert('RGB')
-        input_image = input_image.resize((args.width, args.height),
-                                         Image.LANCZOS)
+    input_image = load_image(args.input_image)
+    input_image.resize((args.width, args.height), Image.LANCZOS)
 
     if args.control_image is None:
         if args.controlnet is None:
@@ -212,23 +210,19 @@ def main():
 
     def get_kwarg_inputs():
         kwarg_inputs = dict(
-            prompt=args.prompt,
-            height=args.height,
-            width=args.width,
+            image=input_image,
             num_inference_steps=args.steps,
-            num_images_per_prompt=args.batch,
+            num_videos_per_prompt=args.batch,
+            num_frames=args.frames,
+            fps=args.fps,
+            decode_chunk_size=args.decode_chunk_size,
             generator=None if args.seed is None else torch.Generator(
                 device='cuda').manual_seed(args.seed),
             **(dict() if args.extra_call_kwargs is None else json.loads(
                 args.extra_call_kwargs)),
         )
-        if input_image is not None:
-            kwarg_inputs['image'] = input_image
         if control_image is not None:
-            if input_image is None:
-                kwarg_inputs['image'] = control_image
-            else:
-                kwarg_inputs['control_image'] = control_image
+            kwarg_inputs['control_image'] = control_image
         return kwarg_inputs
 
     # NOTE: Warm it up.
@@ -249,14 +243,17 @@ def main():
         kwarg_inputs[
             'callback_on_step_end'] = iter_profiler.callback_on_step_end
     begin = time.time()
-    output_images = model(**kwarg_inputs).images
+    output_frames = model(**kwarg_inputs).frames
     end = time.time()
 
     # Let's view it in terminal!
     from sfast.utils.term_image import print_image
 
-    for image in output_images:
-        print_image(image, max_width=80)
+    for frames in output_frames:
+        concated_image = Image.new('RGB', (args.width * 2, args.height))
+        concated_image.paste(frames[0], (0, 0))
+        concated_image.paste(frames[-1], (args.width, 0))
+        print_image(concated_image, max_width=120)
 
     print(f'Inference time: {end - begin:.3f}s')
     iter_per_sec = iter_profiler.get_iter_per_sec()
@@ -265,8 +262,8 @@ def main():
     peak_mem = torch.cuda.max_memory_allocated()
     print(f'Peak memory: {peak_mem / 1024**3:.3f}GiB')
 
-    if args.output_image is not None:
-        output_images[0].save(args.output_image)
+    if args.output_video is not None:
+        export_to_video(output_frames[0], args.output_video, fps=args.fps)
 
 
 if __name__ == '__main__':

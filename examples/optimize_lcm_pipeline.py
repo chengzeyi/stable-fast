@@ -20,8 +20,8 @@ import time
 import json
 import torch
 from PIL import (Image, ImageDraw)
-from sfast.compilers.stable_diffusion_pipeline_compiler import (
-    compile, CompilationConfig)
+from sfast.compilers.diffusion_pipeline_compiler import (compile,
+                                                         CompilationConfig)
 
 
 def parse_args():
@@ -234,8 +234,11 @@ def main():
     # NOTE: Warm it up.
     # The initial calls will trigger compilation and might be very slow.
     # After that, it should be very fast.
-    for _ in range(args.warmups):
-        model(**get_kwarg_inputs())
+    if args.warmups > 0:
+        print('Begin warmup')
+        for _ in range(args.warmups):
+            model(**get_kwarg_inputs())
+        print('End warmup')
 
     # Let's see it!
     # Note: Progress bar might work incorrectly due to the async nature of CUDA.
