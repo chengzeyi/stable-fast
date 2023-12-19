@@ -211,6 +211,8 @@ def main():
     def get_kwarg_inputs():
         kwarg_inputs = dict(
             image=input_image,
+            height=args.height,
+            width=args.width,
             num_inference_steps=args.steps,
             num_videos_per_prompt=args.batch,
             num_frames=args.frames,
