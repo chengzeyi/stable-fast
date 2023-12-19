@@ -91,11 +91,14 @@ def compile(m, config):
     if config.enable_jit:
         lazy_trace_ = _build_lazy_trace(config)
 
-        # SVD doesn't have a text encoder
         if getattr(m, 'text_encoder', None) is not None:
             m.text_encoder.forward = lazy_trace_(m.text_encoder.forward)
+        # for SDXL
         if getattr(m, 'text_encoder_2', None) is not None:
             m.text_encoder_2.forward = lazy_trace_(m.text_encoder_2.forward)
+        # for SVD
+        if getattr(m, 'image_encoder', None) is not None:
+            m.image_encoder.forward = lazy_trace_(m.image_encoder.forward)
         if config.trace_scheduler:
             m.scheduler.scale_model_input = lazy_trace_(
                 m.scheduler.scale_model_input)
@@ -108,6 +111,9 @@ def compile(m, config):
         if getattr(m, 'text_encoder_2', None) is not None:
             m.text_encoder_2.forward = make_dynamic_graphed_callable(
                 m.text_encoder_2.forward)
+        if getattr(m, 'image_encoder', None) is not None:
+            m.image_encoder.forward = make_dynamic_graphed_callable(
+                m.image_encoder.forward)
 
     if hasattr(m, 'image_processor'):
         from sfast.libs.diffusers.image_processor import patch_image_prcessor
