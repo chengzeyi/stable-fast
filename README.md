@@ -341,7 +341,7 @@ Thanks for __@SuperSecureHuman__ and __@jon-chuang__'s help, benchmarking on A10
 | With LoRA                           | Yes       |
 | Latent Consistency Model            | Yes       |
 | SDXL Turbo                          | Yes       |
-| StableVideoDiffusion                | Yes       |
+| Stable Video Diffusion              | Yes       |
 
 | Functionality                       | Supported |
 | ----------------------------------- | --------- |
