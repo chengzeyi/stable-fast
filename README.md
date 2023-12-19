@@ -85,7 +85,9 @@ Currently both __Linux__ and __Windows__ wheels are available.
 ```bash
 # Change cu121 to your CUDA version and <wheel file> to the path of the wheel file.
 # And make sure the wheel file is compatible with your PyTorch version.
-pip3 install --index-url https://download.pytorch.org/whl/cu121 'diffusers>=0.19.3' 'xformers>=0.0.20' 'torch>=1.12.0' '<wheel file>'
+pip3 install --index-url https://download.pytorch.org/whl/cu121 \
+    'torch>=2.1.0' 'xformers>=0.0.22' 'triton>=2.1.0' 'diffusers>=0.19.3' \
+    '<wheel file>'
 ```
 
 ### Install From Source
