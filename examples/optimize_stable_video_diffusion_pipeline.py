@@ -1,5 +1,5 @@
 MODEL = 'stabilityai/stable-video-diffusion-img2vid-xt'
-VARIANT = 'fp16'
+VARIANT = None
 CUSTOM_PIPELINE = None
 SCHEDULER = None
 LORA = None
