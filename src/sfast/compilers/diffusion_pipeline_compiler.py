@@ -41,9 +41,11 @@ class CompilationConfig:
             Whether to enable CNN optimization by fusion.
         enable_fused_linear_geglu:
             Whether to enable fused Linear-GEGLU kernel.
+            It uses fp16 for accumulation, so could cause **quality degradation**.
         prefer_lowp_gemm:
             Whether to prefer low-precision GEMM and a series of fusion optimizations.
             This will make the model faster, but may cause numerical issues.
+            These use fp16 for accumulation, so could cause **quality degradation**.
         enable_xformers:
             Whether to enable xformers and hijack it to make it compatible with JIT tracing.
         enable_cuda_graph:
