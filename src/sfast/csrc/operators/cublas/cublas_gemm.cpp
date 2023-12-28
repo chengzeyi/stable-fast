@@ -38,6 +38,12 @@
 #include "CUDABlas.h"
 #include "cublas_gemm.h"
 
+#if TORCH_VERSION_MAJOR >= 2 && TORCH_VERSION_MINOR >= 3
+namespace c10 {
+static auto in_place = std::in_place;
+}
+#endif
+
 namespace sfast {
 namespace operators {
 
