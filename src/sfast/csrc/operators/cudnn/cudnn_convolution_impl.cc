@@ -58,8 +58,8 @@ struct ConvolutionDescriptor
   void set(cudnnDataType_t dataType, int dim, int *pad, int *stride,
            int *upscale /* aka dilation */, int groups, bool allow_tf32) {
     cudnnDataType_t mathType = dataType;
-    if (dataType == CUDNN_DATA_HALF) {
-      mathType = CUDNN_DATA_HALF;
+    if (dataType == CUDNN_DATA_HALF && dim >= 3) {
+      mathType = CUDNN_DATA_FLOAT;
     } else if (dataType == CUDNN_DATA_BFLOAT16) {
       mathType = CUDNN_DATA_FLOAT;
     }
@@ -1215,8 +1215,7 @@ Tensor cudnn_convolution_bias_add_activation_with_fallback_forward(
       select_conv_backend(input_t, weight_t, bias_t, stride, padding, dilation,
                           transposed, output_padding, groups);
 
-  // TODO: Inspect if CUDNN can handle 5D convolution.
-  if (backend == ConvBackend::Cudnn && input_t.data_ptr() && weight_t.dim() <= 4) {
+  if (backend == ConvBackend::Cudnn && input_t.data_ptr()) {
     auto input = input_t;
     auto weight = weight_t;
     auto z = z_t;
