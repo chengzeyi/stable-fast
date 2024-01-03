@@ -105,6 +105,10 @@ pip3 install wheel 'torch>=2.1.0' 'xformers>=0.0.22' 'triton>=2.1.0' 'diffusers>
 # (Optional) Makes the build much faster.
 pip3 install ninja
 
+# (Windows only) Set CUDA Toolkit and CUDNN paths.
+set CUDNN_PATH=C:\Program Files\NVIDIA\CUDNN\v8.x # Replace with your CUDNN version 
+set CUDAToolkit_ROOT=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.x # Replace with your CUDA Toolkit version
+
 # Set TORCH_CUDA_ARCH_LIST if running and building on different GPU types.
 # You can also install the latest stable release from PyPI.
 # pip3 install -v -U stable-fast
