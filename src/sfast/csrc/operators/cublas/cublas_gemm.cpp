@@ -703,6 +703,7 @@ Tensor cublas_lowp_addmm(const Tensor &self, const Tensor &mat1,
                          const Tensor &mat2, const Scalar &beta,
                          const Scalar &alpha) {
   if (self.is_cuda()) {
+    DeviceGuard guard(self.device());
     auto result = at::empty({mat1.size(0), mat2.size(1)}, self.options());
     return addmm_out_cuda_impl(result, self, mat1, mat2, beta, alpha);
   }
@@ -714,6 +715,7 @@ Tensor cublas_lowp_addmm_add(const Tensor &self, const Tensor &mat1,
                              const Scalar &beta, const Scalar &alpha,
                              const Scalar &gamma) {
   if (self.is_cuda()) {
+    DeviceGuard guard(self.device());
     auto result = at::empty({mat1.size(0), mat2.size(1)}, self.options());
     return addmm_out_cuda_impl(result, self, mat1, mat2, beta, alpha,
                                Activation::None, other, gamma);
@@ -725,6 +727,7 @@ Tensor cublas_lowp_addmm_activation(const Tensor &self, const Tensor &mat1,
                                     const Tensor &mat2, const Scalar &beta,
                                     const Scalar &alpha, bool use_gelu) {
   if (self.is_cuda()) {
+    DeviceGuard guard(self.device());
     auto result = at::empty({mat1.size(0), mat2.size(1)}, self.options());
     return addmm_out_cuda_impl(result, self, mat1, mat2, beta, alpha,
                                use_gelu ? Activation::GELU : Activation::RELU);
@@ -734,6 +737,7 @@ Tensor cublas_lowp_addmm_activation(const Tensor &self, const Tensor &mat1,
 
 Tensor cublas_lowp_mm(const Tensor &self, const Tensor &mat2) {
   if (self.is_cuda()) {
+    DeviceGuard guard(self.device());
     auto result = at::empty({self.size(0), mat2.size(1)}, self.options());
     return addmm_out_cuda_impl(result, result, self, mat2, 0, 1);
   }
@@ -744,6 +748,7 @@ Tensor cublas_lowp_baddbmm(const Tensor &self, const Tensor &batch1,
                            const Tensor &batch2, const Scalar &beta,
                            const Scalar &alpha) {
   if (self.is_cuda()) {
+    DeviceGuard guard(self.device());
     auto result = at::empty({batch1.size(0), batch1.size(1), batch2.size(2)},
                             self.options());
     return baddbmm_out_cuda_impl(result, self, batch1, batch2, beta, alpha);
@@ -753,6 +758,7 @@ Tensor cublas_lowp_baddbmm(const Tensor &self, const Tensor &batch1,
 
 Tensor cublas_lowp_bmm(const Tensor &self, const Tensor &batch2) {
   if (self.is_cuda()) {
+    DeviceGuard guard(self.device());
     auto result =
         at::empty({self.size(0), self.size(1), batch2.size(2)}, self.options());
     return baddbmm_out_cuda_impl(result, result, self, batch2, 0, 1);
