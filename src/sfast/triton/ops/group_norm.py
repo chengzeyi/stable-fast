@@ -61,7 +61,7 @@ def group_norm_4d_forward_kernel(
                 x = tl.load(X + c * HxW + r, mask=r < HxW).to(tl.float32)
                 x = a * x + b
                 x = act(x)
-            tl.store(Y + c * HxW + r, x, mask=r < HxW)
+                tl.store(Y + c * HxW + r, x, mask=r < HxW)
     else:
         for c in range(0, C_G):
             if gamma_ptr is None:
