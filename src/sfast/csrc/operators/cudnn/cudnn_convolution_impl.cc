@@ -1300,7 +1300,6 @@ public:
         input, weight, z, alpha, bias, stride, padding, dilation, transposed,
         output_padding, groups, activation_mode);
 
-    auto z_ = z.has_value() ? bias.value() : Tensor();
     auto bias_ = bias.has_value() ? bias.value() : Tensor();
 
     ctx->save_for_backward({input, weight, bias_, output});
