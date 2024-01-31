@@ -210,7 +210,8 @@ template <typename scalar_t, typename acc_t> struct GemmConfig {
 
 using namespace sm80_space;
 
-template <typename config> struct GemmGEGLUWrapper {
+template <typename config, template <typename> class Act>
+struct GemmGEGLUWrapper {
   using ElementA = typename config::ElementA;
   using ElementB = typename config::ElementB;
   using ElementOutput = typename config::ElementOutput;
@@ -228,9 +229,8 @@ template <typename config> struct GemmGEGLUWrapper {
       ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
       ElementAccumulator, ElementComputeEpilogue, kScaleType>;
   using EpilogueOutputOp1 = cutlass::epilogue::thread::LinearCombinationGeneric<
-      cutlass::epilogue::thread::GELU_taylor_fast, ElementOutput,
-      128 / cutlass::sizeof_bits<ElementOutput>::value, ElementAccumulator,
-      ElementComputeEpilogue, kScaleType>;
+      Act, ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
+      ElementAccumulator, ElementComputeEpilogue, kScaleType>;
   using EpilogueOutputOp2 = cutlass::epilogue::thread::Mul<
       ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
       ElementOutput, ElementComputeEpilogue>;
@@ -379,22 +379,34 @@ template <> struct cutlass_type<at::BFloat16> {
   using type = cutlass::bfloat16_t;
 };
 
-template <typename scalar_t> struct acc_type { using type = scalar_t; };
+template <typename scalar_t, bool allow_reduced_precision_reduction>
+struct acc_type {
+  using type = scalar_t;
+};
 
 // NOTE: Significant precision loss if setting acc_type to fp16 for GEGLU
 // But we have to use fp16 here since on 4080 it is too slow to use fp32
-// template <> struct acc_type<cutlass::half_t> {
-//   using type = float;
-// };
+template <> struct acc_type<cutlass::half_t, false> { using type = float; };
 
-template <> struct acc_type<cutlass::bfloat16_t> { using type = float; };
+template <> struct acc_type<cutlass::half_t, true> {
+  using type = cutlass::half_t;
+};
 
-template <typename at_type, template <typename> class GemmWrapper>
+template <bool allow_reduced_precision_reduction>
+struct acc_type<cutlass::bfloat16_t, allow_reduced_precision_reduction> {
+  using type = float;
+};
+
+template <typename at_type,
+          template <typename, template <typename> class> class GemmWrapper,
+          template <typename> class Act,
+          bool allow_reduced_precision_reduction = true>
 struct CutlassDualGemmLauncher {
   using scalar_t = typename cutlass_type<at_type>::type;
-  using acc_t = typename acc_type<scalar_t>::type;
+  using acc_t =
+      typename acc_type<scalar_t, allow_reduced_precision_reduction>::type;
   using config = GemmConfig<scalar_t, acc_t>;
-  using Gemm = typename GemmWrapper<config>::Gemm;
+  using Gemm = typename GemmWrapper<config, Act>::Gemm;
 
   template <typename Func>
   static torch::Tensor
@@ -475,14 +487,37 @@ torch::Tensor cutlass_linear_geglu(const torch::Tensor &input,
       AT_DISPATCH_CASE(
           at::kHalf,
           [&] {
-            output =
-                CutlassDualGemmLauncher<at::Half, GemmGEGLUWrapper>::launch(
-                    input, weight0, bias0, weight1, bias1, fallback);
+            if (at::globalContext().allowFP16ReductionCuBLAS()) {
+              output = CutlassDualGemmLauncher<
+                  at::Half, GemmGEGLUWrapper,
+                  cutlass::epilogue::thread::GELU_taylor_fast,
+                  true>::launch(input, weight0, bias0, weight1, bias1,
+                                fallback);
+            } else {
+              output = CutlassDualGemmLauncher<at::Half, GemmGEGLUWrapper,
+                                               cutlass::epilogue::thread::GELU,
+                                               false>::launch(input, weight0,
+                                                              bias0, weight1,
+                                                              bias1, fallback);
+            }
           });
       AT_DISPATCH_CASE(at::kBFloat16, [&] {
-        output =
-            CutlassDualGemmLauncher<at::BFloat16, GemmGEGLUWrapper>::launch(
-                input, weight0, bias0, weight1, bias1, fallback);
+#if TORCH_VERSION_MAJOR > 2 ||                                                 \
+    (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 2)
+        if (at::globalContext().allowBF16ReductionCuBLAS()) {
+          output = CutlassDualGemmLauncher<
+              at::BFloat16, GemmGEGLUWrapper,
+              cutlass::epilogue::thread::GELU_taylor_fast,
+              true>::launch(input, weight0, bias0, weight1, bias1, fallback);
+        } else
+#endif
+        {
+          output =
+              CutlassDualGemmLauncher<at::BFloat16, GemmGEGLUWrapper,
+                                      cutlass::epilogue::thread::GELU,
+                                      false>::launch(input, weight0, bias0,
+                                                     weight1, bias1, fallback);
+        }
       }));
   return output;
 }
