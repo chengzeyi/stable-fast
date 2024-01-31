@@ -482,6 +482,25 @@ torch::Tensor cutlass_linear_geglu(const torch::Tensor &input,
   }
 
   torch::Tensor output;
+
+  auto dispatch_bf16 = [&] {
+#if TORCH_VERSION_MAJOR > 2 ||                                                 \
+    (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 2)
+    if (at::globalContext().allowBF16ReductionCuBLAS()) {
+      output =
+          CutlassDualGemmLauncher<at::BFloat16, GemmGEGLUWrapper,
+                                  cutlass::epilogue::thread::GELU_taylor_fast,
+                                  true>::launch(input, weight0, bias0, weight1,
+                                                bias1, fallback);
+    } else
+#endif
+    {
+      output = CutlassDualGemmLauncher<at::BFloat16, GemmGEGLUWrapper,
+                                       cutlass::epilogue::thread::GELU,
+                                       false>::launch(input, weight0, bias0,
+                                                      weight1, bias1, fallback);
+    }
+  };
   AT_DISPATCH_SWITCH(
       input.scalar_type(), "cutlass_linear_geglu",
       AT_DISPATCH_CASE(
@@ -501,24 +520,7 @@ torch::Tensor cutlass_linear_geglu(const torch::Tensor &input,
                                                               bias1, fallback);
             }
           });
-      AT_DISPATCH_CASE(at::kBFloat16, [&] {
-#if TORCH_VERSION_MAJOR > 2 ||                                                 \
-    (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 2)
-        if (at::globalContext().allowBF16ReductionCuBLAS()) {
-          output = CutlassDualGemmLauncher<
-              at::BFloat16, GemmGEGLUWrapper,
-              cutlass::epilogue::thread::GELU_taylor_fast,
-              true>::launch(input, weight0, bias0, weight1, bias1, fallback);
-        } else
-#endif
-        {
-          output =
-              CutlassDualGemmLauncher<at::BFloat16, GemmGEGLUWrapper,
-                                      cutlass::epilogue::thread::GELU,
-                                      false>::launch(input, weight0, bias0,
-                                                     weight1, bias1, fallback);
-        }
-      }));
+      AT_DISPATCH_CASE(at::kBFloat16, dispatch_bf16));
   return output;
 }
 
