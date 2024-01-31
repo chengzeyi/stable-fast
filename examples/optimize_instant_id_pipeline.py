@@ -8,6 +8,7 @@ LORA = None
 CONTROLNET = 'InstantX/InstantID'
 STEPS = 30
 PROMPT = 'film noir style, ink sketch|vector, male man, highly detailed, sharp focus, ultra sharpness, monochrome, high contrast, dramatic shadows, 1940s style, mysterious, cinematic'
+NEGATIVE_PROMPT = 'ugly, deformed, noisy, blurry, low contrast, realism, photorealistic, vibrant, colorful'
 SEED = None
 WARMUPS = 3
 BATCH = 1
@@ -17,7 +18,6 @@ INPUT_IMAGE = 'https://github.com/InstantID/InstantID/blob/main/examples/musk_re
 CONTROL_IMAGE = None
 OUTPUT_IMAGE = None
 EXTRA_CALL_KWARGS = '''{
-    "negative_prompt": "ugly, deformed, noisy, blurry, low contrast, realism, photorealistic, vibrant, colorful",
     "controlnet_conditioning_scale": 0.8,
     "ip_adapter_scale": 0.8
 }'''
@@ -54,6 +54,7 @@ def parse_args():
     parser.add_argument('--controlnet', type=str, default=CONTROLNET)
     parser.add_argument('--steps', type=int, default=STEPS)
     parser.add_argument('--prompt', type=str, default=PROMPT)
+    parser.add_argument('--negative-prompt', type=str, default=NEGATIVE_PROMPT)
     parser.add_argument('--seed', type=int, default=SEED)
     parser.add_argument('--warmups', type=int, default=WARMUPS)
     parser.add_argument('--batch', type=int, default=BATCH)
@@ -254,6 +255,7 @@ def main():
     def get_kwarg_inputs():
         kwarg_inputs = dict(
             prompt=args.prompt,
+            negative_prompt=args.negative_prompt,
             image_embeds=face_emb,
             image=face_kps,
             height=height,

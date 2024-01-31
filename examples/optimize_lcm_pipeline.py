@@ -6,6 +6,7 @@ LORA = None
 CONTROLNET = None
 STEPS = 4
 PROMPT = 'best quality, realistic, unreal engine, 4K, a beautiful girl'
+NEGATIVE_PROMPT = None
 SEED = None
 WARMUPS = 3
 BATCH = 1
@@ -38,6 +39,7 @@ def parse_args():
     parser.add_argument('--controlnet', type=str, default=CONTROLNET)
     parser.add_argument('--steps', type=int, default=STEPS)
     parser.add_argument('--prompt', type=str, default=PROMPT)
+    parser.add_argument('--negative-prompt', type=str, default=NEGATIVE_PROMPT)
     parser.add_argument('--seed', type=int, default=SEED)
     parser.add_argument('--warmups', type=int, default=WARMUPS)
     parser.add_argument('--batch', type=int, default=BATCH)
@@ -224,6 +226,7 @@ def main():
     def get_kwarg_inputs():
         kwarg_inputs = dict(
             prompt=args.prompt,
+            negative_prompt=args.negative_prompt,
             height=height,
             width=width,
             num_inference_steps=args.steps,
