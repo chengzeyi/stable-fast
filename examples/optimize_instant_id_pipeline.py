@@ -1,23 +1,29 @@
-MODEL = 'stabilityai/stable-video-diffusion-img2vid-xt'
+REPO = None
+FACE_ANALYSIS_ROOT = None
+MODEL = 'wangqixun/YamerMIX_v8'
 VARIANT = None
 CUSTOM_PIPELINE = None
-SCHEDULER = None
+SCHEDULER = 'EulerAncestralDiscreteScheduler'
 LORA = None
-CONTROLNET = None
-STEPS = 25
+CONTROLNET = 'InstantX/InstantID'
+STEPS = 30
+PROMPT = 'film noir style, ink sketch|vector, male man, highly detailed, sharp focus, ultra sharpness, monochrome, high contrast, dramatic shadows, 1940s style, mysterious, cinematic'
 SEED = None
-WARMUPS = 1
-FRAMES = None
+WARMUPS = 3
 BATCH = 1
-HEIGHT = 576
-WIDTH = 1024
-FPS = 7
-DECODE_CHUNK_SIZE = 4
-INPUT_IMAGE = 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/diffusers/svd/rocket.png?download=true'
+HEIGHT = None
+WIDTH = None
+INPUT_IMAGE = 'https://github.com/InstantID/InstantID/blob/main/examples/musk_resize.jpeg?raw=true'
 CONTROL_IMAGE = None
-OUTPUT_VIDEO = None
-EXTRA_CALL_KWARGS = None
+OUTPUT_IMAGE = None
+EXTRA_CALL_KWARGS = '''{
+    "negative_prompt": "ugly, deformed, noisy, blurry, low contrast, realism, photorealistic, vibrant, colorful",
+    "controlnet_conditioning_scale": 0.8,
+    "ip_adapter_scale": 0.8
+}'''
 
+import sys
+import os
 import importlib
 import inspect
 import argparse
@@ -25,13 +31,21 @@ import time
 import json
 import torch
 from PIL import (Image, ImageDraw)
-from diffusers.utils import load_image, export_to_video
+import numpy as np
+import cv2
+from huggingface_hub import snapshot_download
+from diffusers.utils import load_image
+from insightface.app import FaceAnalysis
 from sfast.compilers.diffusion_pipeline_compiler import (compile,
                                                          CompilationConfig)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--repo', type=str, default=REPO)
+    parser.add_argument('--face-analysis-root',
+                        type=str,
+                        default=FACE_ANALYSIS_ROOT)
     parser.add_argument('--model', type=str, default=MODEL)
     parser.add_argument('--variant', type=str, default=VARIANT)
     parser.add_argument('--custom-pipeline', type=str, default=CUSTOM_PIPELINE)
@@ -39,22 +53,18 @@ def parse_args():
     parser.add_argument('--lora', type=str, default=LORA)
     parser.add_argument('--controlnet', type=str, default=CONTROLNET)
     parser.add_argument('--steps', type=int, default=STEPS)
+    parser.add_argument('--prompt', type=str, default=PROMPT)
     parser.add_argument('--seed', type=int, default=SEED)
     parser.add_argument('--warmups', type=int, default=WARMUPS)
-    parser.add_argument('--frames', type=int, default=FRAMES)
     parser.add_argument('--batch', type=int, default=BATCH)
     parser.add_argument('--height', type=int, default=HEIGHT)
     parser.add_argument('--width', type=int, default=WIDTH)
-    parser.add_argument('--fps', type=int, default=FPS)
-    parser.add_argument('--decode-chunk-size',
-                        type=int,
-                        default=DECODE_CHUNK_SIZE)
     parser.add_argument('--extra-call-kwargs',
                         type=str,
                         default=EXTRA_CALL_KWARGS)
     parser.add_argument('--input-image', type=str, default=INPUT_IMAGE)
     parser.add_argument('--control-image', type=str, default=CONTROL_IMAGE)
-    parser.add_argument('--output-video', type=str, default=OUTPUT_VIDEO)
+    parser.add_argument('--output-image', type=str, default=OUTPUT_IMAGE)
     parser.add_argument(
         '--compiler',
         type=str,
@@ -117,9 +127,12 @@ def compile_model(model):
         print('Triton not installed, skip')
     # NOTE:
     # CUDA Graph is suggested for small batch sizes and small resolutions to reduce CPU overhead.
-    # But it can increase the amount of GPU memory used.
-    # For StableVideoDiffusionPipeline it is not needed.
-    # config.enable_cuda_graph = True
+    # My implementation can handle dynamic shape with increased need for GPU memory.
+    # But when your GPU VRAM is insufficient or the image resolution is high,
+    # CUDA Graph could cause less efficient VRAM utilization and slow down the inference,
+    # especially when on Windows or WSL which has the "shared VRAM" mechanism.
+    # If you meet problems related to it, you should disable it.
+    config.enable_cuda_graph = True
 
     model = compile(model, config)
     return model
@@ -154,17 +167,43 @@ class IterationProfiler:
 
 def main():
     args = parse_args()
-    from diffusers import StableVideoDiffusionPipeline
+
+    assert args.repo is not None, 'Please set `--repo` to the local path of the cloned repo of https://github.com/InstantID/InstantID'
+    assert args.controlnet is not None, 'Please set `--controlnet` to the name or path of the controlnet'
+    assert args.face_analysis_root is not None, 'Please set `--face-analysis-root` to the path of the working directory of insightface.app.FaceAnalysis'
+    assert os.path.isdir(
+        os.path.join(args.face_analysis_root, 'models', 'antelopev2')
+    ), f'Please download models from https://drive.google.com/file/d/18wEUfMNohBJ4K3Ly5wpTejPfDzp-8fI8/view?usp=sharing and extract to {os.path.join(args.face_analysis_root, "models", "antelopev2")}'
+    assert args.input_image is not None, 'Please set `--input-image` to the path of the input image'
+
+    sys.path.insert(0, args.repo)
+    from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline, draw_kps
+
+    if os.path.exists(args.controlnet):
+        controlnet = args.controlnet
+    else:
+        controlnet = snapshot_download(args.controlnet)
+
+    app = FaceAnalysis(
+        name='antelopev2',
+        root=args.face_analysis_root,
+        providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+    app.prepare(ctx_id=0, det_size=(640, 640))
+
+    face_adapter = os.path.join(controlnet, 'ip-adapter.bin')
+    controlnet_path = os.path.join(controlnet, 'ControlNetModel')
 
     model = load_model(
-        StableVideoDiffusionPipeline,
+        StableDiffusionXLInstantIDPipeline,
         args.model,
         variant=args.variant,
         custom_pipeline=args.custom_pipeline,
         scheduler=args.scheduler,
         lora=args.lora,
-        controlnet=args.controlnet,
+        controlnet=controlnet_path,
     )
+
+    model.load_ip_adapter_instantid(face_adapter)
 
     height = args.height or model.unet.config.sample_size * model.vae_scale_factor
     width = args.width or model.unet.config.sample_size * model.vae_scale_factor
@@ -195,45 +234,37 @@ def main():
         model.unet = torch.compile(model.unet, mode=mode)
         if hasattr(model, 'controlnet'):
             model.controlnet = torch.compile(model.controlnet, mode=mode)
-        # model.vae = torch.compile(model.vae, mode=mode)
+        model.vae = torch.compile(model.vae, mode=mode)
     else:
         raise ValueError(f'Unknown compiler: {args.compiler}')
 
     input_image = load_image(args.input_image)
-    input_image.resize((width, height), Image.LANCZOS)
+    input_image = input_image.resize((width, height), Image.LANCZOS)
 
-    if args.control_image is None:
-        if args.controlnet is None:
-            control_image = None
-        else:
-            control_image = Image.new('RGB', (width, height))
-            draw = ImageDraw.Draw(control_image)
-            draw.ellipse((width // 4, height // 4,
-                          width // 4 * 3, height // 4 * 3),
-                         fill=(255, 255, 255))
-            del draw
-    else:
-        control_image = load_image(args.control_image)
-        control_image = control_image.resize((width, height),
-                                             Image.LANCZOS)
+    face_image = input_image
+    face_info = app.get(cv2.cvtColor(np.array(face_image), cv2.COLOR_RGB2BGR))
+    face_info = sorted(
+        face_info,
+        key=lambda x:
+        (x['bbox'][2] - x['bbox'][0]) * x['bbox'][3] - x['bbox'][1])[
+            -1]  # only use the maximum face
+    face_emb = face_info['embedding']
+    face_kps = draw_kps(face_image, face_info['kps'])
 
     def get_kwarg_inputs():
         kwarg_inputs = dict(
-            image=input_image,
+            prompt=args.prompt,
+            image_embeds=face_emb,
+            image=face_kps,
             height=height,
             width=width,
             num_inference_steps=args.steps,
-            num_videos_per_prompt=args.batch,
-            num_frames=args.frames,
-            fps=args.fps,
-            decode_chunk_size=args.decode_chunk_size,
-            generator=None
-            if args.seed is None else torch.Generator().manual_seed(args.seed),
+            num_images_per_prompt=args.batch,
+            generator=None if args.seed is None else torch.Generator(
+                device="cuda").manual_seed(args.seed),
             **(dict() if args.extra_call_kwargs is None else json.loads(
                 args.extra_call_kwargs)),
         )
-        if control_image is not None:
-            kwarg_inputs['control_image'] = control_image
         return kwarg_inputs
 
     # NOTE: Warm it up.
@@ -254,17 +285,14 @@ def main():
         kwarg_inputs[
             'callback_on_step_end'] = iter_profiler.callback_on_step_end
     begin = time.time()
-    output_frames = model(**kwarg_inputs).frames
+    output_images = model(**kwarg_inputs).images
     end = time.time()
 
     # Let's view it in terminal!
     from sfast.utils.term_image import print_image
 
-    for frames in output_frames:
-        concated_image = Image.new('RGB', (width * 2, height))
-        concated_image.paste(frames[0], (0, 0))
-        concated_image.paste(frames[-1], (args.width, 0))
-        print_image(concated_image, max_width=120)
+    for image in output_images:
+        print_image(image, max_width=80)
 
     print(f'Inference time: {end - begin:.3f}s')
     iter_per_sec = iter_profiler.get_iter_per_sec()
@@ -273,8 +301,8 @@ def main():
     peak_mem = torch.cuda.max_memory_allocated()
     print(f'Peak memory: {peak_mem / 1024**3:.3f}GiB')
 
-    if args.output_video is not None:
-        export_to_video(output_frames[0], args.output_video, fps=args.fps)
+    if args.output_image is not None:
+        output_images[0].save(args.output_image)
 
 
 if __name__ == '__main__':

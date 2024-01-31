@@ -11,6 +11,9 @@ WARMUPS = 3
 BATCH = 1
 HEIGHT = 768
 WIDTH = 768
+INPUT_IMAGE = None
+CONTROL_IMAGE = None
+OUTPUT_IMAGE = None
 EXTRA_CALL_KWARGS = None
 
 import importlib
@@ -20,6 +23,7 @@ import time
 import json
 import torch
 from PIL import (Image, ImageDraw)
+from diffusers.utils import load_image
 from sfast.compilers.diffusion_pipeline_compiler import (compile,
                                                          CompilationConfig)
 
@@ -31,7 +35,7 @@ def parse_args():
     parser.add_argument('--custom-pipeline', type=str, default=CUSTOM_PIPELINE)
     parser.add_argument('--scheduler', type=str, default=SCHEDULER)
     parser.add_argument('--lora', type=str, default=LORA)
-    parser.add_argument('--controlnet', type=str, default=None)
+    parser.add_argument('--controlnet', type=str, default=CONTROLNET)
     parser.add_argument('--steps', type=int, default=STEPS)
     parser.add_argument('--prompt', type=str, default=PROMPT)
     parser.add_argument('--seed', type=int, default=SEED)
@@ -42,9 +46,9 @@ def parse_args():
     parser.add_argument('--extra-call-kwargs',
                         type=str,
                         default=EXTRA_CALL_KWARGS)
-    parser.add_argument('--input-image', type=str, default=None)
-    parser.add_argument('--control-image', type=str, default=None)
-    parser.add_argument('--output-image', type=str, default=None)
+    parser.add_argument('--input-image', type=str, default=INPUT_IMAGE)
+    parser.add_argument('--control-image', type=str, default=CONTROL_IMAGE)
+    parser.add_argument('--output-image', type=str, default=OUTPUT_IMAGE)
     parser.add_argument(
         '--compiler',
         type=str,
@@ -162,6 +166,9 @@ def main():
         controlnet=args.controlnet,
     )
 
+    height = args.height or model.unet.config.sample_size * model.vae_scale_factor
+    width = args.width or model.unet.config.sample_size * model.vae_scale_factor
+
     if args.quantize:
 
         def quantize_unet(m):
@@ -195,30 +202,30 @@ def main():
     if args.input_image is None:
         input_image = None
     else:
-        input_image = Image.open(args.input_image).convert('RGB')
-        input_image = input_image.resize((args.width, args.height),
+        input_image = load_image(args.input_image)
+        input_image = input_image.resize((width, height),
                                          Image.LANCZOS)
 
     if args.control_image is None:
         if args.controlnet is None:
             control_image = None
         else:
-            control_image = Image.new('RGB', (args.width, args.height))
+            control_image = Image.new('RGB', (width, height))
             draw = ImageDraw.Draw(control_image)
-            draw.ellipse((args.width // 4, args.height // 4,
-                          args.width // 4 * 3, args.height // 4 * 3),
+            draw.ellipse((width // 4, height // 4,
+                          width // 4 * 3, height // 4 * 3),
                          fill=(255, 255, 255))
             del draw
     else:
-        control_image = Image.open(args.control_image).convert('RGB')
-        control_image = control_image.resize((args.width, args.height),
+        control_image = load_image(args.control_image)
+        control_image = control_image.resize((width, height),
                                              Image.LANCZOS)
 
     def get_kwarg_inputs():
         kwarg_inputs = dict(
             prompt=args.prompt,
-            height=args.height,
-            width=args.width,
+            height=height,
+            width=width,
             num_inference_steps=args.steps,
             num_images_per_prompt=args.batch,
             generator=None if args.seed is None else torch.Generator(
