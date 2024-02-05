@@ -281,9 +281,8 @@ def main():
     # Let's see it!
     # Note: Progress bar might work incorrectly due to the async nature of CUDA.
     kwarg_inputs = get_kwarg_inputs()
-    iter_profiler = None
+    iter_profiler = IterationProfiler()
     if 'callback_on_step_end' in inspect.signature(model).parameters:
-        iter_profiler = IterationProfiler()
         kwarg_inputs[
             'callback_on_step_end'] = iter_profiler.callback_on_step_end
     begin = time.time()
