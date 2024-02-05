@@ -121,6 +121,7 @@ jobs:
         name: (Linux) install cuda
         run: >
           yum install wget git prename -y &&
+          yum clean all --verbose &&
           wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
           sh ./cuda.run --silent --toolkit &&
           rm ./cuda.run
