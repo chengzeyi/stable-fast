@@ -76,6 +76,10 @@ You need to install PyTorch with CUDA support at first (versions from 1.12 to 2.
 I only test `stable-fast` with `torch>=2.1.0`, `xformers>=0.0.22` and `triton>=2.1.0` on `CUDA 12.1` and `Python 3.10`.
 Other versions might build and run successfully but that's not guaranteed.
 
+**xformers**
+
+As of [v0.0.24](https://github.com/facebookresearch/xformers/releases/tag/v0.0.24), xformers pre-built binary wheels require PyTorch 2.2.0. If you are using PyTorch < 2.2.0, either build the latest [xformers](https://github.com/facebookresearch/xformers) from source or install the pre-built wheel for `xformers==0.0.23`.
+
 ### Install Prebuilt Wheels
 
 Download the wheel corresponding to your system from the [Releases Page](https://github.com/chengzeyi/stable-fast/releases) and install it with `pip3 install <wheel file>`.
