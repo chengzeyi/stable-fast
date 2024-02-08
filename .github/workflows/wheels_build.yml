@@ -148,7 +148,7 @@ jobs:
       - if: runner.os == 'Linux'
         name: (Linux) Install Python
         run: |
-          add-apt-repository ppa:deadsnakes/ppa -y &&
+          sudo add-apt-repository ppa:deadsnakes/ppa -y &&
           apt update && apt install -y python${{ inputs.python }} python${{ inputs.python }}-dev python${{ inputs.python }}-venv &&
           apt clean -y && apt autoremove -y
 
