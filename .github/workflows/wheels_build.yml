@@ -146,7 +146,7 @@ jobs:
           rm ./cuda.run
 
       - if: runner.os == 'Linux'
-        name: (Linux) Install Python
+        name: (Linux) Install python
         run: >
           add-apt-repository ppa:deadsnakes/ppa -y &&
           apt update && apt install -y python${{ inputs.python }} python${{ inputs.python }}-dev python${{ inputs.python }}-venv &&
