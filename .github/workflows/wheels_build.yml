@@ -66,7 +66,7 @@ jobs:
       # windows does not have per version binary, it is just 'python3'
       PY: python${{ contains(inputs.os, 'ubuntu') && inputs.python || '3' }}
 
-    container: ${{ contains(inputs.os, 'ubuntu') && 'quay.io/pypa/manylinux2014_x86_64' || null }}
+    # container: ${{ contains(inputs.os, 'ubuntu') && 'quay.io/pypa/manylinux2014_x86_64' || null }}
     timeout-minutes: 360
     defaults:
       run:
@@ -117,11 +117,30 @@ jobs:
             fp.write("TORCH_CUDA_ARCH_LIST=" + arch_list + "\n")
       - run: echo "${TORCH_CUDA_ARCH_LIST}"
 
+      - if: contains(inputs.os, 'ubuntu')
+        name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: false
+          
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - if: runner.os == 'Linux'
         name: (Linux) install cuda
         run: >
-          yum install wget git prename -y &&
-          yum clean all --verbose &&
+          # yum install wget git prename -y &&
+          # yum clean all --verbose &&
+          apt update && apt install -y wget git rename &&
+          apt clean -y && apt autoremove -y &&
           wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
           sh ./cuda.run --silent --toolkit --no-opengl-libs --no-man-page --no-drm &&
           rm ./cuda.run
