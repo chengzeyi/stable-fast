@@ -119,7 +119,7 @@ jobs:
 
       - if: contains(inputs.os, 'ubuntu')
         name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           # this might remove tools that are actually needed,
           # if set to "true" but frees about 6 GB
@@ -144,6 +144,13 @@ jobs:
           wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
           sh ./cuda.run --silent --toolkit --no-opengl-libs --no-man-page --no-drm &&
           rm ./cuda.run
+
+      - if: runner.os == 'Linux'
+        name: (Linux) Install Python
+        run: |
+          add-apt-repository ppa:deadsnakes/ppa -y &&
+          apt update && apt install -y python${{ inputs.python }} python${{ inputs.python }}-dev python${{ inputs.python }}-venv &&
+          apt clean -y && apt autoremove -y
 
       - name: Recursive checkout
         uses: actions/checkout@v3
