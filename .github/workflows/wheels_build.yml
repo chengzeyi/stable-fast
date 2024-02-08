@@ -123,7 +123,7 @@ jobs:
           yum install wget git prename -y &&
           yum clean all --verbose &&
           wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
-          sh ./cuda.run --silent --toolkit &&
+          sh ./cuda.run --silent --toolkit --no-opengl-libs --no-man-page --no-drm &&
           rm ./cuda.run
 
       - name: Recursive checkout
