@@ -208,6 +208,7 @@ jobs:
         run: |
           cudnn_next_version_major=$((${CUDNN_VERSION_MAJOR} + 1))
           cudnn_package_name="${CUDNN_PYPI_PACKAGE}>=${CUDNN_VERSION_MAJOR}.0.0.0,<${cudnn_next_version_major}.0.0.0"
+          $PY -m pip install --upgrade pip &&
           $PY -m pip install wheel setuptools ninja twine "torch==${{ inputs.torch_version }}" "${cudnn_package_name}" -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
 
       - name: Build wheel
