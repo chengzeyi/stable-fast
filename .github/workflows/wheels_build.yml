@@ -139,8 +139,8 @@ jobs:
         run: >
           # yum install wget git prename -y &&
           # yum clean all --verbose &&
-          apt update && apt install -y wget git rename &&
-          apt clean -y && apt autoremove -y &&
+          sudo apt update && sudo apt install -y wget git rename &&
+          sudo apt clean -y && sudo apt autoremove -y &&
           wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
           sh ./cuda.run --silent --toolkit --no-opengl-libs --no-man-page --no-drm &&
           rm ./cuda.run
@@ -149,8 +149,8 @@ jobs:
         name: (Linux) install python
         run: >
           sudo add-apt-repository ppa:deadsnakes/ppa -y &&
-          apt update && apt install -y python${{ inputs.python }} python${{ inputs.python }}-dev python${{ inputs.python }}-venv &&
-          apt clean -y && apt autoremove -y
+          sudo apt update && sudo apt install -y python${{ inputs.python }} python${{ inputs.python }}-dev python${{ inputs.python }}-venv &&
+          sudo apt clean -y && sudo apt autoremove -y
 
       - name: Recursive checkout
         uses: actions/checkout@v3
