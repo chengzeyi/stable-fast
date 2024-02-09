@@ -144,7 +144,7 @@ jobs:
           sudo apt clean -y
           sudo apt autoremove -y
           wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run
-          sh ./cuda.run --silent --toolkit --toolkitpath=/usr/local/cuda || cat /tmp/cuda-installer.log
+          sudo sh ./cuda.run --silent --toolkit --toolkitpath=/usr/local/cuda || cat /tmp/cuda-installer.log
           rm ./cuda.run
           echo "CUDA_HOME=/usr/local/cuda" >> ${GITHUB_ENV}
           echo "PATH=/usr/local/cuda/bin:$PATH" >> ${GITHUB_ENV}
