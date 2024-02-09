@@ -28,16 +28,18 @@ void RegisterCustomPythonOperator(const std::string &schema,
   auto arguments = parsed_schema.arguments();
   auto returns = parsed_schema.returns();
 
-  std::shared_ptr<py::function> func_ptr(
+  std::shared_ptr<const py::function> func_ptr(
       new py::function(py::reinterpret_borrow<const py::function>(
-          py::handle(const_cast<PyObject *>(py_callable.get())))),
+          py::handle(py_callable.get()))),
       [](py::function *ptr) {
-        // Check if the current thread is holding the GIL
-        if (PyGILState_Check()) {
-          delete ptr;
-        } else {
-          py::gil_scoped_acquire gil;
-          delete ptr;
+        if (Py_IsInitialized()) {
+          // Check if the current thread is holding the GIL
+          if (PyGILState_Check()) {
+            delete ptr;
+          } else {
+            py::gil_scoped_acquire gil;
+            delete ptr;
+          }
         }
       });
 
