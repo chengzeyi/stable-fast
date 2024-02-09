@@ -136,23 +136,27 @@ jobs:
 
       - if: runner.os == 'Linux'
         name: (Linux) install cuda
-        run: >
-          # yum install wget git prename -y &&
-          # yum clean all --verbose &&
-          sudo apt update && sudo apt install -y wget git rename &&
-          sudo apt clean -y && sudo apt autoremove -y &&
-          wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
-          sh ./cuda.run --silent --toolkit --toolkitpath=/usr/local/cuda --no-opengl-libs --no-man-page --no-drm &&
-          rm ./cuda.run &&
-          echo "CUDA_HOME=/usr/local/cuda" >> ${GITHUB_ENV} &&
+        run: |
+          # yum install wget git prename -y
+          # yum clean all --verbose
+          sudo apt update
+          sudo apt install -y wget git rename
+          sudo apt clean -y
+          sudo apt autoremove -y
+          wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run
+          sh ./cuda.run --silent --toolkit --toolkitpath=/usr/local/cuda --no-opengl-libs --no-man-page --no-drm
+          rm ./cuda.run
+          echo "CUDA_HOME=/usr/local/cuda" >> ${GITHUB_ENV}
           echo "PATH=/usr/local/cuda/bin:$PATH" >> ${GITHUB_ENV}
 
       - if: runner.os == 'Linux'
         name: (Linux) install python
-        run: >
-          sudo add-apt-repository ppa:deadsnakes/ppa -y &&
-          sudo apt update && sudo apt install -y python${{ inputs.python }} python${{ inputs.python }}-dev python${{ inputs.python }}-venv &&
-          sudo apt clean -y && sudo apt autoremove -y
+        run: |
+          sudo add-apt-repository ppa:deadsnakes/ppa -y
+          sudo apt update
+          sudo apt install -y python${{ inputs.python }} python${{ inputs.python }}-dev python${{ inputs.python }}-venv
+          sudo apt clean -y
+          sudo apt autoremove -y
 
       - name: Recursive checkout
         uses: actions/checkout@v3
