@@ -195,7 +195,7 @@ def main():
         model.unet = torch.compile(model.unet, mode=mode)
         if hasattr(model, 'controlnet'):
             model.controlnet = torch.compile(model.controlnet, mode=mode)
-        # model.vae = torch.compile(model.vae, mode=mode)
+        model.vae = torch.compile(model.vae, mode=mode)
     else:
         raise ValueError(f'Unknown compiler: {args.compiler}')
 
