@@ -32,4 +32,4 @@ Or is it compatible with your CUDA version?
 
 # This line will be programatically read/write by setup.py.
 # Leave them at the bottom of this file and don't touch them.
-__version__ = "1.0.3"
+__version__ = "1.0.4"
