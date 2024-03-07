@@ -1185,12 +1185,12 @@ select_conv_backend(const Tensor &input_r, const Tensor &weight_r,
                     int64_t groups_) {
   return torch::native::select_conv_backend(
       input_r, weight_r, bias_opt,
-#if TORCH_VERSION_MINOR >= 2
+#if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 2 || TORCH_VERSION_MAJOR > 2
       fromIntArrayRefUnchecked
 #endif
       (stride_),
       fromIntArrayRefUnchecked(padding_),
-#if TORCH_VERSION_MINOR >= 2
+#if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 2 || TORCH_VERSION_MAJOR > 2
       fromIntArrayRefUnchecked
 #endif
       (dilation_),
