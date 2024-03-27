@@ -23,7 +23,6 @@ for attr_name in [
 STR_OP_MAP = {v: k for k, v in OP_STR_MAP.items()}
 
 
-
 def xformers_memory_efficient_attention_torch_op(
         query: torch.Tensor,
         key: torch.Tensor,
