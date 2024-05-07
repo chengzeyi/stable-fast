@@ -51,7 +51,7 @@ env:
   # you need at least cuda 5.0 for some of the stuff compiled here.
   # TORCH_CUDA_ARCH_LIST: "5.0+PTX 6.0 6.1 7.0 7.5 8.0+PTX"
   # Feature 'f16 arithemetic and compare instructions' requires .target sm_53 or higher
-  TORCH_CUDA_ARCH_LIST: "6.0 6.1 7.0 7.5 8.0+PTX"
+  TORCH_CUDA_ARCH_LIST: "6.0 6.1 7.0 7.5 8.0 8.6 8.9 9.0+PTX"
   MAX_JOBS: 2
   DISTUTILS_USE_SDK: 1 # otherwise distutils will complain on windows about multiple versions of msvc
   SFAST_APPEND_VERSION: 1
@@ -66,7 +66,7 @@ jobs:
       # windows does not have per version binary, it is just 'python3'
       PY: python${{ contains(inputs.os, 'ubuntu') && inputs.python || '3' }}
 
-    container: ${{ contains(inputs.os, 'ubuntu') && 'quay.io/pypa/manylinux2014_x86_64' || null }}
+    # container: ${{ contains(inputs.os, 'ubuntu') && 'quay.io/pypa/manylinux2014_x86_64' || null }}
     timeout-minutes: 360
     defaults:
       run:
@@ -117,13 +117,46 @@ jobs:
             fp.write("TORCH_CUDA_ARCH_LIST=" + arch_list + "\n")
       - run: echo "${TORCH_CUDA_ARCH_LIST}"
 
+      - if: contains(inputs.os, 'ubuntu')
+        name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: false
+          
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - if: runner.os == 'Linux'
         name: (Linux) install cuda
-        run: >
-          yum install wget git prename -y &&
-          wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run &&
-          sh ./cuda.run --silent --toolkit &&
+        run: |
+          # yum install wget git prename -y
+          # yum clean all --verbose
+          sudo apt update
+          sudo apt install -y wget git rename
+          sudo apt clean -y
+          sudo apt autoremove -y
+          wget -q "${{ steps.cuda_info.outputs.CUDA_INSTALL_SCRIPT }}" -O cuda.run
+          sudo sh ./cuda.run --silent --toolkit --toolkitpath=/usr/local/cuda || cat /tmp/cuda-installer.log
           rm ./cuda.run
+          echo "CUDA_HOME=/usr/local/cuda" >> ${GITHUB_ENV}
+          echo "PATH=/usr/local/cuda/bin:$PATH" >> ${GITHUB_ENV}
+
+      - if: runner.os == 'Linux'
+        name: (Linux) install python
+        run: |
+          sudo add-apt-repository ppa:deadsnakes/ppa -y
+          sudo apt update
+          sudo apt install -y python${{ inputs.python }} python${{ inputs.python }}-dev python${{ inputs.python }}-venv
+          sudo apt clean -y
+          sudo apt autoremove -y
 
       - name: Recursive checkout
         uses: actions/checkout@v3
@@ -181,6 +214,7 @@ jobs:
         run: |
           cudnn_next_version_major=$((${CUDNN_VERSION_MAJOR} + 1))
           cudnn_package_name="${CUDNN_PYPI_PACKAGE}>=${CUDNN_VERSION_MAJOR}.0.0.0,<${cudnn_next_version_major}.0.0.0"
+          $PY -m pip install --upgrade pip
           $PY -m pip install wheel setuptools ninja twine "torch==${{ inputs.torch_version }}" "${cudnn_package_name}" -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu${{ inputs.cuda_short_version }} --no-cache-dir
 
       - name: Build wheel

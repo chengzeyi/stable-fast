@@ -14,6 +14,8 @@ WIDTH = 1024
 FPS = 7
 DECODE_CHUNK_SIZE = 4
 INPUT_IMAGE = 'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/diffusers/svd/rocket.png?download=true'
+CONTROL_IMAGE = None
+OUTPUT_VIDEO = None
 EXTRA_CALL_KWARGS = None
 
 import importlib
@@ -35,7 +37,7 @@ def parse_args():
     parser.add_argument('--custom-pipeline', type=str, default=CUSTOM_PIPELINE)
     parser.add_argument('--scheduler', type=str, default=SCHEDULER)
     parser.add_argument('--lora', type=str, default=LORA)
-    parser.add_argument('--controlnet', type=str, default=None)
+    parser.add_argument('--controlnet', type=str, default=CONTROLNET)
     parser.add_argument('--steps', type=int, default=STEPS)
     parser.add_argument('--seed', type=int, default=SEED)
     parser.add_argument('--warmups', type=int, default=WARMUPS)
@@ -51,8 +53,8 @@ def parse_args():
                         type=str,
                         default=EXTRA_CALL_KWARGS)
     parser.add_argument('--input-image', type=str, default=INPUT_IMAGE)
-    parser.add_argument('--control-image', type=str, default=None)
-    parser.add_argument('--output-video', type=str, default=None)
+    parser.add_argument('--control-image', type=str, default=CONTROL_IMAGE)
+    parser.add_argument('--output-video', type=str, default=OUTPUT_VIDEO)
     parser.add_argument(
         '--compiler',
         type=str,
@@ -164,6 +166,9 @@ def main():
         controlnet=args.controlnet,
     )
 
+    height = args.height or model.unet.config.sample_size * model.vae_scale_factor
+    width = args.width or model.unet.config.sample_size * model.vae_scale_factor
+
     if args.quantize:
 
         def quantize_unet(m):
@@ -190,40 +195,40 @@ def main():
         model.unet = torch.compile(model.unet, mode=mode)
         if hasattr(model, 'controlnet'):
             model.controlnet = torch.compile(model.controlnet, mode=mode)
-        # model.vae = torch.compile(model.vae, mode=mode)
+        model.vae = torch.compile(model.vae, mode=mode)
     else:
         raise ValueError(f'Unknown compiler: {args.compiler}')
 
     input_image = load_image(args.input_image)
-    input_image.resize((args.width, args.height), Image.LANCZOS)
+    input_image.resize((width, height), Image.LANCZOS)
 
     if args.control_image is None:
         if args.controlnet is None:
             control_image = None
         else:
-            control_image = Image.new('RGB', (args.width, args.height))
+            control_image = Image.new('RGB', (width, height))
             draw = ImageDraw.Draw(control_image)
-            draw.ellipse((args.width // 4, args.height // 4,
-                          args.width // 4 * 3, args.height // 4 * 3),
+            draw.ellipse((width // 4, height // 4,
+                          width // 4 * 3, height // 4 * 3),
                          fill=(255, 255, 255))
             del draw
     else:
-        control_image = Image.open(args.control_image).convert('RGB')
-        control_image = control_image.resize((args.width, args.height),
+        control_image = load_image(args.control_image)
+        control_image = control_image.resize((width, height),
                                              Image.LANCZOS)
 
     def get_kwarg_inputs():
         kwarg_inputs = dict(
             image=input_image,
-            height=args.height,
-            width=args.width,
+            height=height,
+            width=width,
             num_inference_steps=args.steps,
             num_videos_per_prompt=args.batch,
             num_frames=args.frames,
             fps=args.fps,
             decode_chunk_size=args.decode_chunk_size,
-            generator=None if args.seed is None else torch.Generator(
-                device='cuda').manual_seed(args.seed),
+            generator=None
+            if args.seed is None else torch.Generator().manual_seed(args.seed),
             **(dict() if args.extra_call_kwargs is None else json.loads(
                 args.extra_call_kwargs)),
         )
@@ -243,9 +248,8 @@ def main():
     # Let's see it!
     # Note: Progress bar might work incorrectly due to the async nature of CUDA.
     kwarg_inputs = get_kwarg_inputs()
-    iter_profiler = None
+    iter_profiler = IterationProfiler()
     if 'callback_on_step_end' in inspect.signature(model).parameters:
-        iter_profiler = IterationProfiler()
         kwarg_inputs[
             'callback_on_step_end'] = iter_profiler.callback_on_step_end
     begin = time.time()
@@ -256,7 +260,7 @@ def main():
     from sfast.utils.term_image import print_image
 
     for frames in output_frames:
-        concated_image = Image.new('RGB', (args.width * 2, args.height))
+        concated_image = Image.new('RGB', (width * 2, height))
         concated_image.paste(frames[0], (0, 0))
         concated_image.paste(frames[-1], (args.width, 0))
         print_image(concated_image, max_width=120)

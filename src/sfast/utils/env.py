@@ -104,7 +104,7 @@ def setup_environment():
         return
     _ENV_SETUP_DONE = True
 
-    _configure_libraries()
+    # _configure_libraries()
 
     custom_module_path = os.environ.get("SFAST_ENV_MODULE")
 

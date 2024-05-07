@@ -58,8 +58,8 @@ struct ConvolutionDescriptor
   void set(cudnnDataType_t dataType, int dim, int *pad, int *stride,
            int *upscale /* aka dilation */, int groups, bool allow_tf32) {
     cudnnDataType_t mathType = dataType;
-    if (dataType == CUDNN_DATA_HALF) {
-      mathType = CUDNN_DATA_HALF;
+    if (dataType == CUDNN_DATA_HALF && dim >= 3) {
+      mathType = CUDNN_DATA_FLOAT;
     } else if (dataType == CUDNN_DATA_BFLOAT16) {
       mathType = CUDNN_DATA_FLOAT;
     }
@@ -1185,12 +1185,12 @@ select_conv_backend(const Tensor &input_r, const Tensor &weight_r,
                     int64_t groups_) {
   return torch::native::select_conv_backend(
       input_r, weight_r, bias_opt,
-#if TORCH_VERSION_MINOR >= 2
+#if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 2 || TORCH_VERSION_MAJOR > 2
       fromIntArrayRefUnchecked
 #endif
       (stride_),
       fromIntArrayRefUnchecked(padding_),
-#if TORCH_VERSION_MINOR >= 2
+#if TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 2 || TORCH_VERSION_MAJOR > 2
       fromIntArrayRefUnchecked
 #endif
       (dilation_),
@@ -1215,8 +1215,7 @@ Tensor cudnn_convolution_bias_add_activation_with_fallback_forward(
       select_conv_backend(input_t, weight_t, bias_t, stride, padding, dilation,
                           transposed, output_padding, groups);
 
-  // TODO: Inspect if CUDNN can handle 5D convolution.
-  if (backend == ConvBackend::Cudnn && input_t.data_ptr() && weight_t.dim() <= 4) {
+  if (backend == ConvBackend::Cudnn && input_t.data_ptr()) {
     auto input = input_t;
     auto weight = weight_t;
     auto z = z_t;
@@ -1301,7 +1300,6 @@ public:
         input, weight, z, alpha, bias, stride, padding, dilation, transposed,
         output_padding, groups, activation_mode);
 
-    auto z_ = z.has_value() ? bias.value() : Tensor();
     auto bias_ = bias.has_value() ? bias.value() : Tensor();
 
     ctx->save_for_backward({input, weight, bias_, output});

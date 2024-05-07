@@ -311,14 +311,23 @@ void bgemm<at::Half>(CUDABLAS_BGEMM_ARGTYPES(at::Half)) {
 
   cudaDeviceProp* prop = at::cuda::getCurrentDeviceProperties();
   if (prop->major >= 5){
-    at::Half falpha = alpha;
-    at::Half fbeta = beta;
-    TORCH_CUDABLAS_CHECK(cublasGemmStridedBatchedExFix(
-      handle, opa, opb, m, n, k,
-      (void*)(&falpha), a, CUDA_R_16F, lda, stridea,
-      b, CUDA_R_16F, ldb, strideb, (void*)(&fbeta),
-      c, CUDA_R_16F, ldc, stridec,
-      num_batches, CUDA_R_16F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+    if (at::globalContext().allowFP16ReductionCuBLAS()) {
+      at::Half falpha = alpha;
+      at::Half fbeta = beta;
+      TORCH_CUDABLAS_CHECK(cublasGemmStridedBatchedExFix(
+        handle, opa, opb, m, n, k,
+        (void*)(&falpha), a, CUDA_R_16F, lda, stridea,
+        b, CUDA_R_16F, ldb, strideb, (void*)(&fbeta),
+        c, CUDA_R_16F, ldc, stridec,
+        num_batches, CUDA_R_16F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+    } else {
+      TORCH_CUDABLAS_CHECK(cublasGemmStridedBatchedExFix(
+        handle, opa, opb, m, n, k,
+        (void*)(&falpha), a, CUDA_R_16F, lda, stridea,
+        b, CUDA_R_16F, ldb, strideb, (void*)(&fbeta),
+        c, CUDA_R_16F, ldc, stridec,
+        num_batches, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+    }
   } else {
     for (const auto i : c10::irange(num_batches)) {
       sfast::operators::blas::gemm<at::Half>(
@@ -484,12 +493,34 @@ void gemm<at::Half>(CUDABLAS_GEMM_ARGTYPES(at::Half)) {
     if (!at::globalContext().allowFP16ReductionCuBLAS()) {
       cublas_flags = static_cast<cublasMath_t>(cublas_flags | CUBLAS_MATH_DISALLOW_REDUCED_PRECISION_REDUCTION);
     }
-    // Disallow fp16 reductions that could lead to unexpected overflow issues.
     TORCH_CUDABLAS_CHECK(cublasSetMathMode(handle, cublas_flags));
 #endif  // defined(CUDA_VERSION) && CUDA_VERSION < 11000
-    at::Half falpha = alpha;
-    at::Half fbeta = beta;
-    TORCH_CUDABLAS_CHECK(cublasGemmEx_(
+    if (at::globalContext().allowFP16ReductionCuBLAS()) {
+      at::Half falpha = alpha;
+      at::Half fbeta = beta;
+      TORCH_CUDABLAS_CHECK(cublasGemmEx_(
+          handle,
+          opa,
+          opb,
+          m,
+          n,
+          k,
+          &falpha,
+          a,
+          CUDA_R_16F,
+          lda,
+          b,
+          CUDA_R_16F,
+          ldb,
+          &fbeta,
+          c,
+          CUDA_R_16F,
+          ldc,
+          CUDA_R_16F,
+          CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+    } else {
+      // Disallow fp16 reductions that could lead to unexpected overflow issues.
+      TORCH_CUDABLAS_CHECK(cublasGemmEx(
         handle,
         opa,
         opb,
@@ -507,8 +538,9 @@ void gemm<at::Half>(CUDABLAS_GEMM_ARGTYPES(at::Half)) {
         c,
         CUDA_R_16F,
         ldc,
-        CUDA_R_16F,
-        CUBLAS_GEMM_DFALT_TENSOR_OP));
+        CUDA_R_32F,
+        CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+    }
     TORCH_CUDABLAS_CHECK(cublasSetMathMode(handle, CUBLAS_DEFAULT_MATH));
   } else {
     TORCH_CUDABLAS_CHECK(cublasSgemmEx(
@@ -582,6 +614,14 @@ void gemm<at::BFloat16>(CUDABLAS_GEMM_ARGTYPES(at::BFloat16)) {
   float fbeta = beta;
   _cublasAdjustLdLevel3(transa, transb, m, n, k, &lda, &ldb, &ldc);
   GEMM_CHECK_ARGVALUES(at::BFloat16);
+#if TORCH_VERSION_MAJOR > 2 ||                                                 \
+    (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 2)
+  cublasMath_t cublas_flags = CUBLAS_DEFAULT_MATH;
+  if (!at::globalContext().allowBF16ReductionCuBLAS()) {
+    cublas_flags = static_cast<cublasMath_t>(cublas_flags | CUBLAS_MATH_DISALLOW_REDUCED_PRECISION_REDUCTION);
+  }
+  TORCH_CUDABLAS_CHECK(cublasSetMathMode(handle, cublas_flags));
+#endif
   TORCH_CUDABLAS_CHECK(cublasGemmEx_(
       handle,
       opa,
@@ -601,7 +641,7 @@ void gemm<at::BFloat16>(CUDABLAS_GEMM_ARGTYPES(at::BFloat16)) {
       CUDA_R_16BF,
       ldc,
       CUDA_R_32F,
-      CUBLAS_GEMM_DFALT_TENSOR_OP));
+      CUBLAS_GEMM_DEFAULT_TENSOR_OP));
 }
 #endif // defined(CUDA_VERSION) && CUDA_VERSION >= 11000
 

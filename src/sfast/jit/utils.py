@@ -1,8 +1,11 @@
+import logging
 import inspect
 import functools
 import torch
 import sfast
 from .overrides import TracingMode
+
+logger = logging.getLogger()
 
 
 class ScriptModuleClearHook:
@@ -13,8 +16,8 @@ class ScriptModuleClearHook:
     def __del__(self):
         try:
             sfast._C._jit_clear_class_type_registration(self.class_type)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f'Failed to clear class type registration: {e}')
 
 
 def attach_script_module_clear_hook(

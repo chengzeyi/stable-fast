@@ -58,9 +58,9 @@ def test_geglu(dtype, bias, in_features, out_features, N):
 
 @pytest.mark.parametrize('dtype', [torch.float16, torch.bfloat16])
 @pytest.mark.parametrize('bias', [False, True])
-@pytest.mark.parametrize('in_features', [512, 1024])
-@pytest.mark.parametrize('out_features', [512, 1024])
-@pytest.mark.parametrize('N', [1, 16, 10000])
+@pytest.mark.parametrize('in_features', [320, 640])
+@pytest.mark.parametrize('out_features', [1280, 2560])
+@pytest.mark.parametrize('N', [18432 * 25, 4608 * 25])
 def test_benchmark_geglu(dtype, bias, in_features, out_features, N):
     with torch.no_grad():
         m = GEGLU(in_features, out_features,
@@ -73,14 +73,14 @@ def test_benchmark_geglu(dtype, bias, in_features, out_features, N):
 
         torch.cuda.synchronize()
         start = time.time()
-        for _ in range(1000):
+        for _ in range(100):
             out = m(x)
         torch.cuda.synchronize()
         logger.info(f'cost={time.time() - start}')
 
         torch.cuda.synchronize()
         start = time.time()
-        for _ in range(1000):
+        for _ in range(100):
             out_opt = m(x, enable_opt=True)
         torch.cuda.synchronize()
         logger.info(f'cost={time.time() - start}')

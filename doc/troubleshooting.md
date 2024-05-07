@@ -1,4 +1,13 @@
-# Trouble Shooting
+# TroubleShooting
+
+## Huge Precision Loss
+
+Try tweaking the config:
+
+```python
+torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = False
+torch.backends.cuda.matmul.allow_tf32 = False
+```
 
 ## Compilation Is SO SLOW. How To Improve It?
 

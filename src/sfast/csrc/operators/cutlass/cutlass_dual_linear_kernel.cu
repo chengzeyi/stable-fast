@@ -8,48 +8,173 @@
 #include <cutlass/arch/arch.h>
 #include <cutlass/arch/mma.h>
 #include <cutlass/epilogue/thread/linear_combination.h>
-#include <cutlass/epilogue/thread/linear_combination_gelu.h>
+#include <cutlass/epilogue/thread/linear_combination_generic.h>
 #include <cutlass/epilogue/thread/linear_combination_with_elementwise.h>
 #include <cutlass/gemm/gemm.h>
 #include <cutlass/gemm/threadblock/threadblock_swizzle.h>
 
 #include <device/dual_gemm.h>
 
+#include "epilogue/thread/mul.h"
 #include "operators/cublas/cublas_gemm.h"
-#include "thread/mul.h"
 
 #include "cutlass_dual_linear.h"
 
 namespace cutlass {
-
-// https://forums.developer.nvidia.com/t/accuracy-optimized-implementation-of-erff-without-performance-impact/218114
-/*
- Based on John D. Vedder, "Simple approximations for the error function and its
- inverse." American Journal of Physics, Vol. 55, No. 8, Aug. 1987, pp. 762-763.
-
- maximum ulp error: 5735.81, maximum relative error: 3.8735e-4
-*/
-template <typename T> CUTLASS_HOST_DEVICE T fast_erf(T x) {
-  T x2 = x * x;
-  T tmp = (T)0.100646973 * x2 + (T)1.128759325;
-  x = tmp * x;
-  return cutlass::fast_tanh(x);
-}
-
 namespace epilogue {
 namespace thread {
 
-template <> struct GELU<half_t> {
+CUTLASS_HOST_DEVICE
+float fast_fast_tanh(float x) {
+#if defined(__CUDA_ARCH__)
+#if (__CUDACC_VER_MAJOR__ >= 11) && (__CUDA_ARCH__ >= 750)
+  float y;
+  asm volatile("tanh.approx.f32 %0, %1; " : "=f"(y) : "f"(x));
+  return y;
+#else
+  return ::tanhf(x);
+#endif
+#else
+  return std::tanh(x);
+#endif
+}
+
+CUTLASS_HOST_DEVICE
+double fast_fast_tanh(double x) {
+#if defined(__CUDA_ARCH__)
+  return ::tanh(x);
+#else
+  return std::tanh(x);
+#endif
+}
+
+CUTLASS_HOST_DEVICE
+half_t fast_fast_tanh(half_t x) {
+#if defined(__CUDA_ARCH__) && (__CUDACC_VER_MAJOR__ >= 11) &&                  \
+    (__CUDA_ARCH__ >= 750)
+
+  asm volatile("tanh.approx.f16 %0, %1;" : "=h"(x.raw()) : "h"(x.raw()));
+  return x;
+
+#else
+  return half_t(fast_fast_tanh(float(x)));
+#endif
+}
+
+template <typename T> struct fast_fast_tanh_op {
+  CUTLASS_HOST_DEVICE
+  T operator()(T const &rhs) const { return fast_fast_tanh(rhs); }
+};
+
+#if defined(__CUDA_ARCH__) && (__CUDACC_VER_MAJOR__ >= 11) &&                  \
+    (__CUDA_ARCH__ >= 750)
+template <int N> struct fast_fast_tanh_op<Array<half_t, N>> {
+  CUTLASS_DEVICE
+  Array<half_t, N> operator()(Array<half_t, N> const &rhs) const {
+
+    Array<half_t, N> result;
+
+    // use x2 specialization
+    uint32_t const *in = reinterpret_cast<uint32_t const *>(&rhs);
+    uint32_t *out = reinterpret_cast<uint32_t *>(&result);
+
+    CUTLASS_PRAGMA_UNROLL
+    for (int i = 0; i < N / 2; ++i) {
+      asm volatile("tanh.approx.f16x2 %0, %1;" : "=r"(out[i]) : "r"(in[i]));
+    }
+
+    // residual
+    if (N % 2) {
+      uint16_t const *in = reinterpret_cast<uint16_t const *>(&rhs);
+      uint16_t *out = reinterpret_cast<uint16_t *>(&result);
+      asm volatile("tanh.approx.f16 %0, %1;"
+                   : "=h"(out[N - 1])
+                   : "h"(in[N - 1]));
+    }
+
+    return result;
+  }
+};
+#endif // #if defined(__CUDA_ARCH__)
+
+template <typename T, int N> struct fast_fast_tanh_op<Array<T, N>> {
+  CUTLASS_HOST_DEVICE
+  Array<T, N> operator()(Array<T, N> const &rhs) const {
+
+    fast_fast_tanh_op<T> fast_op;
+    Array<T, N> y;
+
+    CUTLASS_PRAGMA_UNROLL
+    for (int i = 0; i < N; ++i) {
+      y[i] = fast_op(rhs[i]);
+    }
+
+    return y;
+  }
+};
+
+// GELU operator implemented using the Taylor series approximation
+template <typename T> struct GELU_taylor_fast {
   static const bool kIsHeavy = true;
 
   CUTLASS_HOST_DEVICE
-  half_t operator()(half_t const &value) const {
-    return cutlass::constants::half<half_t>() * value *
-           (cutlass::constants::one<half_t>() +
-            cutlass::fast_erf(value *
-                              cutlass::constants::half_root_two<half_t>()));
+  T operator()(T const &z) const {
+
+    T k0 = T(0.7978845608028654);
+    T k1 = T(0.044715);
+    T k01 = k0 * k1;
+
+    return T(cutlass::constants::half<T>() * z *
+             (cutlass::constants::one<T>() +
+              fast_fast_tanh(z * (k0 + k01 * (z * z)))));
   }
 };
+
+template <int N> struct GELU_taylor_fast<Array<half_t, N>> {
+  static const bool kIsHeavy = true;
+
+  CUTLASS_HOST_DEVICE
+  Array<half_t, N> operator()(Array<half_t, N> const &z) const {
+
+    using T = half_t;
+    Array<half_t, N> y;
+
+    half_t k0 = half_t(0.7978845608028654);
+    half_t k1 = half_t(0.044715);
+
+    multiply_add<Array<half_t, N>> fma;
+    multiplies<Array<half_t, N>> mul;
+    plus<Array<half_t, N>> add;
+
+    fast_fast_tanh_op<Array<half_t, N>> tanh;
+
+    Array<half_t, N> u =
+        mul(mul(k0, z), fma(mul(k1, z), z, cutlass::constants::one<T>()));
+
+    y = mul(mul(z, cutlass::constants::half<T>()),
+            add(cutlass::constants::one<T>(), tanh(u)));
+
+    return y;
+  }
+};
+
+template <typename T, int N> struct GELU_taylor_fast<Array<T, N>> {
+  static const bool kIsHeavy = true;
+
+  CUTLASS_HOST_DEVICE
+  Array<T, N> operator()(Array<T, N> const &value) const {
+    Array<T, N> y;
+    GELU_taylor<T> gelu_op;
+
+    CUTLASS_PRAGMA_UNROLL
+    for (int i = 0; i < N; ++i) {
+      y[i] = gelu_op(value[i]);
+    }
+
+    return y;
+  }
+};
+
 } // namespace thread
 } // namespace epilogue
 } // namespace cutlass
@@ -85,7 +210,8 @@ template <typename scalar_t, typename acc_t> struct GemmConfig {
 
 using namespace sm80_space;
 
-template <typename config> struct GemmGEGLUWrapper {
+template <typename config, template <typename> class Act>
+struct GemmGEGLUWrapper {
   using ElementA = typename config::ElementA;
   using ElementB = typename config::ElementB;
   using ElementOutput = typename config::ElementOutput;
@@ -102,8 +228,8 @@ template <typename config> struct GemmGEGLUWrapper {
   using EpilogueOutputOp0 = cutlass::epilogue::thread::LinearCombination<
       ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
       ElementAccumulator, ElementComputeEpilogue, kScaleType>;
-  using EpilogueOutputOp1 = cutlass::epilogue::thread::LinearCombinationGELU<
-      ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
+  using EpilogueOutputOp1 = cutlass::epilogue::thread::LinearCombinationGeneric<
+      Act, ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
       ElementAccumulator, ElementComputeEpilogue, kScaleType>;
   using EpilogueOutputOp2 = cutlass::epilogue::thread::Mul<
       ElementOutput, 128 / cutlass::sizeof_bits<ElementOutput>::value,
@@ -253,22 +379,34 @@ template <> struct cutlass_type<at::BFloat16> {
   using type = cutlass::bfloat16_t;
 };
 
-template <typename scalar_t> struct acc_type { using type = scalar_t; };
+template <typename scalar_t, bool allow_reduced_precision_reduction>
+struct acc_type {
+  using type = scalar_t;
+};
 
 // NOTE: Significant precision loss if setting acc_type to fp16 for GEGLU
 // But we have to use fp16 here since on 4080 it is too slow to use fp32
-// template <> struct acc_type<cutlass::half_t> {
-//   using type = float;
-// };
+template <> struct acc_type<cutlass::half_t, false> { using type = float; };
 
-template <> struct acc_type<cutlass::bfloat16_t> { using type = float; };
+template <> struct acc_type<cutlass::half_t, true> {
+  using type = cutlass::half_t;
+};
 
-template <typename at_type, template <typename> class GemmWrapper>
+template <bool allow_reduced_precision_reduction>
+struct acc_type<cutlass::bfloat16_t, allow_reduced_precision_reduction> {
+  using type = float;
+};
+
+template <typename at_type,
+          template <typename, template <typename> class> class GemmWrapper,
+          template <typename> class Act,
+          bool allow_reduced_precision_reduction = true>
 struct CutlassDualGemmLauncher {
   using scalar_t = typename cutlass_type<at_type>::type;
-  using acc_t = typename acc_type<scalar_t>::type;
+  using acc_t =
+      typename acc_type<scalar_t, allow_reduced_precision_reduction>::type;
   using config = GemmConfig<scalar_t, acc_t>;
-  using Gemm = typename GemmWrapper<config>::Gemm;
+  using Gemm = typename GemmWrapper<config, Act>::Gemm;
 
   template <typename Func>
   static torch::Tensor
@@ -344,20 +482,45 @@ torch::Tensor cutlass_linear_geglu(const torch::Tensor &input,
   }
 
   torch::Tensor output;
+
+  auto dispatch_bf16 = [&] {
+#if TORCH_VERSION_MAJOR > 2 ||                                                 \
+    (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 2)
+    if (at::globalContext().allowBF16ReductionCuBLAS()) {
+      output =
+          CutlassDualGemmLauncher<at::BFloat16, GemmGEGLUWrapper,
+                                  cutlass::epilogue::thread::GELU_taylor_fast,
+                                  true>::launch(input, weight0, bias0, weight1,
+                                                bias1, fallback);
+    } else
+#endif
+    {
+      output = CutlassDualGemmLauncher<at::BFloat16, GemmGEGLUWrapper,
+                                       cutlass::epilogue::thread::GELU,
+                                       false>::launch(input, weight0, bias0,
+                                                      weight1, bias1, fallback);
+    }
+  };
   AT_DISPATCH_SWITCH(
       input.scalar_type(), "cutlass_linear_geglu",
       AT_DISPATCH_CASE(
           at::kHalf,
           [&] {
-            output =
-                CutlassDualGemmLauncher<at::Half, GemmGEGLUWrapper>::launch(
-                    input, weight0, bias0, weight1, bias1, fallback);
+            if (at::globalContext().allowFP16ReductionCuBLAS()) {
+              output = CutlassDualGemmLauncher<
+                  at::Half, GemmGEGLUWrapper,
+                  cutlass::epilogue::thread::GELU_taylor_fast,
+                  true>::launch(input, weight0, bias0, weight1, bias1,
+                                fallback);
+            } else {
+              output = CutlassDualGemmLauncher<at::Half, GemmGEGLUWrapper,
+                                               cutlass::epilogue::thread::GELU,
+                                               false>::launch(input, weight0,
+                                                              bias0, weight1,
+                                                              bias1, fallback);
+            }
           });
-      AT_DISPATCH_CASE(at::kBFloat16, [&] {
-        output =
-            CutlassDualGemmLauncher<at::BFloat16, GemmGEGLUWrapper>::launch(
-                input, weight0, bias0, weight1, bias1, fallback);
-      }));
+      AT_DISPATCH_CASE(at::kBFloat16, dispatch_bf16));
   return output;
 }
 

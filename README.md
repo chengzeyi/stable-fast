@@ -4,6 +4,13 @@
 [![Upload Python Package](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml/badge.svg)](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chengzeyi/stable-fast-colab/blob/main/stable_fast_colab.ipynb)
 
+__NOTE__
+
+Active development on `stable-fast` has been paused. I am currently working on a new `torch._dynamo` based project targeting new models such as `stable-cascade`, `SD3` and `Sora` like mmodels.
+It would be faster and more flexible, as well as supporting more hardware backends rather than `CUDA`.
+
+Contact is welcomed.
+
 [Discord Channel](https://discord.gg/kQFvfzM4SJ)
 
 `stable-fast` achieves SOTA inference performance on __ALL__ kinds of diffuser models, even with the latest `StableVideoDiffusionPipeline`.
