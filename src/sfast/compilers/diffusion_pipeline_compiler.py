@@ -85,7 +85,10 @@ def compile(m, config):
 
     enable_cuda_graph = config.enable_cuda_graph and device.type == 'cuda'
 
-    m.unet = compile_unet(m.unet, config)
+    if getattr(m, 'transformer', None) is not None:
+        m.transformer = compile_unet(m.transformer, config)
+    else:
+        m.unet = compile_unet(m.unet, config)
     if hasattr(m, 'controlnet'):
         m.controlnet = compile_unet(m.controlnet, config)
     m.vae = compile_vae(m.vae, config)
@@ -98,6 +101,9 @@ def compile(m, config):
         # for SDXL
         if getattr(m, 'text_encoder_2', None) is not None:
             m.text_encoder_2.forward = lazy_trace_(m.text_encoder_2.forward)
+        # for SD3
+        if getattr(m, 'text_encoder_3', None) is not None:
+            m.text_encoder_3.forward = m.text_encoder_3.forward
         # for SVD
         if getattr(m, 'image_encoder', None) is not None:
             m.image_encoder.forward = lazy_trace_(m.image_encoder.forward)
@@ -113,6 +119,8 @@ def compile(m, config):
         if getattr(m, 'text_encoder_2', None) is not None:
             m.text_encoder_2.forward = make_dynamic_graphed_callable(
                 m.text_encoder_2.forward)
+        if getattr(m, 'text_encoder_3', None) is not None:
+             m.text_encoder_2.forward = m.text_encoder_2.forward
         if getattr(m, 'image_encoder', None) is not None:
             m.image_encoder.forward = make_dynamic_graphed_callable(
                 m.image_encoder.forward)
