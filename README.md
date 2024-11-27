@@ -1,5 +1,10 @@
 # 🚀Stable Fast
 
+## 🎉Important Announcement🎉
+
+After one year of delay, I am happy to announce I plan to build a new project [Comfy-WaveSpeed](https://github.com/chengzeyi/Comfy-WaveSpeed) to provide the fastest inference speed for all models running with `ComfyUI`.
+It's just started and I hope it will be a great project👏.. Please keep focusing on it and give me feedbacks👍!
+
 [![wheels](https://github.com/chengzeyi/stable-fast/actions/workflows/wheels.yml/badge.svg?branch=main)](https://github.com/chengzeyi/stable-fast/actions/workflows/wheels.yml)
 [![Upload Python Package](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml/badge.svg)](https://github.com/chengzeyi/stable-fast/actions/workflows/python-publish.yml)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chengzeyi/stable-fast-colab/blob/main/stable_fast_colab.ipynb)
