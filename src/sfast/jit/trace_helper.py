@@ -42,6 +42,8 @@ def lazy_trace(func, *, ts_compiler=None, **kwargs_):
     def wrapper(*args, **kwargs):
         nonlocal lock, traced_modules
         key = (module_to_be_traced.training, hash_arg(args), hash_arg(kwargs))
+        if "sfast_extra_key" in kwargs:
+            kwargs.pop("sfast_extra_key")
         traced_module = traced_modules.get(key)
         if traced_module is None:
             with lock:
