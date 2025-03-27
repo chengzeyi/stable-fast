@@ -1,5 +1,11 @@
 # 🚀Stable Fast
 
+[Blazing Fast FLUX-dev with LoRAs](https://wavespeed.ai/models/wavespeed-ai/flux-dev-lora)
+
+[Blazing Fast Wan 2.1 T2V with LoRAs](https://wavespeed.ai/models/wavespeed-ai/wan-2.1/t2v-480p)
+
+[Blazing Fast Wan 2.1 I2V with LoRAs](https://wavespeed.ai/models/wavespeed-ai/wan-2.1/i2v-480p)
+
 ## 🎉Important Announcement🎉
 
 After one year of delay, I am happy to announce I plan to build a new project [Comfy-WaveSpeed](https://github.com/chengzeyi/Comfy-WaveSpeed) to provide the fastest inference speed for all models running with `ComfyUI`.
